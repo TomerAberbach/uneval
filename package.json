@@ -1,0 +1,62 @@
+{
+  "name": "srcify",
+  "version": "0.0.0",
+  "author": {
+    "name": "Tomer Aberbach",
+    "email": "tomer@aberba.ch",
+    "url": "https://tomeraberba.ch"
+  },
+  "description": "A transcendent module.",
+  "keywords": [],
+  "homepage": "https://github.com/TomerAberbach/srcify",
+  "repository": "TomerAberbach/srcify",
+  "bugs": {
+    "url": "https://github.com/TomerAberbach/srcify/issues"
+  },
+  "funding": {
+    "url": "https://github.com/sponsors/TomerAberbach"
+  },
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">= 22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "format": "prettier --cache --write .",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ --fix .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "coverage": "vitest --coverage",
+    "bench": "vitest bench",
+    "build": "tsdown",
+    "prepublishOnly": "pnpm build"
+  },
+  "prettier": "@tomer/prettier-config",
+  "devDependencies": {
+    "@fast-check/vitest": "^0.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@tomer/eslint-config": "^4.4.1",
+    "@tomer/prettier-config": "^4.0.0",
+    "@vitest/coverage-v8": "^4.0.6",
+    "eslint": "^9.39.1",
+    "jest-extended": "^6.0.0",
+    "jsdom": "^27.1.0",
+    "prettier": "^3.6.2",
+    "publint": "^0.3.15",
+    "rollup-plugin-tree-shakeable": "^2.0.0",
+    "tsdown": "^0.15.12",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.6"
+  }
+}
