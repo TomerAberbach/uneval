@@ -49,8 +49,10 @@ console.log(srcify())
 
 Stars are always welcome!
 
-For bugs and feature requests, [please create an issue](https://github.com/TomerAberbach/srcify/issues/new).
+For bugs and feature requests,
+[please create an issue](https://github.com/TomerAberbach/srcify/issues/new).
 
 ## License
 
-[MIT](https://github.com/TomerAberbach/srcify/blob/main/license) © [Tomer Aberbach](https://github.com/TomerAberbach)
+[MIT](https://github.com/TomerAberbach/srcify/blob/main/license) ©
+[Tomer Aberbach](https://github.com/TomerAberbach)
