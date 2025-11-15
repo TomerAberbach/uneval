@@ -21,14 +21,12 @@
 </div>
 
 <div align="center">
-  A transcendent module.
+  Convert a JS value to JS source code.
 </div>
 
 ## Features
 
-- **Wow:** so amazing
-- **Amazing:** so wow
-- **Fancy:** has a tie and everything
+TODO
 
 ## Install
 
@@ -38,11 +36,20 @@ $ npm i srcify
 
 ## Usage
 
+<!-- eslint-disable security/detect-eval-with-expression, no-eval -->
+
 ```js
+import assert from 'node:assert'
 import srcify from 'srcify'
 
-console.log(srcify())
-//=> Hello World!
+const object = { message: `hello world` }
+
+const source = srcify(object)
+console.log(source)
+//=> {message:"hello world"}
+
+const roundtrippedObject = eval(`(${source})`)
+assert.deepEqual(roundtrippedObject, object)
 ```
 
 ## Contributing

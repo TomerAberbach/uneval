@@ -106,7 +106,7 @@ const srcifyObjectLike = (value: object): string => {
   return source
 }
 
-const IDENTIFIER_REG_EXP = /^\p{ID_Start}\p{ID_Continue}$/u
+const IDENTIFIER_REG_EXP = /^\p{ID_Start}\p{ID_Continue}+$/u
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const getType = (value: object): string => value.constructor?.name ?? `Object`

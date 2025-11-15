@@ -6,8 +6,14 @@
     "email": "tomer@aberba.ch",
     "url": "https://tomeraberba.ch"
   },
-  "description": "A transcendent module.",
-  "keywords": [],
+  "description": "Convert a JS value to JS source code.",
+  "keywords": [
+    "eval",
+    "source",
+    "stringify",
+    "serialize",
+    "roundtrip"
+  ],
   "homepage": "https://github.com/TomerAberbach/srcify",
   "repository": "TomerAberbach/srcify",
   "bugs": {
