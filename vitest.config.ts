@@ -7,6 +7,7 @@ export default defineConfig({
     testTimeout: 35_000,
     coverage: {
       include: [`src`],
+      exclude: [`*.bench.ts`],
     },
   },
 })
