@@ -19,6 +19,4 @@ export const anythingArb = fc.oneof(
   { weight: 1, arbitrary: fc.bigUint64Array() },
   { weight: 1, arbitrary: fc.webUrl().map(url => new URL(url)) },
   { weight: 1, arbitrary: fc.webUrl().map(url => new URL(url).searchParams) },
-  { weight: 1, arbitrary: fc.uint8Array().map(array => array.buffer) },
-  { weight: 1, arbitrary: fc.uint8Array().map(array => Buffer.from(array)) },
 )
