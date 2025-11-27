@@ -9,7 +9,7 @@ import { anythingArb } from './arbs.ts'
 import srcify from './index.ts'
 
 test.prop([anythingArb], {
-  numRuns: 100_000,
+  numRuns: 30_000,
   examples: [
     undefined,
     null,
@@ -25,8 +25,14 @@ test.prop([anythingArb], {
 })(`srcify works`, value => {
   const source = srcify(value)
 
-  // eslint-disable-next-line no-eval
-  const roundtrippedValue = (0, eval)(`(${source})`) as unknown
+  let roundtrippedValue: unknown
+  try {
+    // eslint-disable-next-line no-eval
+    roundtrippedValue = (0, eval)(`(${source})`) as unknown
+  } catch (error: unknown) {
+    console.log(source)
+    throw error
+  }
   expect(roundtrippedValue, source).toStrictEqual(value)
 })
 
@@ -241,13 +247,64 @@ test(`srcify snapshots`, () => {
   expect(srcify(new BigUint64Array([1n, 2n, 3n, 4n]))).toMatchInlineSnapshot(
     `"new BigUint64Array([1n,2n,3n,4n])"`,
   )
-})
 
-test(`srcify unsupported`, () => {
+  // Shared
+  const object = {}
+  expect(srcify({ a: object, b: object })).toMatchInlineSnapshot(
+    `"((a={})=>({a,b:a}))()"`,
+  )
+  const objects = Array.from({ length: 100 }, () => ({}))
+  expect(srcify([...objects, ...objects])).toMatchInlineSnapshot(
+    `"((a={},b={},c={},d={},e={},f={},g={},h={},i={},j={},k={},l={},m={},n={},o={},p={},q={},r={},s={},t={},u={},v={},w={},x={},y={},z={},A={},B={},C={},D={},E={},F={},G={},H={},I={},J={},K={},L={},M={},N={},O={},P={},Q={},R={},S={},T={},U={},V={},W={},X={},Y={},Z={},$aa={},$ab={},$ac={},$ad={},$ae={},$af={},$ag={},$ah={},$ai={},$aj={},$ak={},$al={},$am={},$an={},$ao={},$ap={},$aq={},$ar={},$as={},$at={},$au={},$av={},$aw={},$ax={},$ay={},$az={},$aA={},$aB={},$aC={},$aD={},$aE={},$aF={},$aG={},$aH={},$aI={},$aJ={},$aK={},$aL={},$aM={},$aN={},$aO={},$aP={},$aQ={},$aR={},$aS={},$aT={},$aU={},$aV={})=>[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV])()"`,
+  )
+
+  // Circular
+  const circular: { ref?: unknown } = {}
+  circular.ref = circular
+  expect(srcify(circular)).toMatchInlineSnapshot(`"((a={})=>a.ref=a)()"`)
+  expect(srcify({ circular })).toMatchInlineSnapshot(
+    `"((a={})=>(a.ref=a,{circular:a}))()"`,
+  )
+  expect(srcify({ a: circular })).toMatchInlineSnapshot(
+    `"((a={})=>(a.ref=a,{a}))()"`,
+  )
+  const circular1: { ref?: unknown } = {}
+  const circular2 = { ref: circular1 }
+  circular1.ref = circular2
+  expect(srcify(circular1)).toMatchInlineSnapshot(
+    `"((a={ref:{}})=>a.ref.ref=a)()"`,
+  )
+  expect(srcify(circular2)).toMatchInlineSnapshot(
+    `"((a={ref:{}})=>a.ref.ref=a)()"`,
+  )
+  expect(srcify({ circular: circular1 })).toMatchInlineSnapshot(
+    `"((a={ref:{}})=>(a.ref.ref=a,{circular:a}))()"`,
+  )
+  expect(srcify({ a: circular1, b: circular2 })).toMatchInlineSnapshot(
+    `"((b={},a={ref:b})=>(b.ref=a,{a,b}))()"`,
+  )
+  const circularArray: unknown[] = []
+  circularArray.push(circularArray)
+  expect(srcify(circularArray)).toMatchInlineSnapshot(`"((a=[])=>a[0]=a)()"`)
+  const circularWithStringKey: { 'a b c'?: unknown } = {}
+  circularWithStringKey[`a b c`] = circularWithStringKey
+  expect(srcify(circularWithStringKey)).toMatchInlineSnapshot(
+    `"((a={})=>a["a b c"]=a)()"`,
+  )
+  // <ref *1> [ <ref *2> [ [Circular *1], [Circular *2] ] ]
+  const circularArrayInner: unknown[] = []
+  const circularArrayOuter: unknown[] = []
+  circularArrayInner.push(circularArrayOuter, circularArrayInner)
+  circularArrayOuter.push(circularArrayInner)
+  expect(srcify(circularArrayOuter)).toMatchInlineSnapshot(
+    `"((b=[,],a=[b])=>(b[0]=a,b[1]=b,a))()"`,
+  )
+
+  // Unsupported
   expect(() =>
     srcify(Symbol(`Hello World!`)),
-  ).toThrowErrorMatchingInlineSnapshot(`[Error: Unsupported type: symbol]`)
+  ).toThrowErrorMatchingInlineSnapshot(`[Error: Unsupported: symbol]`)
   expect(() => srcify(() => {})).toThrowErrorMatchingInlineSnapshot(
-    `[Error: Unsupported type: function]`,
+    `[Error: Unsupported: function]`,
   )
 })

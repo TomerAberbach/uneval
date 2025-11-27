@@ -44,15 +44,15 @@ importers:
       jsesc:
         specifier: ^3.1.0
         version: 3.1.0
+      magic-string:
+        specifier: ^0.30.21
+        version: 0.30.21
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
       publint:
         specifier: ^0.3.15
         version: 0.3.15
-      rollup-plugin-tree-shakeable:
-        specifier: ^2.0.0
-        version: 2.0.0
       serialize-javascript:
         specifier: ^7.0.0
         version: 7.0.0
@@ -2306,10 +2306,6 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  rollup-plugin-tree-shakeable@2.0.0:
-    resolution: {integrity: sha512-CbHO8wpyOCCmPWE5/kOdqDIHOBjGXXzbgazIHLWdaU8AntQCcbnagLKq6EeIyxuwO8w3aRa0ZH2dCuM1NFeTag==}
-    engines: {node: '>= 22'}
-
   rollup@4.52.5:
     resolution: {integrity: sha512-3GuObel8h7Kqdjt0gxkEzaifHTqLVW56Y/bjN7PSQtkKr0w3V/QYSdt6QWYtd7A1xUtYQigtdUfgj1RvWVtorw==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
@@ -3322,6 +3318,7 @@ snapshots:
   '@types/node@24.10.0':
     dependencies:
       undici-types: 7.16.0
+    optional: true
 
   '@types/serialize-javascript@5.0.4': {}
 
@@ -5229,12 +5226,6 @@ snapshots:
       '@rolldown/binding-win32-ia32-msvc': 1.0.0-beta.45
       '@rolldown/binding-win32-x64-msvc': 1.0.0-beta.45
 
-  rollup-plugin-tree-shakeable@2.0.0:
-    dependencies:
-      '@types/node': 24.10.0
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-
   rollup@4.52.5:
     dependencies:
       '@types/estree': 1.0.8
@@ -5593,7 +5584,8 @@ snapshots:
       jiti: 2.6.1
       quansync: 0.2.11
 
-  undici-types@7.16.0: {}
+  undici-types@7.16.0:
+    optional: true
 
   unist-util-is@6.0.1:
     dependencies:

@@ -48,7 +48,7 @@ const source = srcify(object)
 console.log(source)
 //=> {message:"hello world"}
 
-const roundtrippedObject = eval(`(${source})`)
+const roundtrippedObject = (0, eval)(`(${source})`)
 assert.deepEqual(roundtrippedObject, object)
 ```
 

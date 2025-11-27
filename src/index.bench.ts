@@ -7,7 +7,7 @@ import { bench } from 'vitest'
 import { anythingArb } from './arbs.ts'
 import srcify from './index.ts'
 
-const values = fc.sample(anythingArb, { seed: 42, numRuns: 1000 })
+const values = fc.sample(anythingArb, { seed: 42, numRuns: 5000 })
 
 bench(`srcify`, () => {
   for (const value of values) {
