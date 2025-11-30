@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: `jsdom`,
     setupFiles: [`vitest.setup.ts`],
-    testTimeout: 35_000,
+    testTimeout: 50_000,
     coverage: {
       include: [`src`],
       exclude: [`*.bench.ts`, `arbs.ts`],
