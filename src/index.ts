@@ -498,6 +498,7 @@ const srcifyObjectLike = (value: object, state: State): string => {
   }
 
   const prototype = Object.getPrototypeOf(value) as unknown
+  // TODO: Find a better alternative to this that works cross-realm
   if (prototype !== Object.prototype) {
     const result = srcifyWithPath(
       { _name: { _type: PROTOTYPE }, _value: prototype },
