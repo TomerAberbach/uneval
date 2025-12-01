@@ -45,7 +45,11 @@ const srcify = (value: unknown): string => {
     for (let i = path.length - 2; i >= 0; i--) {
       const binding = state._bindings.get(path[i]!._value as object)
       if (binding) {
-        return `${binding._name}${srcifyPath(path.slice(i + 1))}=${circularName}`
+        return srcifyAssignment(
+          binding._name,
+          path.slice(i + 1),
+          (circularName as { _value: string })._value,
+        )
       }
     }
     /* c8 ignore next -- @preserve */
@@ -55,7 +59,7 @@ const srcify = (value: unknown): string => {
   const returnBinding = state._bindings.get(value as object)
   if (!returnBinding) {
     bodySources.push(source!)
-  } else if (state._circularAssignments.at(-1)?.at(-1)?._value !== value) {
+  } else if (!bodySources.at(-1)?.endsWith(`=${returnBinding._name}`)) {
     bodySources.push(returnBinding._name)
   }
 
@@ -93,15 +97,21 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   return sortedBindings
 }
 
-/** A path from a root object to some sub-object within it. */
-type Path = {
+const PROPERTY = 0
+const INDEX = 1
+const PROTOTYPE = 2
+
+type PathSegment = {
   /**
    * The name associated with the path segment.
    *
    * If it's the root, then it will be a variable name. Otherwise it will be a
    * property name or array index.
    */
-  _name: string | number
+  _name:
+    | { _type: typeof PROPERTY; _value: string }
+    | { _type: typeof INDEX; _value: number }
+    | { _type: typeof PROTOTYPE }
 
   /**
    * The value at this point of the path.
@@ -109,7 +119,10 @@ type Path = {
    * If it's the first path segment, then it's the root object.
    */
   _value: unknown
-}[]
+}
+
+/** A path from a root object to some sub-object within it. */
+type Path = PathSegment[]
 
 type Binding = {
   /** The name of the binding. */
@@ -224,6 +237,13 @@ const countRefs = (value: unknown) => {
   return counts
 }
 
+const srcifyWithPath = (segment: PathSegment, state: State): string | null => {
+  state._currentPath.push(segment)
+  const result = srcifyInternal(segment._value, state)
+  state._currentPath.pop()
+  return result
+}
+
 const srcifyInternal = (value: unknown, state: State): string | null => {
   switch (typeof value) {
     case `undefined`:
@@ -262,7 +282,7 @@ const srcifyObject = (value: object, state: State): string | null => {
 
   if (state._currentParents.has(value)) {
     state._circularAssignments.push([
-      { _name: binding._name, _value: value },
+      { _name: { _type: PROPERTY, _value: binding._name }, _value: value },
       ...state._currentPath,
     ])
     return null
@@ -286,18 +306,42 @@ const srcifyObject = (value: object, state: State): string | null => {
   return binding._name
 }
 
-const srcifyPath = (path: Path): string =>
-  path
-    .map(({ _name: name }) => {
-      if (typeof name === `number`) {
-        return `[${name}]`
-      }
+const srcifyAssignment = (left: string, path: Path, right: string): string => {
+  let assignment = left
+  for (const [index, { _name }] of path.entries()) {
+    const isLast = index === path.length - 1
+    switch (_name._type) {
+      case PROPERTY:
+        if (_name._value === `__proto__`) {
+          if (isLast) {
+            assignment = `Object.defineProperty(${assignment},"__proto__",{value:${
+              right
+            },writable:true,enumerable:true,configurable:true})`
+          } else {
+            assignment += `.__proto__`
+          }
+          continue
+        }
+        assignment += PROPERTY_REG_EXP.test(_name._value)
+          ? `.${_name._value}`
+          : `[${JSON.stringify(_name._value)}]`
+        break
+      case INDEX:
+        assignment += `[${_name._value}]`
+        break
+      case PROTOTYPE:
+        assignment = isLast
+          ? `Object.setPrototypeOf(${assignment},${right})`
+          : `Object.getPrototypeOf(${assignment})`
+        continue
+    }
 
-      return PROPERTY_REG_EXP.test(name)
-        ? `.${name}`
-        : `[${JSON.stringify(name)}]`
-    })
-    .join(``)
+    if (isLast) {
+      assignment += `=${right}`
+    }
+  }
+  return assignment
+}
 
 const srcifyObjectInternal = (value: object, state: State): string => {
   const type = getType(value)
@@ -312,11 +356,12 @@ const srcifyObjectInternal = (value: object, state: State): string => {
           continue
         }
 
-        const item = array[i]
-        state._currentPath.push({ _name: i, _value: item })
-        const result = srcifyInternal(item, state)
-        state._currentPath.pop()
-        itemSources.push(result ?? ``)
+        itemSources.push(
+          srcifyWithPath(
+            { _name: { _type: INDEX, _value: i }, _value: array[i] },
+            state,
+          ) ?? ``,
+        )
       }
       if (!(array.length - 1 in array)) {
         // The array is sparse and has a trailing empty slot. This requires an
@@ -411,21 +456,21 @@ const newInstance = (type: string, args: string | number) =>
   `new ${type}(${args})`
 
 const srcifyObjectLike = (value: object, state: State): string => {
-  let __proto__: { value: unknown } | undefined
+  let __proto__: { _value: unknown } | undefined
   let source = `{${Object.entries(value)
     .filter(([key, value]) => {
       if (key === `__proto__`) {
-        __proto__ = { value }
+        __proto__ = { _value: value }
         return false
       } else {
         return true
       }
     })
     .flatMap(([key, value]) => {
-      state._currentPath.push({ _name: key, _value: value })
-      const result = srcifyInternal(value, state)
-      state._currentPath.pop()
-
+      const result = srcifyWithPath(
+        { _name: { _type: PROPERTY, _value: key }, _value: value },
+        state,
+      )
       if (result === null) {
         return []
       }
@@ -438,22 +483,29 @@ const srcifyObjectLike = (value: object, state: State): string => {
     })
     .join(`,`)}}`
   if (__proto__) {
-    source = `Object.defineProperty(${source},"__proto__",{value:${
-      // TODO: This won't always return a string.
-      srcifyInternal(__proto__.value, state)!
-    },writable:true,enumerable:true,configurable:true})`
+    const result = srcifyWithPath(
+      {
+        _name: { _type: PROPERTY, _value: `__proto__` },
+        _value: __proto__._value,
+      },
+      state,
+    )
+    if (result !== null) {
+      source = `Object.defineProperty(${source},"__proto__",{value:${
+        result
+      },writable:true,enumerable:true,configurable:true})`
+    }
   }
 
   const prototype = Object.getPrototypeOf(value) as unknown
-  if (
-    typeof prototype !== `object` ||
-    prototype === null ||
-    getType(prototype) !== `Object`
-  ) {
-    source = `Object.setPrototypeOf(${source},${
-      // TODO: This won't always return a string.
-      srcifyInternal(prototype, state)!
-    })`
+  if (prototype !== Object.prototype) {
+    const result = srcifyWithPath(
+      { _name: { _type: PROTOTYPE }, _value: prototype },
+      state,
+    )
+    if (result !== null) {
+      source = `Object.setPrototypeOf(${source},${result})`
+    }
   }
 
   return source

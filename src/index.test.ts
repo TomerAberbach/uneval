@@ -291,13 +291,28 @@ test(`srcify snapshots`, () => {
   expect(srcify(circularWithStringKey)).toMatchInlineSnapshot(
     `"((a={})=>a["a b c"]=a)()"`,
   )
-  // <ref *1> [ <ref *2> [ [Circular *1], [Circular *2] ] ]
   const circularArrayInner: unknown[] = []
   const circularArrayOuter: unknown[] = []
   circularArrayInner.push(circularArrayOuter, circularArrayInner)
   circularArrayOuter.push(circularArrayInner)
   expect(srcify(circularArrayOuter)).toMatchInlineSnapshot(
     `"((b=[,],a=[b])=>(b[0]=a,b[1]=b,a))()"`,
+  )
+  const circularOwnProto = {}
+  Object.defineProperty(circularOwnProto, `__proto__`, {
+    value: circularOwnProto,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  })
+  expect(srcify(circularOwnProto)).toMatchInlineSnapshot(
+    `"((a={})=>(Object.defineProperty(a,"__proto__",{value:a,writable:true,enumerable:true,configurable:true}),a))()"`,
+  )
+  const circularProto1 = {}
+  const circularProto2 = { ref: circularProto1 }
+  Object.setPrototypeOf(circularProto1, circularProto2)
+  expect(srcify(circularProto1)).toMatchInlineSnapshot(
+    `"((a=Object.setPrototypeOf({},{}))=>Object.getPrototypeOf(a).ref=a)()"`,
   )
 
   // Unsupported
