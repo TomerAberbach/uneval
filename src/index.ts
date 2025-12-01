@@ -455,11 +455,15 @@ const srcifyObjectInternal = (value: object, state: State): string => {
 const newInstance = (type: string, args: string | number) =>
   `new ${type}(${args})`
 
+// TODO: Detect and throw for symbol keys.
 const srcifyObjectLike = (value: object, state: State): string => {
   let __proto__: { _value: unknown } | undefined
   let source = `{${Object.entries(value)
     .filter(([key, value]) => {
       if (key === `__proto__`) {
+        // TODO: Use `Object.assign` after `Object.defineProperty` if
+        // `__proto__` is in the middle of the ordering, so that we preserve
+        // the property order instead of always putting it at the end.
         __proto__ = { _value: value }
         return false
       } else {
@@ -475,6 +479,7 @@ const srcifyObjectLike = (value: object, state: State): string => {
         return []
       }
 
+      // TODO: Don't unnecessarily stringify non-negative integer keys.
       if (!PROPERTY_REG_EXP.test(key)) {
         return [`${JSON.stringify(key)}:${result}`]
       }
