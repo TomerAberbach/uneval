@@ -21,6 +21,8 @@ test.prop([anythingArb], {
     Infinity,
     /abc/u,
     /def/,
+    Symbol.iterator,
+    Symbol.hasInstance,
   ].map(value => [value]),
 })(`srcify works`, value => {
   const source = srcify(value)
@@ -82,6 +84,12 @@ test(`srcify snapshots`, () => {
     `"new String("Hello World!")"`,
   )
 
+  // Symbols
+  expect(srcify(Symbol.iterator)).toMatchInlineSnapshot(`"Symbol.iterator"`)
+  expect(srcify(Symbol.hasInstance)).toMatchInlineSnapshot(
+    `"Symbol.hasInstance"`,
+  )
+
   // Arrays
   expect(srcify([])).toMatchInlineSnapshot(`"[]"`)
   expect(srcify([1, 2, 3])).toMatchInlineSnapshot(`"[1,2,3]"`)
@@ -117,6 +125,9 @@ test(`srcify snapshots`, () => {
     ),
   ).toMatchInlineSnapshot(
     `"Object.defineProperty({a:2},"__proto__",{value:null,writable:true,enumerable:true,configurable:true})"`,
+  )
+  expect(srcify({ [Symbol.toStringTag]: `howdy` })).toMatchInlineSnapshot(
+    `"{[Symbol.toStringTag]:"howdy"}"`,
   )
 
   // Dates
@@ -321,8 +332,8 @@ test(`srcify snapshots`, () => {
   // Unsupported
   expect(() =>
     srcify(Symbol(`Hello World!`)),
-  ).toThrowErrorMatchingInlineSnapshot(`[Error: Unsupported: symbol]`)
+  ).toThrowErrorMatchingInlineSnapshot(`[TypeError: Unsupported: symbol]`)
   expect(() => srcify(() => {})).toThrowErrorMatchingInlineSnapshot(
-    `[Error: Unsupported: function]`,
+    `[TypeError: Unsupported: function]`,
   )
 })

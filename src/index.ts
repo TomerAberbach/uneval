@@ -48,7 +48,7 @@ const srcify = (value: unknown): string => {
         return srcifyAssignment(
           binding._name,
           path.slice(i + 1),
-          (circularName as { _value: string })._value,
+          (circularName as { _property: string })._property,
         )
       }
     }
@@ -99,7 +99,8 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
 
 const PROPERTY = 0
 const INDEX = 1
-const PROTOTYPE = 2
+const SYMBOL = 2
+const PROTOTYPE = 3
 
 type PathSegment = {
   /**
@@ -109,8 +110,9 @@ type PathSegment = {
    * property name or array index.
    */
   _name:
-    | { _type: typeof PROPERTY; _value: string }
-    | { _type: typeof INDEX; _value: number }
+    | { _type: typeof PROPERTY; _property: string }
+    | { _type: typeof INDEX; _index: number }
+    | { _type: typeof SYMBOL; _source: string }
     | { _type: typeof PROTOTYPE }
 
   /**
@@ -258,11 +260,27 @@ const srcifyInternal = (value: unknown, state: State): string | null => {
       return JSON.stringify(value)
     case `object`:
       return value === null ? `null` : srcifyObject(value, state)
-    case `symbol`:
+    case `symbol`: {
+      const name = WELL_KNOWN_SYMBOLS.get(value)
+      if (!name) {
+        throw new TypeError(`Unsupported: symbol`)
+      }
+      return `Symbol.${name}`
+    }
     case `function`:
-      throw new Error(`Unsupported: ${typeof value}`)
+      throw new TypeError(`Unsupported: function`)
   }
 }
+
+const WELL_KNOWN_SYMBOLS = new Map(
+  Reflect.ownKeys(Symbol).flatMap(key => {
+    if (typeof key !== `string`) {
+      return []
+    }
+    const value = Symbol[key as keyof typeof Symbol]
+    return typeof value === `symbol` ? [[value, key]] : []
+  }),
+)
 
 const srcifyObject = (value: object, state: State): string | null => {
   const refCount = state._refCounts.get(value) ?? 1
@@ -282,7 +300,7 @@ const srcifyObject = (value: object, state: State): string | null => {
 
   if (state._currentParents.has(value)) {
     state._circularAssignments.push([
-      { _name: { _type: PROPERTY, _value: binding._name }, _value: value },
+      { _name: { _type: PROPERTY, _property: binding._name }, _value: value },
       ...state._currentPath,
     ])
     return null
@@ -312,7 +330,7 @@ const srcifyAssignment = (left: string, path: Path, right: string): string => {
     const isLast = index === path.length - 1
     switch (_name._type) {
       case PROPERTY:
-        if (_name._value === `__proto__`) {
+        if (_name._property === `__proto__`) {
           if (isLast) {
             assignment = `Object.defineProperty(${assignment},"__proto__",{value:${
               right
@@ -322,12 +340,15 @@ const srcifyAssignment = (left: string, path: Path, right: string): string => {
           }
           continue
         }
-        assignment += PROPERTY_REG_EXP.test(_name._value)
-          ? `.${_name._value}`
-          : `[${JSON.stringify(_name._value)}]`
+        assignment += PROPERTY_REG_EXP.test(_name._property)
+          ? `.${_name._property}`
+          : `[${JSON.stringify(_name._property)}]`
         break
       case INDEX:
-        assignment += `[${_name._value}]`
+        assignment += `[${_name._index}]`
+        break
+      case SYMBOL:
+        assignment += `[${_name._source}]`
         break
       case PROTOTYPE:
         assignment = isLast
@@ -358,7 +379,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
 
         itemSources.push(
           srcifyWithPath(
-            { _name: { _type: INDEX, _value: i }, _value: array[i] },
+            { _name: { _type: INDEX, _index: i }, _value: array[i] },
             state,
           ) ?? ``,
         )
@@ -455,30 +476,43 @@ const srcifyObjectInternal = (value: object, state: State): string => {
 const newInstance = (type: string, args: string | number) =>
   `new ${type}(${args})`
 
-// TODO: Detect and throw for symbol keys.
-const srcifyObjectLike = (value: object, state: State): string => {
+const srcifyObjectLike = (object: object, state: State): string => {
   let __proto__: { _value: unknown } | undefined
-  let source = `{${Object.entries(value)
-    .filter(([key, value]) => {
+  let source = `{${Reflect.ownKeys(object)
+    .filter(key => {
       if (key === `__proto__`) {
         // TODO: Use `Object.assign` after `Object.defineProperty` if
         // `__proto__` is in the middle of the ordering, so that we preserve
         // the property order instead of always putting it at the end.
-        __proto__ = { _value: value }
+        __proto__ = { _value: Reflect.get(object, key) as unknown }
         return false
       } else {
         return true
       }
     })
-    .flatMap(([key, value]) => {
+    .flatMap(key => {
+      const symbolSource =
+        typeof key === `symbol` ? srcifyInternal(key, state) : null
+
+      const value = Reflect.get(object, key) as unknown
       const result = srcifyWithPath(
-        { _name: { _type: PROPERTY, _value: key }, _value: value },
+        {
+          _name: symbolSource
+            ? { _type: SYMBOL, _source: symbolSource }
+            : { _type: PROPERTY, _property: key as string },
+          _value: value,
+        },
         state,
       )
       if (result === null) {
         return []
       }
 
+      if (symbolSource) {
+        return [`[${symbolSource}]:${result}`]
+      }
+
+      key = key as string
       if (NAT_REG_EXP.test(key)) {
         return [`${key}:${result}`]
       }
@@ -493,7 +527,7 @@ const srcifyObjectLike = (value: object, state: State): string => {
   if (__proto__) {
     const result = srcifyWithPath(
       {
-        _name: { _type: PROPERTY, _value: `__proto__` },
+        _name: { _type: PROPERTY, _property: `__proto__` },
         _value: __proto__._value,
       },
       state,
@@ -505,7 +539,7 @@ const srcifyObjectLike = (value: object, state: State): string => {
     }
   }
 
-  const prototype = Object.getPrototypeOf(value) as unknown
+  const prototype = Object.getPrototypeOf(object) as unknown
   // TODO: Find a better alternative to this that works cross-realm
   if (prototype !== Object.prototype) {
     const result = srcifyWithPath(
