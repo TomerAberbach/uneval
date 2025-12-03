@@ -97,10 +97,12 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   return sortedBindings
 }
 
-const PROPERTY = 0
-const INDEX = 1
-const SYMBOL = 2
+const STRING_PROPERTY = 0
+const SYMBOL_PROPERTY = 1
+const INDEX = 2
 const PROTOTYPE = 3
+const MAP_KEY = 4
+const MAP_VALUE = 5
 
 type PathSegment = {
   /**
@@ -110,10 +112,12 @@ type PathSegment = {
    * property name or array index.
    */
   _name:
-    | { _type: typeof PROPERTY; _property: string }
+    | { _type: typeof STRING_PROPERTY; _property: string }
+    | { _type: typeof SYMBOL_PROPERTY; _property: string }
     | { _type: typeof INDEX; _index: number }
-    | { _type: typeof SYMBOL; _source: string }
     | { _type: typeof PROTOTYPE }
+    | { _type: typeof MAP_KEY; _key: string }
+    | { _type: typeof MAP_VALUE; _value: string }
 
   /**
    * The value at this point of the path.
@@ -300,7 +304,10 @@ const srcifyObject = (value: object, state: State): string | null => {
 
   if (state._currentParents.has(value)) {
     state._circularAssignments.push([
-      { _name: { _type: PROPERTY, _property: binding._name }, _value: value },
+      {
+        _name: { _type: STRING_PROPERTY, _property: binding._name },
+        _value: value,
+      },
       ...state._currentPath,
     ])
     return null
@@ -329,7 +336,7 @@ const srcifyAssignment = (left: string, path: Path, right: string): string => {
   for (const [index, { _name }] of path.entries()) {
     const isLast = index === path.length - 1
     switch (_name._type) {
-      case PROPERTY:
+      case STRING_PROPERTY:
         if (_name._property === `__proto__`) {
           if (isLast) {
             assignment = `Object.defineProperty(${assignment},"__proto__",{value:${
@@ -344,16 +351,37 @@ const srcifyAssignment = (left: string, path: Path, right: string): string => {
           ? `.${_name._property}`
           : `[${JSON.stringify(_name._property)}]`
         break
+      case SYMBOL_PROPERTY:
+        assignment += `[${_name._property}]`
+        break
       case INDEX:
         assignment += `[${_name._index}]`
-        break
-      case SYMBOL:
-        assignment += `[${_name._source}]`
         break
       case PROTOTYPE:
         assignment = isLast
           ? `Object.setPrototypeOf(${assignment},${right})`
           : `Object.getPrototypeOf(${assignment})`
+        continue
+      case MAP_KEY: {
+        if (isLast) {
+          assignment += `.set(${_name._key},${right})`
+          continue
+        }
+
+        const nextSegment = path[index + 1]
+        if (
+          nextSegment?._name._type === MAP_VALUE &&
+          index + 2 === path.length
+        ) {
+          assignment += `.set(${_name._key},${nextSegment._name._value})`
+          continue
+        }
+
+        assignment += `.get(${_name._key})`
+        continue
+      }
+      case MAP_VALUE:
+        // Handled on the previous iteration (see above).
         continue
     }
 
@@ -425,7 +453,47 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         `${srcifyInternal(source, state)!}${flags && `,${srcifyInternal(flags, state)!}`}`,
       )
     }
-    case `Map`:
+    case `Map`: {
+      const entries = [...(value as Iterable<[unknown, unknown]>)]
+        .flatMap(([key, value]) => {
+          const keySegment = {
+            _name: { _type: MAP_KEY, _key: `` } satisfies {
+              _type: typeof MAP_KEY
+              _key: string
+            },
+            _value: key,
+          }
+          state._currentPath.push(keySegment)
+          const keyResult = srcifyInternal(key, state)
+          keySegment._name._key =
+            keyResult ?? state._bindings.get(key as object)!._name
+
+          const valueSegment = {
+            _name: { _type: MAP_VALUE, _value: `` } satisfies {
+              _type: typeof MAP_VALUE
+              _value: string
+            },
+            _value: value,
+          }
+          state._currentPath.push(valueSegment)
+          const valueResult = srcifyInternal(value, state)
+          valueSegment._name._value =
+            valueResult ?? state._bindings.get(value as object)!._name
+
+          state._currentPath.pop()
+          state._currentPath.pop()
+
+          if (keyResult === null) {
+            return []
+          }
+
+          return [
+            `[${keyResult}${valueResult === null ? `` : `,${valueResult}`}]`,
+          ]
+        })
+        .join(`,`)
+      return newInstance(type, entries ? `[${entries}]` : ``)
+    }
     case `Set`:
     case `URLSearchParams`: {
       const values = [...(value as Iterable<unknown>)]
@@ -498,8 +566,8 @@ const srcifyObjectLike = (object: object, state: State): string => {
       const result = srcifyWithPath(
         {
           _name: symbolSource
-            ? { _type: SYMBOL, _source: symbolSource }
-            : { _type: PROPERTY, _property: key as string },
+            ? { _type: SYMBOL_PROPERTY, _property: symbolSource }
+            : { _type: STRING_PROPERTY, _property: key as string },
           _value: value,
         },
         state,
@@ -527,7 +595,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
   if (__proto__) {
     const result = srcifyWithPath(
       {
-        _name: { _type: PROPERTY, _property: `__proto__` },
+        _name: { _type: STRING_PROPERTY, _property: `__proto__` },
         _value: __proto__._value,
       },
       state,

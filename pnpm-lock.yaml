@@ -29,6 +29,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.0.6
         version: 4.0.6(vitest@4.0.6(@types/debug@4.1.12)(@types/node@24.10.0)(jiti@2.6.1)(jsdom@27.1.0)(terser@5.44.0))
+      dequal:
+        specifier: ^2.0.3
+        version: 2.0.3
       devalue:
         specifier: ^5.4.2
         version: 5.4.2

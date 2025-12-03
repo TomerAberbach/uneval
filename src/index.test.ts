@@ -328,6 +328,20 @@ test(`srcify snapshots`, () => {
   expect(srcify(circularProto1)).toMatchInlineSnapshot(
     `"((a=Object.setPrototypeOf({},{}))=>Object.getPrototypeOf(a).ref=a)()"`,
   )
+  const circularMap = new Map()
+  circularMap.set(`hi`, circularMap)
+  expect(srcify(circularMap)).toMatchInlineSnapshot(
+    `"((a=new Map([["hi"]]))=>(a.set("hi",a),a))()"`,
+  )
+  circularMap.set(`hello`, { circularMap })
+  expect(srcify(circularMap)).toMatchInlineSnapshot(
+    `"((a=new Map([["hi"],["hello",{}]]))=>(a.set("hi",a),a.get("hello").circularMap=a))()"`,
+  )
+  const circularMap2 = new Map()
+  circularMap2.set(circularMap2, `howdy`)
+  expect(srcify(circularMap2)).toMatchInlineSnapshot(
+    `"((a=new Map())=>(a.set(a,a),a))()"`,
+  )
 
   // Unsupported
   expect(() =>

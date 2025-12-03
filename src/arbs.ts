@@ -1,4 +1,5 @@
 import { fc } from '@fast-check/vitest'
+import { dequal } from 'dequal'
 
 const circularSymbol = Symbol(`circular`)
 const depthIdentifier = fc.createDepthIdentifier()
@@ -9,13 +10,25 @@ const circularArb = fc
         depthIdentifier,
       }),
       array: fc.array(tie(`innerValue`), { depthIdentifier }),
+      map: fc
+        .uniqueArray(fc.tuple(tie(`innerValue`), tie(`innerValue`)), {
+          selector: ([key]) => key,
+          comparator: dequal,
+        })
+        .map(entries => new Map(entries)),
       innerValue: fc.oneof(
         { depthIdentifier },
         fc.record({ [circularSymbol]: fc.nat({ max: 5 }) }),
         tie(`object`),
         tie(`array`),
+        tie(`map`),
       ),
-      value: fc.oneof({ depthIdentifier }, tie(`object`), tie(`array`)),
+      value: fc.oneof(
+        { depthIdentifier },
+        tie(`object`),
+        tie(`array`),
+        tie(`map`),
+      ),
     })).value,
     { minLength: 1, maxLength: 5 },
   )
@@ -41,6 +54,13 @@ const circularArb = fc
         replaced.set(value, newValue)
         for (const [index, item] of newValue.entries()) {
           newValue[index] = replace(item)
+        }
+        return newValue
+      } else if (value instanceof Map) {
+        const newValue = new Map()
+        replaced.set(value, newValue)
+        for (const [key, item] of newValue.entries()) {
+          newValue.set(replace(key), replace(item))
         }
         return newValue
       } else {
