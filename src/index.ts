@@ -479,7 +479,10 @@ const srcifyObjectLike = (value: object, state: State): string => {
         return []
       }
 
-      // TODO: Don't unnecessarily stringify non-negative integer keys.
+      if (NAT_REG_EXP.test(key)) {
+        return [`${key}:${result}`]
+      }
+
       if (!PROPERTY_REG_EXP.test(key)) {
         return [`${JSON.stringify(key)}:${result}`]
       }
@@ -518,6 +521,7 @@ const srcifyObjectLike = (value: object, state: State): string => {
 }
 
 const PROPERTY_REG_EXP = /^\p{ID_Start}\p{ID_Continue}*$/u
+const NAT_REG_EXP = /^[1-9][0-9]*$/u
 
 const getType = (value: object): string =>
   // `.constructor` returns `undefined` for objects with null prototype.

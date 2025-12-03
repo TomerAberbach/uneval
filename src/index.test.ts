@@ -93,6 +93,9 @@ test(`srcify snapshots`, () => {
   expect(srcify({})).toMatchInlineSnapshot(`"{}"`)
   expect(srcify({ a: 2 })).toMatchInlineSnapshot(`"{a:2}"`)
   expect(srcify({ ab: 2 })).toMatchInlineSnapshot(`"{ab:2}"`)
+  expect(srcify({ 1: 2 })).toMatchInlineSnapshot(`"{1:2}"`)
+  expect(srcify({ 1: 1 })).toMatchInlineSnapshot(`"{1:1}"`)
+  expect(srcify({ '1': 2 })).toMatchInlineSnapshot(`"{1:2}"`)
   expect(srcify({ 'a b c': 2 })).toMatchInlineSnapshot(`"{"a b c":2}"`)
   expect(srcify(Object.create(null))).toMatchInlineSnapshot(
     `"Object.setPrototypeOf({},null)"`,
