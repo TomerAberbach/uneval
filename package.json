@@ -57,6 +57,7 @@
     "@types/jsesc": "^3.0.3",
     "@types/serialize-javascript": "^5.0.4",
     "@vitest/coverage-v8": "^4.0.6",
+    "dequal": "^2.0.3",
     "devalue": "^5.4.2",
     "eslint": "^9.39.1",
     "jest-extended": "^6.0.0",
