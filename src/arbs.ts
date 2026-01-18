@@ -8,12 +8,14 @@ const circularArb = fc
     fc.letrec(tie => ({
       object: fc.dictionary(fc.string(), tie(`innerValue`), {
         depthIdentifier,
+        maxKeys: 5,
       }),
-      array: fc.array(tie(`innerValue`), { depthIdentifier }),
+      array: fc.array(tie(`innerValue`), { depthIdentifier, maxLength: 5 }),
       map: fc
         .uniqueArray(fc.tuple(tie(`innerValue`), tie(`innerValue`)), {
           selector: ([key]) => key,
           comparator: dequal,
+          maxLength: 5,
         })
         .map(entries => new Map(entries)),
       innerValue: fc.oneof(
@@ -32,6 +34,51 @@ const circularArb = fc
     })).value,
     { minLength: 1, maxLength: 5 },
   )
+  .filter(values => {
+    const hasCircularSymbolLoop = (value: unknown): boolean => {
+      if (value === null || typeof value !== `object`) {
+        return false
+      }
+
+      if (circularSymbol in value) {
+        const visited = new Set()
+
+        let currentValue: unknown = value
+        while (
+          currentValue !== null &&
+          typeof currentValue === `object` &&
+          circularSymbol in currentValue
+        ) {
+          visited.add(currentValue)
+
+          currentValue =
+            values[
+              (currentValue as { [circularSymbol]: number })[circularSymbol]
+            ]
+          if (visited.has(currentValue)) {
+            // This has an unresolvable circularSymbol loop.
+            return true
+          }
+        }
+        return false
+      }
+
+      if (Array.isArray(value)) {
+        return value.some(hasCircularSymbolLoop)
+      } else if (value instanceof Map) {
+        for (const [key, item] of value.entries()) {
+          if (hasCircularSymbolLoop(key) || hasCircularSymbolLoop(item)) {
+            return true
+          }
+        }
+        return false
+      } else {
+        return Object.values(value).some(hasCircularSymbolLoop)
+      }
+    }
+
+    return !values.some(hasCircularSymbolLoop)
+  })
   .map(values => {
     const replaced = new Map<object, object>()
     const replace = (value: unknown): unknown => {
@@ -59,7 +106,7 @@ const circularArb = fc
       } else if (value instanceof Map) {
         const newValue = new Map()
         replaced.set(value, newValue)
-        for (const [key, item] of newValue.entries()) {
+        for (const [key, item] of value.entries()) {
           newValue.set(replace(key), replace(item))
         }
         return newValue

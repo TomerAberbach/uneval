@@ -101,8 +101,7 @@ const STRING_PROPERTY = 0
 const SYMBOL_PROPERTY = 1
 const INDEX = 2
 const PROTOTYPE = 3
-const MAP_KEY = 4
-const MAP_VALUE = 5
+const MAP_ENTRY = 4
 
 type PathSegment = {
   /**
@@ -116,8 +115,7 @@ type PathSegment = {
     | { _type: typeof SYMBOL_PROPERTY; _property: string }
     | { _type: typeof INDEX; _index: number }
     | { _type: typeof PROTOTYPE }
-    | { _type: typeof MAP_KEY; _key: string }
-    | { _type: typeof MAP_VALUE; _value: string }
+    | { _type: typeof MAP_ENTRY; _key: string; _value: string }
 
   /**
    * The value at this point of the path.
@@ -292,15 +290,7 @@ const srcifyObject = (value: object, state: State): string | null => {
     return srcifyObjectInternal(value, state)
   }
 
-  let binding = state._bindings.get(value)
-  if (binding === undefined) {
-    binding = {
-      _name: generateIdentifier(state._bindings.size),
-      _source: ``,
-      _dependencies: new Set(),
-    }
-    state._bindings.set(value, binding)
-  }
+  const binding = ensureBinding(value, ``, state)
 
   if (state._currentParents.has(value)) {
     state._circularAssignments.push([
@@ -322,10 +312,6 @@ const srcifyObject = (value: object, state: State): string | null => {
     state._currentParents.delete(value)
 
     state._currentBinding = previousBinding
-  }
-
-  if (state._currentBinding) {
-    state._currentBinding._dependencies.add(value)
   }
 
   return binding._name
@@ -362,26 +348,10 @@ const srcifyAssignment = (left: string, path: Path, right: string): string => {
           ? `Object.setPrototypeOf(${assignment},${right})`
           : `Object.getPrototypeOf(${assignment})`
         continue
-      case MAP_KEY: {
-        if (isLast) {
-          assignment += `.set(${_name._key},${right})`
-          continue
-        }
-
-        const nextSegment = path[index + 1]
-        if (
-          nextSegment?._name._type === MAP_VALUE &&
-          index + 2 === path.length
-        ) {
-          assignment += `.set(${_name._key},${nextSegment._name._value})`
-          continue
-        }
-
-        assignment += `.get(${_name._key})`
-        continue
-      }
-      case MAP_VALUE:
-        // Handled on the previous iteration (see above).
+      case MAP_ENTRY:
+        assignment += isLast
+          ? `.set(${_name._key},${_name._value})`
+          : `.get(${_name._key})`
         continue
     }
 
@@ -456,39 +426,54 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Map`: {
       const entries = [...(value as Iterable<[unknown, unknown]>)]
         .flatMap(([key, value]) => {
-          const keySegment = {
-            _name: { _type: MAP_KEY, _key: `` } satisfies {
-              _type: typeof MAP_KEY
-              _key: string
-            },
-            _value: key,
+          const name = { _type: MAP_ENTRY, _key: ``, _value: `` } satisfies {
+            _type: typeof MAP_ENTRY
+            _key: string
+            _value: string
           }
-          state._currentPath.push(keySegment)
-          const keyResult = srcifyInternal(key, state)
-          keySegment._name._key =
-            keyResult ?? state._bindings.get(key as object)!._name
 
-          const valueSegment = {
-            _name: { _type: MAP_VALUE, _value: `` } satisfies {
-              _type: typeof MAP_VALUE
-              _value: string
-            },
-            _value: value,
-          }
-          state._currentPath.push(valueSegment)
-          const valueResult = srcifyInternal(value, state)
-          valueSegment._name._value =
-            valueResult ?? state._bindings.get(value as object)!._name
+          let circularAssignmentCount = state._circularAssignments.length
+          let keyResult = srcifyWithPath({ _name: name, _value: key }, state)
+          const keyHasCircularAssignments =
+            state._circularAssignments.length > circularAssignmentCount
 
-          state._currentPath.pop()
-          state._currentPath.pop()
+          circularAssignmentCount = state._circularAssignments.length
+          const valueSource = srcifyWithPath(
+            { _name: name, _value: value },
+            state,
+          )
+          const valueHasCircularAssignments =
+            state._circularAssignments.length > circularAssignmentCount
+
+          name._value =
+            valueSource ?? state._bindings.get(value as object)!._name
 
           if (keyResult === null) {
+            // The key cannot be constructed before the map is, so we don't
+            // include this entry in map construction. We `.set(...)` it later.
+            name._key = state._bindings.get(key as object)!._name
             return []
           }
 
+          const entryHasCircularAssignments =
+            keyHasCircularAssignments || valueHasCircularAssignments
+          if (
+            key !== null &&
+            typeof key === `object` &&
+            entryHasCircularAssignments
+          ) {
+            // If the key is an object, meaning its reference equality is
+            // important, and either the entry has a circular assignment, then
+            // that means the key will be used again later in one of those
+            // circular assignments. In that case, we must ensure that the key
+            // has a binding. Rendering it inline twice will not have the same
+            // result due to reference equality.
+            keyResult = ensureBinding(key, keyResult, state)._name
+          }
+          name._key = keyResult
+
           return [
-            `[${keyResult}${valueResult === null ? `` : `,${valueResult}`}]`,
+            `[${keyResult}${valueSource === null ? `` : `,${valueSource}`}]`,
           ]
         })
         .join(`,`)
@@ -539,6 +524,30 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     default:
       return srcifyObjectLike(value, state)
   }
+}
+
+const ensureBinding = (
+  value: object,
+  source: string,
+  state: State,
+): Binding => {
+  let binding = state._bindings.get(value)
+  if (binding) {
+    return binding
+  }
+
+  binding = {
+    _name: generateIdentifier(state._bindings.size),
+    _source: source,
+    _dependencies: new Set(),
+  }
+  state._bindings.set(value, binding)
+
+  if (state._currentBinding) {
+    state._currentBinding._dependencies.add(value)
+  }
+
+  return binding
 }
 
 const newInstance = (type: string, args: string | number) =>
