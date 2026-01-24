@@ -33,7 +33,7 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/index.d.mts",
       "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
@@ -50,25 +50,24 @@
   },
   "prettier": "@tomer/prettier-config",
   "devDependencies": {
-    "@fast-check/vitest": "^0.2.3",
+    "@fast-check/vitest": "^0.2.4",
     "@rollup/plugin-terser": "^0.4.4",
     "@tomer/eslint-config": "^4.4.1",
     "@tomer/prettier-config": "^4.0.0",
     "@types/jsesc": "^3.0.3",
     "@types/serialize-javascript": "^5.0.4",
     "@vitest/coverage-v8": "^4.0.6",
-    "dequal": "^2.0.3",
-    "devalue": "^5.4.2",
-    "eslint": "^9.39.1",
-    "jest-extended": "^6.0.0",
-    "jsdom": "^27.1.0",
+    "devalue": "^5.6.2",
+    "eslint": "^9.39.2",
+    "jest-extended": "^7.0.0",
+    "jsdom": "^27.4.0",
     "jsesc": "^3.1.0",
     "magic-string": "^0.30.21",
-    "prettier": "^3.6.2",
-    "publint": "^0.3.15",
-    "serialize-javascript": "^7.0.0",
+    "prettier": "^3.8.1",
+    "publint": "^0.3.17",
+    "serialize-javascript": "^7.0.2",
     "tosource": "2.0.0-alpha.3",
-    "tsdown": "^0.15.12",
+    "tsdown": "^0.20.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.6"
   }
