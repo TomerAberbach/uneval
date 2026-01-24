@@ -1,5 +1,4 @@
 import { fc } from '@fast-check/vitest'
-import { dequal } from 'dequal'
 
 const circularSymbol = Symbol(`circular`)
 const depthIdentifier = fc.createDepthIdentifier()
@@ -11,13 +10,10 @@ const circularArb = fc
         maxKeys: 5,
       }),
       array: fc.array(tie(`innerValue`), { depthIdentifier, maxLength: 5 }),
-      map: fc
-        .uniqueArray(fc.tuple(tie(`innerValue`), tie(`innerValue`)), {
-          selector: ([key]) => key,
-          comparator: dequal,
-          maxLength: 5,
-        })
-        .map(entries => new Map(entries)),
+      map: fc.map(tie(`innerValue`), tie(`innerValue`), {
+        depthIdentifier,
+        maxKeys: 5,
+      }),
       innerValue: fc.oneof(
         { depthIdentifier },
         fc.record({ [circularSymbol]: fc.nat({ max: 5 }) }),
