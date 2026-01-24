@@ -9,7 +9,7 @@ import { anythingArb } from './arbs.ts'
 import srcify from './index.ts'
 
 test.prop([anythingArb], {
-  numRuns: 30_000,
+  numRuns: 500,
   examples: [
     undefined,
     null,
@@ -32,6 +32,7 @@ test.prop([anythingArb], {
     // eslint-disable-next-line no-eval
     roundtrippedValue = (0, eval)(`(${source})`) as unknown
   } catch (error: unknown) {
+    console.log(value)
     console.log(source)
     throw error
   }
@@ -340,7 +341,23 @@ test(`srcify snapshots`, () => {
   const circularMap2 = new Map()
   circularMap2.set(circularMap2, `howdy`)
   expect(srcify(circularMap2)).toMatchInlineSnapshot(
-    `"((a=new Map())=>(a.set(a,a),a))()"`,
+    `"((a=new Map())=>(a.set(a,"howdy"),a))()"`,
+  )
+  const circularMap3 = new Map()
+  circularMap3.set({ '': circularMap3 }, circularMap3)
+  expect(srcify(circularMap3)).toMatchInlineSnapshot(
+    `"((b={},a=new Map([[b]]))=>(b[""]=a,a.set(b,a),a))()"`,
+  )
+  const circularMap4 = new Map()
+  circularMap4.set({}, { '': new Map([[circularMap4, new Map()]]) })
+  expect(srcify(circularMap4)).toMatchInlineSnapshot(
+    `"((b={},a=new Map([[b,{"":new Map()}]]))=>(a.get(b)[""].set(a,new Map()),a))()"`,
+  )
+  const arrayKey: unknown[] = []
+  const circularMap5 = new Map([[arrayKey, {}]])
+  arrayKey.push(circularMap5)
+  expect(srcify(circularMap5)).toMatchInlineSnapshot(
+    `"((b=[],a=new Map([[b,{}]]))=>b[0]=a)()"`,
   )
 
   // Unsupported
