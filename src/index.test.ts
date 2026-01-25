@@ -360,6 +360,17 @@ test(`srcify snapshots`, () => {
     `"((b=[],a=new Map([[b,{}]]))=>b[0]=a)()"`,
   )
 
+  const circularSet1 = new Set()
+  circularSet1.add(circularSet1)
+  expect(srcify(circularSet1)).toMatchInlineSnapshot(
+    `"((a=new Set())=>(a.add(a),a))()"`,
+  )
+  const circularSet2 = new Set()
+  circularSet2.add({ '': circularSet2 })
+  expect(srcify(circularSet2)).toMatchInlineSnapshot(
+    `"((b={},a=new Set([b]))=>b[""]=a)()"`,
+  )
+
   // Unsupported
   expect(() =>
     srcify(Symbol(`Hello World!`)),

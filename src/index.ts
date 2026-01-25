@@ -102,6 +102,7 @@ const SYMBOL_PROPERTY = 1
 const INDEX = 2
 const PROTOTYPE = 3
 const MAP_ENTRY = 4
+const SET_VALUE = 5
 
 type PathSegment = {
   /**
@@ -116,6 +117,7 @@ type PathSegment = {
     | { _type: typeof INDEX; _index: number }
     | { _type: typeof PROTOTYPE }
     | { _type: typeof MAP_ENTRY; _key: string; _value: string }
+    | { _type: typeof SET_VALUE }
 
   /**
    * The value at this point of the path.
@@ -353,6 +355,11 @@ const srcifyAssignment = (left: string, path: Path, right: string): string => {
           ? `.set(${_name._key},${_name._value})`
           : `.get(${_name._key})`
         continue
+      case SET_VALUE:
+        if (isLast) {
+          assignment += `.add(${right})`
+        }
+        continue
     }
 
     if (isLast) {
@@ -479,15 +486,38 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         .join(`,`)
       return newInstance(type, entries ? `[${entries}]` : ``)
     }
-    case `Set`:
+    case `Set`: {
+      const values = [...(value as Iterable<unknown>)]
+        .flatMap(value => {
+          const circularAssignmentCount = state._circularAssignments.length
+          let result = srcifyWithPath(
+            { _name: { _type: SET_VALUE }, _value: value },
+            state,
+          )
+          const hasCircularAssignments =
+            state._circularAssignments.length > circularAssignmentCount
+
+          if (result === null) {
+            return []
+          }
+
+          if (hasCircularAssignments) {
+            // If the set value is involved in a circular assignment, then we
+            // must make a binding for it because we cannot access the set value
+            // later otherwise (i.e. no way to index the set efficiently).
+            result = ensureBinding(value as object, result, state)._name
+          }
+
+          return [result]
+        })
+        .join(`,`)
+      return newInstance(type, values ? `[${values}]` : ``)
+    }
     case `URLSearchParams`: {
       const values = [...(value as Iterable<unknown>)]
       return newInstance(
         type,
-        values.length
-          ? // TODO: This won't always return a string.
-            srcifyInternal(values, state)!
-          : ``,
+        values.length ? srcifyInternal(values, state)! : ``,
       )
     }
     case `Int8Array`:
