@@ -2,6 +2,66 @@
 
 import { generateIdentifier } from './identifier.ts'
 
+/** An identifier with an assigned value. */
+type Binding = {
+  /** The name of the binding. */
+  _name: string
+  /** The value of the binding as a source string. */
+  _source: string
+  /**
+   * The binding values this binding depends on, corresponding to keys in
+   * {@link State._bindings}.
+   */
+  _dependencies: Set<object>
+}
+
+const SET_OBJECT_STRING_PROPERTY = 0
+const SET_OBJECT_SYMBOL_PROPERTY = 1
+const SET_ARRAY_INDEX = 2
+const SET_MAP_ENTRY = 3
+const ADD_TO_SET = 4
+
+/** An mutation of a binding. */
+type Mutation = {
+  _binding: Binding
+  /** The source or value with a binding that's the "input" to the mutation. */
+  _value: string | object
+} & (
+  | { _type: typeof SET_OBJECT_STRING_PROPERTY; _property: string }
+  | { _type: typeof SET_OBJECT_SYMBOL_PROPERTY; _property: string }
+  | { _type: typeof SET_ARRAY_INDEX; _index: number }
+  | { _type: typeof SET_MAP_ENTRY; _key: string }
+  | { _type: typeof ADD_TO_SET }
+)
+
+/** State maintained while converting a value to source. */
+type State = {
+  /**
+   * Parents objects that have already been visited above the current object
+   * tree being traversed.
+   *
+   * Used to detect circular references.
+   */
+  _currentParents: Set<object>
+
+  /**
+   * The current binding being rendered, or `undefined` if an inline value is
+   * being rendered (e.g. directly returned).
+   */
+  _currentBinding?: Binding
+
+  /**
+   * A map from object to the binding where it should be stored.
+   *
+   * Bindings are used to share objects that are referenced multiple times or to
+   * create circular references in conjunction with {@link State._mutations}.
+   */
+  _bindings: Map<object, Binding>
+
+  /** A list of mutations of bindings. */
+  _mutations: Mutation[]
+}
+
 /**
  * Converts the given {@link value} to JavaScript source code.
  *
@@ -22,53 +82,161 @@ import { generateIdentifier } from './identifier.ts'
  */
 const srcify = (value: unknown): string => {
   const state: State = {
-    _refCounts: countRefs(value),
     _currentParents: new Set(),
-    _currentPath: [],
-    _bindings: new Map(),
-    _circularAssignments: [],
+    _bindings: createBindings(value),
+    _mutations: [],
   }
-  const source = srcifyInternal(value, state)
+  const result = srcifyInternal(value, state)
 
   if (!state._bindings.size) {
     // If no bindings were created, then it's impossible for the returned source
     // to reference one, so it must be a string.
-    return source!
+    return result!
   }
 
   const parametersSource = Array.from(
     topologicallySortBindings(state._bindings),
     binding => `${binding._name}=${binding._source}`,
   ).join(`,`)
-  const bodySources = state._circularAssignments.map(path => {
-    const circularName = path[0]!._name
-    for (let i = path.length - 2; i >= 0; i--) {
-      const binding = state._bindings.get(path[i]!._value as object)
-      if (binding) {
-        return srcifyAssignment(
-          binding._name,
-          path.slice(i + 1),
-          (circularName as { _property: string })._property,
-        )
-      }
-    }
-    /* c8 ignore next -- @preserve */
-    return undefined
-  })
 
-  const returnBinding = state._bindings.get(value as object)
+  const bodyResults = state._mutations.map(mutation =>
+    srcifyMutation(mutation, state),
+  )
+  const bodySources = bodyResults.map(result => result._source)
+
+  const returnBinding = state._bindings.get(
+    // The value must be an object if we ended up needing to create bindings for
+    // it. A primitive value would always result in fully inline source above.
+    value as object,
+  )
   if (!returnBinding) {
-    bodySources.push(source!)
-  } else if (!bodySources.at(-1)?.endsWith(`=${returnBinding._name}`)) {
+    // The value the returned source evaluates to doesn't have a binding, so we
+    // add its source inline at the end of the body expression to return it.
+    bodySources.push(
+      // Guaranteed to be non-null because that only happens when it's circular,
+      // which it can't be if it has no binding.
+      result!,
+    )
+  } else if (bodyResults.at(-1)?._evaluatesTo !== returnBinding._name) {
+    // The value the returned source evaluates to does have a binding, but the
+    // last mutation in the body does not evaluate to it, so we have to add a
+    // reference to the value's binding at the end of the body expression to
+    // return it.
     bodySources.push(returnBinding._name)
   }
 
   let bodySource = bodySources.join(`,`)
   if (bodySources.length > 1 || bodySource.startsWith(`{`)) {
+    // If the body is a comma expression, then it requires a parentheses to be a
+    // syntactically correct expression return. If the body is an object, then
+    // it also needs parentheses so that it isn't interpreted as a block.
     bodySource = `(${bodySource})`
   }
 
   return `((${parametersSource})=>${bodySource})()`
+}
+
+const createBindings = (value: unknown): Map<object, Binding> => {
+  const bindings = new Map<object, Binding>()
+  const ensureBinding = (value: object) => {
+    if (!bindings.has(value)) {
+      bindings.set(value, {
+        _name: generateIdentifier(bindings.size),
+        _source: ``,
+        _dependencies: new Set(),
+      })
+    }
+  }
+
+  // Values seen at any point during traversal. Used to detect shared references.
+  const seen = new Set<object>()
+  // Values seen above the current value during traversal. Used to detect
+  // circular references. This is always a subset of `seen`.
+  const parents = new Set<object>()
+
+  const traverse = (value: unknown, parent?: object) => {
+    if (value === null || typeof value !== `object`) {
+      return
+    }
+
+    if (seen.has(value)) {
+      // If a object value is used more than once, then it needs a binding for
+      // the shared reference.
+      ensureBinding(value)
+
+      if (parents.has(value)) {
+        // If this value is referenced circularly, then we'll need a binding for
+        // its parent so that we can mutate it later to attach the circular
+        // reference.
+        ensureBinding(parent!)
+      }
+      return
+    }
+
+    seen.add(value)
+    parents.add(value)
+    traverseObject(value)
+    parents.delete(value)
+  }
+
+  const traverseObject = (value: object) => {
+    switch (getType(value)) {
+      case `Array`:
+      case `Set`:
+        for (const item of value as Iterable<unknown>) {
+          traverse(item, value)
+        }
+        break
+      case `Map`:
+        for (const [key, item] of value as Map<unknown, unknown>) {
+          traverse(key, value)
+          traverse(item, value)
+
+          if (isObject(item) && parents.has(item) && isObject(key)) {
+            // If the item is circular and the key is an object, then the key
+            // also needs a binding so we can reference it in mutations.
+            ensureBinding(key)
+          }
+        }
+        break
+      case `Boolean`:
+      case `Number`:
+      case `String`:
+      case `Date`:
+      case `URL`:
+      case `RegExp`:
+      case `URLSearchParams`:
+      case `Int8Array`:
+      case `Uint8Array`:
+      case `Uint8ClampedArray`:
+      case `Int16Array`:
+      case `Uint16Array`:
+      case `Int32Array`:
+      case `Uint32Array`:
+      case `Float32Array`:
+      case `Float64Array`:
+      case `BigInt64Array`:
+      case `BigUint64Array`:
+        break
+      default: {
+        for (const key of Reflect.ownKeys(value)) {
+          traverse(Reflect.get(value, key), value)
+        }
+
+        const prototype = Object.getPrototypeOf(value) as unknown
+        // TODO: Find a better alternative to this that works cross-realm.
+        if (prototype !== Object.prototype) {
+          // We only render the prototype if it's not equal the default one.
+          traverse(prototype, value)
+        }
+        break
+      }
+    }
+  }
+
+  traverse(value)
+
+  return bindings
 }
 
 const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
@@ -97,166 +265,14 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   return sortedBindings
 }
 
-const STRING_PROPERTY = 0
-const SYMBOL_PROPERTY = 1
-const INDEX = 2
-const PROTOTYPE = 3
-const MAP_ENTRY = 4
-const SET_VALUE = 5
-
-type PathSegment = {
-  /**
-   * The name associated with the path segment.
-   *
-   * If it's the root, then it will be a variable name. Otherwise it will be a
-   * property name or array index.
-   */
-  _name:
-    | { _type: typeof STRING_PROPERTY; _property: string }
-    | { _type: typeof SYMBOL_PROPERTY; _property: string }
-    | { _type: typeof INDEX; _index: number }
-    | { _type: typeof PROTOTYPE }
-    | { _type: typeof MAP_ENTRY; _key: string; _value: string }
-    | { _type: typeof SET_VALUE }
-
-  /**
-   * The value at this point of the path.
-   *
-   * If it's the first path segment, then it's the root object.
-   */
-  _value: unknown
-}
-
-/** A path from a root object to some sub-object within it. */
-type Path = PathSegment[]
-
-type Binding = {
-  /** The name of the binding. */
-  _name: string
-  /** The value of the binding as a source string. */
-  _source: string
-  /** The binding values this binding depends on. */
-  _dependencies: Set<object>
-}
-
-/** State maintained while converting a value to source. */
-type State = {
-  /**
-   * The number of times each object is referenced.
-   *
-   * Used to decide whether to extract a binding for a value or render it inline.
-   */
-  _refCounts: Map<object, number>
-
-  /**
-   * Parents objects that have already been visited above the current object
-   * tree being traversed.
-   *
-   * Used to detect circular references.
-   */
-  _currentParents: Set<object>
-
-  /** The path from the root value to the current value being traversed. */
-  _currentPath: Path
-
-  /**
-   * The current binding being rendered, or `undefined` if an inline value is
-   * being rendered (e.g. directly returned).
-   */
-  _currentBinding?: Binding
-
-  /**
-   * A map from object to the binding where it should be stored.
-   *
-   * Bindings are used to share objects that are referenced multiple times or to
-   * create circular references in conjunction with
-   * {@link State._circularAssignments}.
-   */
-  _bindings: Map<object, Binding>
-
-  /**
-   * A list of circular assignments of bindings.
-   *
-   * The value of the first segment in the path will be assigned as the new
-   * value for the last segment of the path.
-   */
-  _circularAssignments: Path[]
-}
-
-const countRefs = (value: unknown) => {
-  const counts = new Map<object, number>()
-
-  const traverse = (value: unknown) => {
-    if (value === null || typeof value !== `object`) {
-      return
-    }
-
-    const count = counts.get(value)
-    if (count) {
-      counts.set(value, count + 1)
-      return
-    }
-
-    counts.set(value, 1)
-    switch (getType(value)) {
-      case `Array`:
-      case `Set`:
-        for (const item of value as Iterable<unknown>) {
-          traverse(item)
-        }
-        break
-      case `Map`:
-        for (const [key, item] of value as Map<unknown, unknown>) {
-          traverse(key)
-          traverse(item)
-        }
-        break
-      case `Boolean`:
-      case `Number`:
-      case `String`:
-      case `Date`:
-      case `URL`:
-      case `RegExp`:
-      case `URLSearchParams`:
-      case `Int8Array`:
-      case `Uint8Array`:
-      case `Uint8ClampedArray`:
-      case `Int16Array`:
-      case `Uint16Array`:
-      case `Int32Array`:
-      case `Uint32Array`:
-      case `Float32Array`:
-      case `Float64Array`:
-      case `BigInt64Array`:
-      case `BigUint64Array`:
-        break
-      default:
-        for (const item of Object.values(value)) {
-          traverse(item)
-        }
-        traverse(Object.getPrototypeOf(value))
-        break
-    }
-  }
-
-  traverse(value)
-  return counts
-}
-
-const srcifyWithPath = (segment: PathSegment, state: State): string | null => {
-  state._currentPath.push(segment)
-  const result = srcifyInternal(segment._value, state)
-  state._currentPath.pop()
-  return result
-}
-
-const srcifyInternal = (value: unknown, state: State): string | null => {
+const srcifyInternal = ((value: unknown, state: State): string | null => {
   switch (typeof value) {
     case `undefined`:
       return `undefined`
     case `boolean`:
       return String(value)
     case `number`:
+      // `String(-0)` becomes `'0'` so we have to special-case it.
       return Object.is(value, -0) ? `-0` : String(value)
     case `bigint`:
       return `${value}n`
@@ -265,19 +281,28 @@ const srcifyInternal = (value: unknown, state: State): string | null => {
     case `object`:
       return value === null ? `null` : srcifyObject(value, state)
     case `symbol`: {
-      const name = WELL_KNOWN_SYMBOLS.get(value)
-      if (!name) {
+      const key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
+      if (!key) {
         throw new TypeError(`Unsupported: symbol`)
       }
-      return `Symbol.${name}`
+      return `Symbol.${key}`
     }
     case `function`:
       throw new TypeError(`Unsupported: function`)
   }
+}) as {
+  (
+    value: string | number | boolean | bigint | symbol | null | undefined,
+    state: State,
+  ): string
+  (value: unknown, state: State): string | null
 }
 
-const WELL_KNOWN_SYMBOLS = new Map(
+const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
   Reflect.ownKeys(Symbol).flatMap(key => {
+    // This doesn't happen in practice, but best to be safe if one day a
+    // non-string key as added to `Symbol`.
+    /* c8 ignore next -- @preserve */
     if (typeof key !== `string`) {
       return []
     }
@@ -287,86 +312,99 @@ const WELL_KNOWN_SYMBOLS = new Map(
 )
 
 const srcifyObject = (value: object, state: State): string | null => {
-  const refCount = state._refCounts.get(value) ?? 1
-  if (refCount === 1) {
+  const binding = state._bindings.get(value)
+  if (!binding) {
+    // This value has no binding so we can render its source inline.
     return srcifyObjectInternal(value, state)
   }
 
-  const binding = ensureBinding(value, ``, state)
-
   if (state._currentParents.has(value)) {
-    state._circularAssignments.push([
-      {
-        _name: { _type: STRING_PROPERTY, _property: binding._name },
-        _value: value,
-      },
-      ...state._currentPath,
-    ])
+    // Return null to indicate that this value is circularly referenced and
+    // should not be rendered here. Instead, we'll add a mutation to attach the
+    // circular reference later (in the caller).
     return null
+  }
+
+  if (state._currentBinding) {
+    // Register the current binding we're rendering as dependent on this value's
+    // binding (we return the binding name below) so that we can topologically
+    // sort the bindings later.
+    state._currentBinding._dependencies.add(value)
   }
 
   if (!binding._source) {
     const previousBinding = state._currentBinding
-    state._currentBinding = binding
 
+    // If this is the first time we're encountering this binding, then we must
+    // compute and set its source.
+    state._currentBinding = binding
     state._currentParents.add(value)
     binding._source = srcifyObjectInternal(value, state)
     state._currentParents.delete(value)
-
     state._currentBinding = previousBinding
   }
 
   return binding._name
 }
 
-const srcifyAssignment = (left: string, path: Path, right: string): string => {
-  let assignment = left
-  for (const [index, { _name }] of path.entries()) {
-    const isLast = index === path.length - 1
-    switch (_name._type) {
-      case STRING_PROPERTY:
-        if (_name._property === `__proto__`) {
-          if (isLast) {
-            assignment = `Object.defineProperty(${assignment},"__proto__",{value:${
-              right
-            },writable:true,enumerable:true,configurable:true})`
-          } else {
-            assignment += `.__proto__`
+const srcifyMutation = (
+  mutation: Mutation,
+  state: State,
+): {
+  /** The source of the mutation itself. */
+  _source: string
+  /** What the mutation statement evaluates to when used as an expression. */
+  _evaluatesTo: string
+} => {
+  const bindingName = mutation._binding._name
+  const value =
+    typeof mutation._value === `string`
+      ? mutation._value
+      : state._bindings.get(mutation._value)!._name
+  switch (mutation._type) {
+    case SET_OBJECT_STRING_PROPERTY:
+      return mutation._property === `__proto__`
+        ? {
+            _source: `Object.defineProperty(${bindingName},"__proto__",{value:${
+              value
+            },writable:true,enumerable:true,configurable:true})`,
+            // `Object.defineProperty` always returns the input object.
+            _evaluatesTo: bindingName,
           }
-          continue
-        }
-        assignment += PROPERTY_REG_EXP.test(_name._property)
-          ? `.${_name._property}`
-          : `[${JSON.stringify(_name._property)}]`
-        break
-      case SYMBOL_PROPERTY:
-        assignment += `[${_name._property}]`
-        break
-      case INDEX:
-        assignment += `[${_name._index}]`
-        break
-      case PROTOTYPE:
-        assignment = isLast
-          ? `Object.setPrototypeOf(${assignment},${right})`
-          : `Object.getPrototypeOf(${assignment})`
-        continue
-      case MAP_ENTRY:
-        assignment += isLast
-          ? `.set(${_name._key},${_name._value})`
-          : `.get(${_name._key})`
-        continue
-      case SET_VALUE:
-        if (isLast) {
-          assignment += `.add(${right})`
-        }
-        continue
-    }
-
-    if (isLast) {
-      assignment += `=${right}`
-    }
+        : {
+            _source: `${bindingName}${
+              PROPERTY_REG_EXP.test(mutation._property)
+                ? `.${mutation._property}`
+                : `[${JSON.stringify(mutation._property)}]`
+            }=${value}`,
+            // An assignment evaluates to the right-hand side.
+            _evaluatesTo: value,
+          }
+    case SET_OBJECT_SYMBOL_PROPERTY:
+      return {
+        _source: `${bindingName}[${mutation._property}]=${value}`,
+        // An assignment evaluates to the right-hand side.
+        _evaluatesTo: value,
+      }
+    case SET_ARRAY_INDEX:
+      return {
+        _source: `${bindingName}[${mutation._index}]=${value}`,
+        // An assignment evaluates to the right-hand side.
+        _evaluatesTo: value,
+      }
+    case SET_MAP_ENTRY:
+      return {
+        _source: `${bindingName}.set(${mutation._key},${value})`,
+        // `Map.set` always returns `this`.
+        _evaluatesTo: bindingName,
+      }
+    case ADD_TO_SET:
+      return {
+        _source: `${bindingName}.add(${value})`,
+        // `Set.add` always returns `this`.
+        _evaluatesTo: bindingName,
+      }
   }
-  return assignment
 }
 
 const srcifyObjectInternal = (value: object, state: State): string => {
@@ -376,18 +414,26 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Array`: {
       const array = value as unknown[]
       const itemSources: string[] = []
+      const binding = state._bindings.get(value)
       for (let i = 0; i < array.length; i++) {
         if (!(i in array)) {
           itemSources.push(``)
           continue
         }
 
-        itemSources.push(
-          srcifyWithPath(
-            { _name: { _type: INDEX, _index: i }, _value: array[i] },
-            state,
-          ) ?? ``,
-        )
+        const result = srcifyInternal(array[i], state)
+        if (result === null) {
+          state._mutations.push({
+            _binding: binding!,
+            _type: SET_ARRAY_INDEX,
+            _index: i,
+            // `array[i]` must be an object if it's circular.
+            _value: array[i] as object,
+          })
+          itemSources.push(``)
+        } else {
+          itemSources.push(result)
+        }
       }
       if (!(array.length - 1 in array)) {
         // The array is sparse and has a trailing empty slot. This requires an
@@ -401,111 +447,90 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       const primitive = (value as Boolean).valueOf()
       return newInstance(
         type,
-        primitive ? srcifyInternal(primitive, state)! : ``,
+        primitive ? srcifyInternal(primitive, state) : ``,
       )
     }
     case `Number`: {
       const primitive = (value as Number).valueOf()
       return newInstance(
         type,
-        Object.is(primitive, 0) ? `` : srcifyInternal(primitive, state)!,
+        Object.is(primitive, 0) ? `` : srcifyInternal(primitive, state),
       )
     }
     case `String`: {
       const primitive = (value as String).valueOf()
       return newInstance(
         type,
-        primitive ? srcifyInternal(primitive, state)! : ``,
+        primitive ? srcifyInternal(primitive, state) : ``,
       )
     }
     case `Date`:
-      return newInstance(type, srcifyInternal(value.valueOf(), state)!)
+      return newInstance(type, srcifyInternal((value as Date).valueOf(), state))
     case `URL`:
-      return newInstance(type, srcifyInternal((value as URL).href, state)!)
+      return newInstance(type, srcifyInternal((value as URL).href, state))
     // TODO: Serialize RegExp objects as literals.
     case `RegExp`: {
       const { source, flags } = value as RegExp
       return newInstance(
         type,
-        `${srcifyInternal(source, state)!}${flags && `,${srcifyInternal(flags, state)!}`}`,
+        `${srcifyInternal(source, state)}${
+          flags && `,${srcifyInternal(flags, state)}`
+        }`,
       )
     }
     case `Map`: {
+      const binding = state._bindings.get(value)
       const entries = [...(value as Iterable<[unknown, unknown]>)]
         .flatMap(([key, value]) => {
-          const name = { _type: MAP_ENTRY, _key: ``, _value: `` } satisfies {
-            _type: typeof MAP_ENTRY
-            _key: string
-            _value: string
-          }
-
-          let circularAssignmentCount = state._circularAssignments.length
-          let keyResult = srcifyWithPath({ _name: name, _value: key }, state)
-          const keyHasCircularAssignments =
-            state._circularAssignments.length > circularAssignmentCount
-
-          circularAssignmentCount = state._circularAssignments.length
-          const valueSource = srcifyWithPath(
-            { _name: name, _value: value },
-            state,
-          )
-          const valueHasCircularAssignments =
-            state._circularAssignments.length > circularAssignmentCount
-
-          name._value =
-            valueSource ?? state._bindings.get(value as object)!._name
+          const keyResult = srcifyInternal(key, state)
+          const valueResult = srcifyInternal(value, state)
 
           if (keyResult === null) {
-            // The key cannot be constructed before the map is, so we don't
-            // include this entry in map construction. We `.set(...)` it later.
-            name._key = state._bindings.get(key as object)!._name
+            // If the key is circular, then omit this entry for now and set it
+            // later.
+            state._mutations.push({
+              _binding: binding!,
+              _type: SET_MAP_ENTRY,
+              _key: state._bindings.get(key as object)!._name,
+              _value:
+                valueResult ??
+                // `value` must be an object if it's circular.
+                (value as object),
+            })
             return []
           }
 
-          const entryHasCircularAssignments =
-            keyHasCircularAssignments || valueHasCircularAssignments
-          if (
-            key !== null &&
-            typeof key === `object` &&
-            entryHasCircularAssignments
-          ) {
-            // If the key is an object, meaning its reference equality is
-            // important, and either the entry has a circular assignment, then
-            // that means the key will be used again later in one of those
-            // circular assignments. In that case, we must ensure that the key
-            // has a binding. Rendering it inline twice will not have the same
-            // result due to reference equality.
-            keyResult = ensureBinding(key, keyResult, state)._name
+          if (valueResult === null) {
+            // If the value is circular, then omit the value part of the entry
+            // for now and set it later.
+            state._mutations.push({
+              _binding: binding!,
+              _type: SET_MAP_ENTRY,
+              _key: keyResult,
+              // `value` must be an object if it's circular.
+              _value: value as object,
+            })
+            return [`[${keyResult}]`]
           }
-          name._key = keyResult
 
-          return [
-            `[${keyResult}${valueSource === null ? `` : `,${valueSource}`}]`,
-          ]
+          return [`[${keyResult},${valueResult}]`]
         })
         .join(`,`)
       return newInstance(type, entries ? `[${entries}]` : ``)
     }
     case `Set`: {
+      const binding = state._bindings.get(value)
       const values = [...(value as Iterable<unknown>)]
         .flatMap(value => {
-          const circularAssignmentCount = state._circularAssignments.length
-          let result = srcifyWithPath(
-            { _name: { _type: SET_VALUE }, _value: value },
-            state,
-          )
-          const hasCircularAssignments =
-            state._circularAssignments.length > circularAssignmentCount
-
+          const result = srcifyInternal(value, state)
           if (result === null) {
+            state._mutations.push({
+              _binding: binding!,
+              _type: ADD_TO_SET,
+              // `value` must be an object if it's circular.
+              _value: value as object,
+            })
             return []
-          }
-
-          if (hasCircularAssignments) {
-            // If the set value is involved in a circular assignment, then we
-            // must make a binding for it because we cannot access the set value
-            // later otherwise (i.e. no way to index the set efficiently).
-            result = ensureBinding(value as object, result, state)._name
           }
 
           return [result]
@@ -514,10 +539,13 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       return newInstance(type, values ? `[${values}]` : ``)
     }
     case `URLSearchParams`: {
-      const values = [...(value as Iterable<unknown>)]
+      const values = [...(value as Iterable<[string, string]>)]
       return newInstance(
         type,
-        values.length ? srcifyInternal(values, state)! : ``,
+        values.length
+          ? // Must be non-null because `[string, string][]` can't be circular.
+            srcifyInternal(values, state)!
+          : ``,
       )
     }
     case `Int8Array`:
@@ -535,7 +563,8 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         values.length
           ? values.every(value => Object.is(value, 0))
             ? values.length
-            : srcifyInternal(values, state)!
+            : // Must be non-null because `number[]` can't be circular.
+              srcifyInternal(values, state)!
           : ``,
       )
     }
@@ -547,7 +576,8 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         values.length
           ? values.every(value => value === 0n)
             ? values.length
-            : srcifyInternal(values, state)!
+            : // Must be non-null because `bigint[]` can't be circular.
+              srcifyInternal(values, state)!
           : ``,
       )
     }
@@ -556,34 +586,12 @@ const srcifyObjectInternal = (value: object, state: State): string => {
   }
 }
 
-const ensureBinding = (
-  value: object,
-  source: string,
-  state: State,
-): Binding => {
-  let binding = state._bindings.get(value)
-  if (binding) {
-    return binding
-  }
-
-  binding = {
-    _name: generateIdentifier(state._bindings.size),
-    _source: source,
-    _dependencies: new Set(),
-  }
-  state._bindings.set(value, binding)
-
-  if (state._currentBinding) {
-    state._currentBinding._dependencies.add(value)
-  }
-
-  return binding
-}
-
 const newInstance = (type: string, args: string | number) =>
   `new ${type}(${args})`
 
 const srcifyObjectLike = (object: object, state: State): string => {
+  const binding = state._bindings.get(object)
+
   let __proto__: { _value: unknown } | undefined
   let source = `{${Reflect.ownKeys(object)
     .filter(key => {
@@ -598,48 +606,50 @@ const srcifyObjectLike = (object: object, state: State): string => {
       }
     })
     .flatMap(key => {
-      const symbolSource =
+      const symbolResult =
         typeof key === `symbol` ? srcifyInternal(key, state) : null
 
       const value = Reflect.get(object, key) as unknown
-      const result = srcifyWithPath(
-        {
-          _name: symbolSource
-            ? { _type: SYMBOL_PROPERTY, _property: symbolSource }
-            : { _type: STRING_PROPERTY, _property: key as string },
-          _value: value,
-        },
-        state,
-      )
-      if (result === null) {
+      const valueResult = srcifyInternal(value, state)
+      if (valueResult === null) {
+        state._mutations.push({
+          _binding: binding!,
+          // `value` must be an object if it's circular.
+          _value: value as object,
+          ...(symbolResult
+            ? { _type: SET_OBJECT_SYMBOL_PROPERTY, _property: symbolResult }
+            : { _type: SET_OBJECT_STRING_PROPERTY, _property: key as string }),
+        })
         return []
       }
 
-      if (symbolSource) {
-        return [`[${symbolSource}]:${result}`]
+      if (symbolResult) {
+        return [`[${symbolResult}]:${valueResult}`]
       }
 
       key = key as string
       if (NAT_REG_EXP.test(key)) {
-        return [`${key}:${result}`]
+        return [`${key}:${valueResult}`]
       }
 
       if (!PROPERTY_REG_EXP.test(key)) {
-        return [`${JSON.stringify(key)}:${result}`]
+        return [`${JSON.stringify(key)}:${valueResult}`]
       }
 
-      return [key === result ? key : `${key}:${result}`]
+      return [key === valueResult ? key : `${key}:${valueResult}`]
     })
     .join(`,`)}}`
   if (__proto__) {
-    const result = srcifyWithPath(
-      {
-        _name: { _type: STRING_PROPERTY, _property: `__proto__` },
-        _value: __proto__._value,
-      },
-      state,
-    )
-    if (result !== null) {
+    const result = srcifyInternal(__proto__._value, state)
+    if (result === null) {
+      state._mutations.push({
+        _binding: binding!,
+        _type: SET_OBJECT_STRING_PROPERTY,
+        _property: `__proto__`,
+        // `__proto__._value` must be an object if it's circular.
+        _value: __proto__._value as object,
+      })
+    } else {
       source = `Object.defineProperty(${source},"__proto__",{value:${
         result
       },writable:true,enumerable:true,configurable:true})`
@@ -647,15 +657,13 @@ const srcifyObjectLike = (object: object, state: State): string => {
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
-  // TODO: Find a better alternative to this that works cross-realm
+  // TODO: Find a better alternative to this that works cross-realm.
   if (prototype !== Object.prototype) {
-    const result = srcifyWithPath(
-      { _name: { _type: PROTOTYPE }, _value: prototype },
-      state,
-    )
-    if (result !== null) {
-      source = `Object.setPrototypeOf(${source},${result})`
-    }
+    source = `Object.setPrototypeOf(${source},${
+      // This must be non-null because prototypes cannot be circular. Trying
+      // to make them circular results in an error.
+      srcifyInternal(prototype, state)!
+    })`
   }
 
   return source
@@ -663,6 +671,9 @@ const srcifyObjectLike = (object: object, state: State): string => {
 
 const PROPERTY_REG_EXP = /^\p{ID_Start}\p{ID_Continue}*$/u
 const NAT_REG_EXP = /^[1-9][0-9]*$/u
+
+const isObject = (value: unknown): value is object =>
+  value !== null && typeof value === `object`
 
 const getType = (value: object): string =>
   // `.constructor` returns `undefined` for objects with null prototype.
