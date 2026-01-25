@@ -1,40 +1,50 @@
+/* eslint-disable no-eval */
+
 import { fc } from '@fast-check/vitest'
 import * as devalue from 'devalue'
 import jsesc from 'jsesc'
 import serializeJavaScript from 'serialize-javascript'
 import toSource from 'tosource'
-import { bench } from 'vitest'
-import { anythingArb } from './arbs.ts'
+import { bench, describe } from 'vitest'
 import srcify from './index.ts'
 
-const values = fc.sample(anythingArb, { seed: 42, numRuns: 5000 })
+describe.each([
+  [`booleans`, fc.boolean()],
+  [`integers`, fc.integer()],
+  [`numbers`, fc.double()],
+  [`bigints`, fc.bigInt()],
+  [`strings`, fc.string()],
+  [`objects`, fc.object()],
+])(`%s`, (_, arb: fc.Arbitrary<unknown>) => {
+  const values = fc.sample(arb, { seed: 42, numRuns: 5000 })
 
-bench(`srcify`, () => {
-  for (const value of values) {
-    srcify(value)
-  }
-})
+  bench(`srcify`, () => {
+    for (const value of values) {
+      ;(0, eval)(`(${srcify(value)})`)
+    }
+  })
 
-bench(`devalue`, () => {
-  for (const value of values) {
-    devalue.uneval(value)
-  }
-})
+  bench(`devalue`, () => {
+    for (const value of values) {
+      ;(0, eval)(`(${devalue.uneval(value)})`)
+    }
+  })
 
-bench(`jsesc`, () => {
-  for (const value of values) {
-    jsesc(value)
-  }
-})
+  bench(`jsesc`, () => {
+    for (const value of values) {
+      ;(0, eval)(`(${jsesc(value, { wrap: true })})`)
+    }
+  })
 
-bench(`serialize-javascript`, () => {
-  for (const value of values) {
-    serializeJavaScript(value)
-  }
-})
+  bench(`serialize-javascript`, () => {
+    for (const value of values) {
+      ;(0, eval)(`(${serializeJavaScript(value)})`)
+    }
+  })
 
-bench(`tosource`, () => {
-  for (const value of values) {
-    toSource(value)
-  }
+  bench(`tosource`, () => {
+    for (const value of values) {
+      ;(0, eval)(`(${toSource(value)})`)
+    }
+  })
 })
