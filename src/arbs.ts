@@ -14,18 +14,21 @@ const circularArb = fc
         depthIdentifier,
         maxKeys: 5,
       }),
+      set: fc.set(tie(`innerValue`), { depthIdentifier, maxLength: 5 }),
       innerValue: fc.oneof(
         { depthIdentifier },
         fc.record({ [circularSymbol]: fc.nat({ max: 5 }) }),
         tie(`object`),
         tie(`array`),
         tie(`map`),
+        tie(`set`),
       ),
       value: fc.oneof(
         { depthIdentifier },
         tie(`object`),
         tie(`array`),
         tie(`map`),
+        tie(`set`),
       ),
     })).value,
     { minLength: 1, maxLength: 5 },
@@ -68,6 +71,13 @@ const circularArb = fc
           }
         }
         return false
+      } else if (value instanceof Set) {
+        for (const item of value) {
+          if (hasCircularSymbolLoop(item)) {
+            return true
+          }
+        }
+        return false
       } else {
         return Object.values(value).some(hasCircularSymbolLoop)
       }
@@ -104,6 +114,13 @@ const circularArb = fc
         replaced.set(value, newValue)
         for (const [key, item] of value.entries()) {
           newValue.set(replace(key), replace(item))
+        }
+        return newValue
+      } else if (value instanceof Set) {
+        const newValue = new Set()
+        replaced.set(value, newValue)
+        for (const item of value) {
+          newValue.add(replace(item))
         }
         return newValue
       } else {
