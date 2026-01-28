@@ -192,7 +192,15 @@ const createBindings = (value: unknown): Map<object, Binding> => {
           traverse(key, value)
           traverse(item, value)
 
-          if (isObject(item) && parents.has(item) && isObject(key)) {
+          if (
+            parents.has(
+              // Not guaranteed to be an object, but that doesn't matter because
+              // it's just a lookup, and this saves bytes.
+              item as object,
+            ) &&
+            key &&
+            typeof key === `object`
+          ) {
             // If the item is circular and the key is an object, then the key
             // also needs a binding so we can reference it in mutations.
             ensureBinding(key)
@@ -357,17 +365,15 @@ const srcifyMutation = (
   _evaluatesTo: string
 } => {
   const bindingName = mutation._binding._name
-  const value =
+  const valueSource =
     typeof mutation._value === `string`
       ? mutation._value
       : state._bindings.get(mutation._value)!._name
   switch (mutation._type) {
     case SET_OBJECT_STRING_PROPERTY:
-      return mutation._property === `__proto__`
+      return mutation._property === __PROTO__
         ? {
-            _source: `Object.defineProperty(${bindingName},"__proto__",{value:${
-              value
-            },writable:true,enumerable:true,configurable:true})`,
+            _source: objectDefineProperty(bindingName, valueSource),
             // `Object.defineProperty` always returns the input object.
             _evaluatesTo: bindingName,
           }
@@ -376,31 +382,31 @@ const srcifyMutation = (
               PROPERTY_REG_EXP.test(mutation._property)
                 ? `.${mutation._property}`
                 : `[${JSON.stringify(mutation._property)}]`
-            }=${value}`,
+            }=${valueSource}`,
             // An assignment evaluates to the right-hand side.
-            _evaluatesTo: value,
+            _evaluatesTo: valueSource,
           }
     case SET_OBJECT_SYMBOL_PROPERTY:
       return {
-        _source: `${bindingName}[${mutation._property}]=${value}`,
+        _source: `${bindingName}[${mutation._property}]=${valueSource}`,
         // An assignment evaluates to the right-hand side.
-        _evaluatesTo: value,
+        _evaluatesTo: valueSource,
       }
     case SET_ARRAY_INDEX:
       return {
-        _source: `${bindingName}[${mutation._index}]=${value}`,
+        _source: `${bindingName}[${mutation._index}]=${valueSource}`,
         // An assignment evaluates to the right-hand side.
-        _evaluatesTo: value,
+        _evaluatesTo: valueSource,
       }
     case SET_MAP_ENTRY:
       return {
-        _source: `${bindingName}.set(${mutation._key},${value})`,
+        _source: `${bindingName}.set(${mutation._key},${valueSource})`,
         // `Map.set` always returns `this`.
         _evaluatesTo: bindingName,
       }
     case ADD_TO_SET:
       return {
-        _source: `${bindingName}.add(${value})`,
+        _source: `${bindingName}.add(${valueSource})`,
         // `Set.add` always returns `this`.
         _evaluatesTo: bindingName,
       }
@@ -443,7 +449,8 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       }
       return `[${itemSources.join(`,`)}]`
     }
-    case `Boolean`: {
+    case `Boolean`:
+    case `String`: {
       const primitive = (value as Boolean).valueOf()
       return newInstance(
         type,
@@ -455,13 +462,6 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       return newInstance(
         type,
         Object.is(primitive, 0) ? `` : srcifyInternal(primitive, state),
-      )
-    }
-    case `String`: {
-      const primitive = (value as String).valueOf()
-      return newInstance(
-        type,
-        primitive ? srcifyInternal(primitive, state) : ``,
       )
     }
     case `Date`:
@@ -595,7 +595,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
   let __proto__: { _value: unknown } | undefined
   let source = `{${Reflect.ownKeys(object)
     .filter(key => {
-      if (key === `__proto__`) {
+      if (key === __PROTO__) {
         // TODO: Use `Object.assign` after `Object.defineProperty` if
         // `__proto__` is in the middle of the ordering, so that we preserve
         // the property order instead of always putting it at the end.
@@ -645,14 +645,12 @@ const srcifyObjectLike = (object: object, state: State): string => {
       state._mutations.push({
         _binding: binding!,
         _type: SET_OBJECT_STRING_PROPERTY,
-        _property: `__proto__`,
+        _property: __PROTO__,
         // `__proto__._value` must be an object if it's circular.
         _value: __proto__._value as object,
       })
     } else {
-      source = `Object.defineProperty(${source},"__proto__",{value:${
-        result
-      },writable:true,enumerable:true,configurable:true})`
+      source = objectDefineProperty(source, result)
     }
   }
 
@@ -669,11 +667,14 @@ const srcifyObjectLike = (object: object, state: State): string => {
   return source
 }
 
+const objectDefineProperty = (objectSource: string, valueSource: string) =>
+  `Object.defineProperty(${objectSource},"${__PROTO__}",{value:${
+    valueSource
+  },writable:true,enumerable:true,configurable:true})`
+
+const __PROTO__ = `__proto__`
 const PROPERTY_REG_EXP = /^\p{ID_Start}\p{ID_Continue}*$/u
 const NAT_REG_EXP = /^[1-9][0-9]*$/u
-
-const isObject = (value: unknown): value is object =>
-  value !== null && typeof value === `object`
 
 const getType = (value: object): string =>
   // `.constructor` returns `undefined` for objects with null prototype.
