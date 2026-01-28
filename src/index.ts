@@ -62,6 +62,8 @@ type State = {
   _mutations: Mutation[]
 }
 
+// TODO(#16): Support custom srcify handlers.
+// TODO(#17): Support ignoring unsupported things (like functions and symbols).
 /**
  * Converts the given {@link value} to JavaScript source code.
  *
@@ -207,6 +209,9 @@ const createBindings = (value: unknown): Map<object, Binding> => {
           }
         }
         break
+      // TODO(#12): Support `Float16Array`
+      // TODO(#13): Support Node `Buffer`
+      // TODO(#18): Support `ArrayBuffer`
       case `Boolean`:
       case `Number`:
       case `String`:
@@ -227,14 +232,15 @@ const createBindings = (value: unknown): Map<object, Binding> => {
       case `BigUint64Array`:
         break
       default: {
+        // TODO(#9): Support all property types, including non-enumerable ones.
         for (const key of Reflect.ownKeys(value)) {
           traverse(Reflect.get(value, key), value)
         }
 
         const prototype = Object.getPrototypeOf(value) as unknown
-        // TODO: Find a better alternative to this that works cross-realm.
         if (prototype !== Object.prototype) {
-          // We only render the prototype if it's not equal the default one.
+          // We only render the prototype if it's not equal the default one in
+          // this realm.
           traverse(prototype, value)
         }
         break
@@ -273,6 +279,7 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   return sortedBindings
 }
 
+// TODO(#19): Support `Temporal` objects.
 const srcifyInternal = ((value: unknown, state: State): string | null => {
   switch (typeof value) {
     case `undefined`:
@@ -285,9 +292,11 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
     case `bigint`:
       return `${value}n`
     case `string`:
+      // TODO(#20): Escape unsafe strings (as in, no XSS).
       return JSON.stringify(value)
     case `object`:
       return value === null ? `null` : srcifyObject(value, state)
+    // TODO(#15): Support symbols from `Symbol.for`.
     case `symbol`: {
       const key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
       if (!key) {
@@ -381,7 +390,8 @@ const srcifyMutation = (
             _source: `${bindingName}${
               PROPERTY_REG_EXP.test(mutation._property)
                 ? `.${mutation._property}`
-                : `[${JSON.stringify(mutation._property)}]`
+                : // TODO(#20): Escape unsafe strings (as in, no XSS).
+                  `[${JSON.stringify(mutation._property)}]`
             }=${valueSource}`,
             // An assignment evaluates to the right-hand side.
             _evaluatesTo: valueSource,
@@ -416,7 +426,7 @@ const srcifyMutation = (
 const srcifyObjectInternal = (value: object, state: State): string => {
   const type = getType(value)
   switch (type) {
-    // TODO: Serialize extremely sparse arrays more efficiently.
+    // TODO(#8): Serialize extremely sparse arrays more efficiently.
     case `Array`: {
       const array = value as unknown[]
       const itemSources: string[] = []
@@ -468,7 +478,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       return newInstance(type, srcifyInternal((value as Date).valueOf(), state))
     case `URL`:
       return newInstance(type, srcifyInternal((value as URL).href, state))
-    // TODO: Serialize RegExp objects as literals.
+    // TODO(#11): Serialize RegExp objects as literals.
     case `RegExp`: {
       const { source, flags } = value as RegExp
       return newInstance(
@@ -548,6 +558,11 @@ const srcifyObjectInternal = (value: object, state: State): string => {
           : ``,
       )
     }
+    // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
+    // TODO(#12): Support `Float16Array`
+    // TODO(#13): Support Node `Buffer`
+    // TODO(#14): Support shared buffers between typed arrays.
+    // TODO(#18): Support `ArrayBuffer`
     case `Int8Array`:
     case `Uint8Array`:
     case `Uint8ClampedArray`:
@@ -568,6 +583,8 @@ const srcifyObjectInternal = (value: object, state: State): string => {
           : ``,
       )
     }
+    // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
+    // TODO(#14): Support shared buffers between typed arrays.
     case `BigInt64Array`:
     case `BigUint64Array`: {
       const values = [...(value as Iterable<bigint>)]
@@ -593,10 +610,11 @@ const srcifyObjectLike = (object: object, state: State): string => {
   const binding = state._bindings.get(object)
 
   let __proto__: { _value: unknown } | undefined
+  // TODO(#9): Support all property types, including non-enumerable ones.
   let source = `{${Reflect.ownKeys(object)
     .filter(key => {
       if (key === __PROTO__) {
-        // TODO: Use `Object.assign` after `Object.defineProperty` if
+        // TODO(#10): Use `Object.assign` after `Object.defineProperty` if
         // `__proto__` is in the middle of the ordering, so that we preserve
         // the property order instead of always putting it at the end.
         __proto__ = { _value: Reflect.get(object, key) as unknown }
@@ -633,6 +651,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
       }
 
       if (!PROPERTY_REG_EXP.test(key)) {
+        // TODO(#20): Escape unsafe strings (as in, no XSS).
         return [`${JSON.stringify(key)}:${valueResult}`]
       }
 
@@ -655,8 +674,9 @@ const srcifyObjectLike = (object: object, state: State): string => {
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
-  // TODO: Find a better alternative to this that works cross-realm.
   if (prototype !== Object.prototype) {
+    // We only render the prototype if it's not equal the default one in this
+    // realm.
     source = `Object.setPrototypeOf(${source},${
       // This must be non-null because prototypes cannot be circular. Trying
       // to make them circular results in an error.
