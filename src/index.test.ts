@@ -106,6 +106,9 @@ test(`srcify snapshots`, () => {
   expect(srcify({ 1: 1 })).toMatchInlineSnapshot(`"{1:1}"`)
   expect(srcify({ '1': 2 })).toMatchInlineSnapshot(`"{1:2}"`)
   expect(srcify({ 'a b c': 2 })).toMatchInlineSnapshot(`"{"a b c":2}"`)
+  expect(srcify({ [Symbol.toStringTag]: `hi` })).toMatchInlineSnapshot(
+    `"{[Symbol.toStringTag]:"hi"}"`,
+  )
   expect(srcify(Object.create(null))).toMatchInlineSnapshot(
     `"Object.setPrototypeOf({},null)"`,
   )
@@ -138,6 +141,14 @@ test(`srcify snapshots`, () => {
   // URLs
   expect(srcify(new URL(`https://tomeraberba.ch`))).toMatchInlineSnapshot(
     `"new URL("https://tomeraberba.ch/")"`,
+  )
+
+  // URLSearchParams
+  expect(srcify(new URLSearchParams())).toMatchInlineSnapshot(
+    `"new URLSearchParams()"`,
+  )
+  expect(srcify(new URLSearchParams([[`a`, `b`]]))).toMatchInlineSnapshot(
+    `"new URLSearchParams([["a","b"]])"`,
   )
 
   // RegExps
@@ -287,16 +298,21 @@ test(`srcify snapshots`, () => {
   const circular2 = { ref: circular1 }
   circular1.ref = circular2
   expect(srcify(circular1)).toMatchInlineSnapshot(
-    `"((a={ref:{}})=>a.ref.ref=a)()"`,
+    `"((b={},a={ref:b})=>b.ref=a)()"`,
   )
   expect(srcify(circular2)).toMatchInlineSnapshot(
-    `"((a={ref:{}})=>a.ref.ref=a)()"`,
+    `"((b={},a={ref:b})=>b.ref=a)()"`,
   )
   expect(srcify({ circular: circular1 })).toMatchInlineSnapshot(
-    `"((a={ref:{}})=>(a.ref.ref=a,{circular:a}))()"`,
+    `"((b={},a={ref:b})=>(b.ref=a,{circular:a}))()"`,
   )
   expect(srcify({ a: circular1, b: circular2 })).toMatchInlineSnapshot(
     `"((b={},a={ref:b})=>(b.ref=a,{a,b}))()"`,
+  )
+  const circular3: Record<PropertyKey, unknown> = {}
+  circular3[Symbol.iterator] = circular3
+  expect(srcify(circular3)).toMatchInlineSnapshot(
+    `"((a={})=>a[Symbol.iterator]=a)()"`,
   )
   const circularArray: unknown[] = []
   circularArray.push(circularArray)
@@ -321,37 +337,37 @@ test(`srcify snapshots`, () => {
     writable: true,
   })
   expect(srcify(circularOwnProto)).toMatchInlineSnapshot(
-    `"((a={})=>(Object.defineProperty(a,"__proto__",{value:a,writable:true,enumerable:true,configurable:true}),a))()"`,
+    `"((a={})=>Object.defineProperty(a,"__proto__",{value:a,writable:true,enumerable:true,configurable:true}))()"`,
   )
   const circularProto1 = {}
   const circularProto2 = { ref: circularProto1 }
   Object.setPrototypeOf(circularProto1, circularProto2)
   expect(srcify(circularProto1)).toMatchInlineSnapshot(
-    `"((a=Object.setPrototypeOf({},{}))=>Object.getPrototypeOf(a).ref=a)()"`,
+    `"((b={},a=Object.setPrototypeOf({},b))=>b.ref=a)()"`,
   )
   const circularMap = new Map()
   circularMap.set(`hi`, circularMap)
   expect(srcify(circularMap)).toMatchInlineSnapshot(
-    `"((a=new Map([["hi"]]))=>(a.set("hi",a),a))()"`,
+    `"((a=new Map([["hi"]]))=>a.set("hi",a))()"`,
   )
   circularMap.set(`hello`, { circularMap })
   expect(srcify(circularMap)).toMatchInlineSnapshot(
-    `"((a=new Map([["hi"],["hello",{}]]))=>(a.set("hi",a),a.get("hello").circularMap=a))()"`,
+    `"((b={},a=new Map([["hi"],["hello",b]]))=>(a.set("hi",a),b.circularMap=a))()"`,
   )
   const circularMap2 = new Map()
   circularMap2.set(circularMap2, `howdy`)
   expect(srcify(circularMap2)).toMatchInlineSnapshot(
-    `"((a=new Map())=>(a.set(a,"howdy"),a))()"`,
+    `"((a=new Map())=>a.set(a,"howdy"))()"`,
   )
   const circularMap3 = new Map()
   circularMap3.set({ '': circularMap3 }, circularMap3)
   expect(srcify(circularMap3)).toMatchInlineSnapshot(
-    `"((b={},a=new Map([[b]]))=>(b[""]=a,a.set(b,a),a))()"`,
+    `"((b={},a=new Map([[b]]))=>(b[""]=a,a.set(b,a)))()"`,
   )
   const circularMap4 = new Map()
   circularMap4.set({}, { '': new Map([[circularMap4, new Map()]]) })
   expect(srcify(circularMap4)).toMatchInlineSnapshot(
-    `"((b={},a=new Map([[b,{"":new Map()}]]))=>(a.get(b)[""].set(a,new Map()),a))()"`,
+    `"((b=new Map(),a=new Map([[{},{"":b}]]))=>(b.set(a,new Map()),a))()"`,
   )
   const arrayKey: unknown[] = []
   const circularMap5 = new Map([[arrayKey, {}]])
@@ -359,17 +375,37 @@ test(`srcify snapshots`, () => {
   expect(srcify(circularMap5)).toMatchInlineSnapshot(
     `"((b=[],a=new Map([[b,{}]]))=>b[0]=a)()"`,
   )
+  ;(() => {
+    const d = {}
+    const c = { '': d }
+    const b = new Map<unknown, unknown>([[c, undefined]])
+    const a = [b, [d]]
+    b.set(c, a)
+    expect(srcify(a)).toMatchInlineSnapshot(
+      `"((d={},c={"":d},b=new Map([[c]]),a=[b,[d]])=>(b.set(c,a),a))()"`,
+    )
+  })()
 
   const circularSet1 = new Set()
   circularSet1.add(circularSet1)
   expect(srcify(circularSet1)).toMatchInlineSnapshot(
-    `"((a=new Set())=>(a.add(a),a))()"`,
+    `"((a=new Set())=>a.add(a))()"`,
   )
   const circularSet2 = new Set()
   circularSet2.add({ '': circularSet2 })
   expect(srcify(circularSet2)).toMatchInlineSnapshot(
     `"((b={},a=new Set([b]))=>b[""]=a)()"`,
   )
+  ;(() => {
+    const c: Record<string, unknown> = {}
+    const b: unknown[] = [, c]
+    const a = new Set([b])
+    b[0] = a
+    c[``] = a
+    expect(srcify(a)).toMatchInlineSnapshot(
+      `"((c={},b=[,c],a=new Set([b]))=>(b[0]=a,c[""]=a))()"`,
+    )
+  })()
 
   // Unsupported
   expect(() =>
