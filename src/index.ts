@@ -296,13 +296,18 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
       return JSON.stringify(value)
     case `object`:
       return value === null ? `null` : srcifyObject(value, state)
-    // TODO(#15): Support symbols from `Symbol.for`.
     case `symbol`: {
-      const key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
-      if (!key) {
-        throw new TypeError(`Unsupported: symbol`)
+      let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
+      if (key) {
+        return `Symbol.${key}`
       }
-      return `Symbol.${key}`
+
+      key = Symbol.keyFor(value)
+      if (key) {
+        return `Symbol.for(${srcifyInternal(key, state)})`
+      }
+
+      throw new TypeError(`Unsupported: symbol`)
     }
     case `function`:
       throw new TypeError(`Unsupported: function`)

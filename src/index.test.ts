@@ -23,6 +23,7 @@ test.prop([anythingArb], {
     /def/,
     Symbol.iterator,
     Symbol.hasInstance,
+    Symbol.for(`howdy`),
   ].map(value => [value]),
 })(`srcify works`, value => {
   const source = srcify(value)
@@ -89,6 +90,9 @@ test(`srcify snapshots`, () => {
   expect(srcify(Symbol.iterator)).toMatchInlineSnapshot(`"Symbol.iterator"`)
   expect(srcify(Symbol.hasInstance)).toMatchInlineSnapshot(
     `"Symbol.hasInstance"`,
+  )
+  expect(srcify(Symbol.for(`howdy`))).toMatchInlineSnapshot(
+    `"Symbol.for("howdy")"`,
   )
 
   // Arrays
