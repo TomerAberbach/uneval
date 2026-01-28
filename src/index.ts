@@ -20,18 +20,26 @@ const SET_OBJECT_SYMBOL_PROPERTY = 1
 const SET_ARRAY_INDEX = 2
 const SET_MAP_ENTRY = 3
 const ADD_TO_SET = 4
+const TRANSFER_ARRAY_BUFFER = 5
+const SET_ARRAY_BUFFER = 6
 
 /** An mutation of a binding. */
 type Mutation = {
-  _binding: Binding
-  /** The source or value with a binding that's the "input" to the mutation. */
-  _value: string | object
+  /** The value being mutated. The value is assumed to have a binding. */
+  _target: object
+  /**
+   * The source or value with a binding that's the "input" to the mutation, or
+   * undefined if there is not input for the mutation.
+   */
+  _input?: string | object
 } & (
   | { _type: typeof SET_OBJECT_STRING_PROPERTY; _property: string }
   | { _type: typeof SET_OBJECT_SYMBOL_PROPERTY; _property: string }
   | { _type: typeof SET_ARRAY_INDEX; _index: number }
   | { _type: typeof SET_MAP_ENTRY; _key: string }
   | { _type: typeof ADD_TO_SET }
+  | { _type: typeof TRANSFER_ARRAY_BUFFER }
+  | { _type: typeof SET_ARRAY_BUFFER }
 )
 
 /** State maintained while converting a value to source. */
@@ -209,9 +217,24 @@ const createBindings = (value: unknown): Map<object, Binding> => {
           }
         }
         break
+      case `ArrayBuffer`: {
+        const arrayBuffer = value as ArrayBuffer
+        if (
+          // If the `ArrayBuffer` is detached, then we need a binding to call
+          // `.transfer()` on.
+          arrayBuffer.detached ||
+          // If the `ArrayBuffer` is resizable and has non-zero values, then
+          // we'll have to construct it, put it in a binding, then `.set(...)`
+          // it.
+          (arrayBuffer.resizable &&
+            new Uint8Array(arrayBuffer).some(value => value !== 0))
+        ) {
+          ensureBinding(value)
+        }
+        break
+      }
       // TODO(#12): Support `Float16Array`
       // TODO(#13): Support Node `Buffer`
-      // TODO(#18): Support `ArrayBuffer`
       case `Boolean`:
       case `Number`:
       case `String`:
@@ -307,10 +330,10 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
         return `Symbol.for(${srcifyInternal(key, state)})`
       }
 
-      throw new TypeError(`Unsupported: symbol`)
+      throw new TypeError(`Unsupported symbol`)
     }
     case `function`:
-      throw new TypeError(`Unsupported: function`)
+      throw new TypeError(`Unsupported function`)
   }
 }) as {
   (
@@ -324,7 +347,6 @@ const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
   Reflect.ownKeys(Symbol).flatMap(key => {
     // This doesn't happen in practice, but best to be safe if one day a
     // non-string key as added to `Symbol`.
-    /* c8 ignore next -- @preserve */
     if (typeof key !== `string`) {
       return []
     }
@@ -375,14 +397,19 @@ const srcifyMutation = (
 ): {
   /** The source of the mutation itself. */
   _source: string
-  /** What the mutation statement evaluates to when used as an expression. */
-  _evaluatesTo: string
+  /**
+   * What the mutation statement evaluates to when used as an expression.
+   *
+   * Undefined if it doesn't evaluate to anything worth mentioning.
+   */
+  _evaluatesTo?: string
 } => {
-  const bindingName = mutation._binding._name
-  const valueSource =
-    typeof mutation._value === `string`
-      ? mutation._value
-      : state._bindings.get(mutation._value)!._name
+  const bindingName = state._bindings.get(mutation._target)!._name
+  const valueSource = mutation._input
+    ? typeof mutation._input === `string`
+      ? mutation._input
+      : state._bindings.get(mutation._input)!._name
+    : ``
   switch (mutation._type) {
     case SET_OBJECT_STRING_PROPERTY:
       return mutation._property === __PROTO__
@@ -395,8 +422,7 @@ const srcifyMutation = (
             _source: `${bindingName}${
               PROPERTY_REG_EXP.test(mutation._property)
                 ? `.${mutation._property}`
-                : // TODO(#20): Escape unsafe strings (as in, no XSS).
-                  `[${JSON.stringify(mutation._property)}]`
+                : `[${srcifyInternal(mutation._property, state)}]`
             }=${valueSource}`,
             // An assignment evaluates to the right-hand side.
             _evaluatesTo: valueSource,
@@ -425,6 +451,10 @@ const srcifyMutation = (
         // `Set.add` always returns `this`.
         _evaluatesTo: bindingName,
       }
+    case TRANSFER_ARRAY_BUFFER:
+      return { _source: `${bindingName}.transfer()` }
+    case SET_ARRAY_BUFFER:
+      return { _source: `new Uint8Array(${bindingName}).set(${valueSource})` }
   }
 }
 
@@ -435,7 +465,6 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Array`: {
       const array = value as unknown[]
       const itemSources: string[] = []
-      const binding = state._bindings.get(value)
       for (let i = 0; i < array.length; i++) {
         if (!(i in array)) {
           itemSources.push(``)
@@ -445,11 +474,11 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         const result = srcifyInternal(array[i], state)
         if (result === null) {
           state._mutations.push({
-            _binding: binding!,
+            _target: value,
             _type: SET_ARRAY_INDEX,
             _index: i,
             // `array[i]` must be an object if it's circular.
-            _value: array[i] as object,
+            _input: array[i] as object,
           })
           itemSources.push(``)
         } else {
@@ -494,56 +523,54 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       )
     }
     case `Map`: {
-      const binding = state._bindings.get(value)
       const entries = [...(value as Iterable<[unknown, unknown]>)]
-        .flatMap(([key, value]) => {
+        .flatMap(([key, item]) => {
           const keyResult = srcifyInternal(key, state)
-          const valueResult = srcifyInternal(value, state)
+          const itemResult = srcifyInternal(item, state)
 
           if (keyResult === null) {
             // If the key is circular, then omit this entry for now and set it
             // later.
             state._mutations.push({
-              _binding: binding!,
+              _target: value,
               _type: SET_MAP_ENTRY,
               _key: state._bindings.get(key as object)!._name,
-              _value:
-                valueResult ??
+              _input:
+                itemResult ??
                 // `value` must be an object if it's circular.
-                (value as object),
+                (item as object),
             })
             return []
           }
 
-          if (valueResult === null) {
-            // If the value is circular, then omit the value part of the entry
+          if (itemResult === null) {
+            // If the item is circular, then omit the item part of the entry
             // for now and set it later.
             state._mutations.push({
-              _binding: binding!,
+              _target: value,
               _type: SET_MAP_ENTRY,
               _key: keyResult,
-              // `value` must be an object if it's circular.
-              _value: value as object,
+              // `item` must be an object if it's circular.
+              _input: item as object,
             })
             return [`[${keyResult}]`]
           }
 
-          return [`[${keyResult},${valueResult}]`]
+          return [`[${keyResult},${itemResult}]`]
         })
         .join(`,`)
       return newInstance(type, entries ? `[${entries}]` : ``)
     }
     case `Set`: {
-      const binding = state._bindings.get(value)
       const values = [...(value as Iterable<unknown>)]
-        .flatMap(value => {
-          const result = srcifyInternal(value, state)
+        .flatMap(item => {
+          const result = srcifyInternal(item, state)
           if (result === null) {
             state._mutations.push({
-              _binding: binding!,
+              _target: value,
               _type: ADD_TO_SET,
-              // `value` must be an object if it's circular.
-              _value: value as object,
+              // `item` must be an object if it's circular.
+              _input: item as object,
             })
             return []
           }
@@ -563,11 +590,52 @@ const srcifyObjectInternal = (value: object, state: State): string => {
           : ``,
       )
     }
-    // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
-    // TODO(#12): Support `Float16Array`
     // TODO(#13): Support Node `Buffer`
+    case `ArrayBuffer`: {
+      const arrayBuffer = value as ArrayBuffer
+      const { detached, resizable, byteLength, maxByteLength } = arrayBuffer
+
+      if (detached) {
+        state._mutations.push({ _target: value, _type: TRANSFER_ARRAY_BUFFER })
+      }
+
+      let uint8Array: Uint8Array
+      let firstNonZeroIndex: number
+      if (
+        byteLength === 0 ||
+        (firstNonZeroIndex = (uint8Array = new Uint8Array(
+          arrayBuffer,
+        )).findIndex(value => value !== 0)) === -1
+      ) {
+        return newInstance(
+          type,
+          resizable
+            ? `${byteLength},{maxByteLength:${maxByteLength}}`
+            : byteLength > 0
+              ? byteLength
+              : ``,
+        )
+      }
+
+      if (!resizable) {
+        return `${srcifyInternal(uint8Array, state)!}.buffer`
+      }
+
+      const lastNonZeroIndex = uint8Array.findLastIndex(value => value !== 0)
+
+      state._mutations.push({
+        _target: value,
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        _input: `[${uint8Array.slice(firstNonZeroIndex, lastNonZeroIndex + 1)}]${
+          firstNonZeroIndex > 0 ? `,${firstNonZeroIndex}` : ``
+        }`,
+        _type: SET_ARRAY_BUFFER,
+      })
+      return newInstance(type, `${byteLength},{maxByteLength:${maxByteLength}}`)
+    }
+    // TODO(#12): Support `Float16Array`
+    // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
     // TODO(#14): Support shared buffers between typed arrays.
-    // TODO(#18): Support `ArrayBuffer`
     case `Int8Array`:
     case `Uint8Array`:
     case `Uint8ClampedArray`:
@@ -608,12 +676,10 @@ const srcifyObjectInternal = (value: object, state: State): string => {
   }
 }
 
-const newInstance = (type: string, args: string | number) =>
+const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}(${args})`
 
 const srcifyObjectLike = (object: object, state: State): string => {
-  const binding = state._bindings.get(object)
-
   let __proto__: { _value: unknown } | undefined
   // TODO(#9): Support all property types, including non-enumerable ones.
   let source = `{${Reflect.ownKeys(object)
@@ -636,9 +702,9 @@ const srcifyObjectLike = (object: object, state: State): string => {
       const valueResult = srcifyInternal(value, state)
       if (valueResult === null) {
         state._mutations.push({
-          _binding: binding!,
+          _target: object,
           // `value` must be an object if it's circular.
-          _value: value as object,
+          _input: value as object,
           ...(symbolResult
             ? { _type: SET_OBJECT_SYMBOL_PROPERTY, _property: symbolResult }
             : { _type: SET_OBJECT_STRING_PROPERTY, _property: key as string }),
@@ -656,8 +722,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
       }
 
       if (!PROPERTY_REG_EXP.test(key)) {
-        // TODO(#20): Escape unsafe strings (as in, no XSS).
-        return [`${JSON.stringify(key)}:${valueResult}`]
+        return [`${srcifyInternal(key, state)}:${valueResult}`]
       }
 
       return [key === valueResult ? key : `${key}:${valueResult}`]
@@ -667,11 +732,11 @@ const srcifyObjectLike = (object: object, state: State): string => {
     const result = srcifyInternal(__proto__._value, state)
     if (result === null) {
       state._mutations.push({
-        _binding: binding!,
+        _target: object,
         _type: SET_OBJECT_STRING_PROPERTY,
         _property: __PROTO__,
         // `__proto__._value` must be an object if it's circular.
-        _value: __proto__._value as object,
+        _input: __proto__._value as object,
       })
     } else {
       source = objectDefineProperty(source, result)
