@@ -156,4 +156,27 @@ export const anythingArb = fc.oneof(
   { weight: 1, arbitrary: fc.bigUint64Array() },
   { weight: 1, arbitrary: fc.webUrl().map(url => new URL(url)) },
   { weight: 1, arbitrary: fc.webUrl().map(url => new URL(url).searchParams) },
+  {
+    weight: 1,
+    arbitrary: fc
+      .record({
+        array: fc.int8Array(),
+        detached: fc.boolean(),
+        maxByteLength: fc.nat({ max: 50 }),
+      })
+      .map(({ array, detached, maxByteLength }) => {
+        const buffer = new ArrayBuffer(array.length, {
+          maxByteLength:
+            maxByteLength < array.length ? undefined : maxByteLength,
+        })
+        const view = new DataView(buffer)
+        for (const [index, value] of array.entries()) {
+          view.setInt8(index, value)
+        }
+        if (detached) {
+          buffer.transfer()
+        }
+        return buffer
+      }),
+  },
 )
