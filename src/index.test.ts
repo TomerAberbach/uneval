@@ -186,6 +186,20 @@ test(`srcify string`, () => {
   expect(expectSrcifyRoundtrips(`</sCrIpT>`)).toMatchInlineSnapshot(
     `""<\\u002fsCrIpT>""`,
   )
+  expect(expectSrcifyRoundtrips(`\0`)).toMatchInlineSnapshot(`""\\u0000""`)
+  expect(expectSrcifyRoundtrips(`\b`)).toMatchInlineSnapshot(`""\\b""`)
+  expect(expectSrcifyRoundtrips(`\t`)).toMatchInlineSnapshot(`""\\t""`)
+  expect(expectSrcifyRoundtrips(`\n`)).toMatchInlineSnapshot(`""\\n""`)
+  expect(expectSrcifyRoundtrips(`\r`)).toMatchInlineSnapshot(`""\\r""`)
+  expect(expectSrcifyRoundtrips(`\\`)).toMatchInlineSnapshot(`""\\\\""`)
+  expect(expectSrcifyRoundtrips(`\u2028`)).toMatchInlineSnapshot(`""\\u2028""`)
+  expect(expectSrcifyRoundtrips(`\u2028\u2028\u2028`)).toMatchInlineSnapshot(
+    `""\\u2028\\u2028\\u2028""`,
+  )
+  expect(expectSrcifyRoundtrips(`\u2029`)).toMatchInlineSnapshot(`""\\u2029""`)
+  expect(expectSrcifyRoundtrips(`\u2029\u2029\u2029`)).toMatchInlineSnapshot(
+    `""\\u2029\\u2029\\u2029""`,
+  )
 })
 
 test(`srcify symbol`, () => {

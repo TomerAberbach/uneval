@@ -315,12 +315,15 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
     case `bigint`:
       return `${value}n`
     case `string`:
-      // TODO(#20): Escape unsafe strings (as in, no XSS).
       return (
         JSON.stringify(value)
           // Prevent XSS attack via closing an inline script tag.
           // eslint-disable-next-line unicorn/prefer-string-replace-all
           .replace(/<\/(?=script)/giu, `<\\u002f`)
+          // These whitespace characters are safe JSON, but not safe JS:
+          // https://stackoverflow.com/a/9168133
+          .replaceAll(`\u2028`, `\\u2028`)
+          .replaceAll(`\u2029`, `\\u2029`)
       )
     case `object`:
       return value === null ? `null` : srcifyObject(value, state)
