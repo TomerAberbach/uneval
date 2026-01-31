@@ -316,7 +316,12 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
       return `${value}n`
     case `string`:
       // TODO(#20): Escape unsafe strings (as in, no XSS).
-      return JSON.stringify(value)
+      return (
+        JSON.stringify(value)
+          // Prevent XSS attack via closing an inline script tag.
+          // eslint-disable-next-line unicorn/prefer-string-replace-all
+          .replace(/<\/(?=script)/giu, `<\\u002f`)
+      )
     case `object`:
       return value === null ? `null` : srcifyObject(value, state)
     case `symbol`: {

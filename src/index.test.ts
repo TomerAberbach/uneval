@@ -177,6 +177,15 @@ test(`srcify string`, () => {
   expect(
     expectSrcifyRoundtrips(new String(`Hello World!`)),
   ).toMatchInlineSnapshot(`"new String("Hello World!")"`)
+  expect(expectSrcifyRoundtrips(`</script>`)).toMatchInlineSnapshot(
+    `""<\\u002fscript>""`,
+  )
+  expect(expectSrcifyRoundtrips(`</SCRIPT>`)).toMatchInlineSnapshot(
+    `""<\\u002fSCRIPT>""`,
+  )
+  expect(expectSrcifyRoundtrips(`</sCrIpT>`)).toMatchInlineSnapshot(
+    `""<\\u002fsCrIpT>""`,
+  )
 })
 
 test(`srcify symbol`, () => {
