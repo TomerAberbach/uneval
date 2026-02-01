@@ -8,36 +8,18 @@ const strictArrayBufferEqualityTester = (
   a: unknown,
   b: unknown,
 ): boolean | undefined => {
-  const isArrayBufferA = a instanceof ArrayBuffer
-  const isArrayBufferB = b instanceof ArrayBuffer
-
-  if (!isArrayBufferA || !isArrayBufferB) {
+  if (!(a instanceof ArrayBuffer) || !(b instanceof ArrayBuffer)) {
     // Defer to other equality testers.
     return undefined
   }
 
-  if (a.byteLength !== b.byteLength) {
-    throw new Error(
-      `ArrayBuffer byteLength mismatch: expected ${a.byteLength}, got ${b.byteLength}`,
-    )
-  }
-
-  if (a.maxByteLength !== b.maxByteLength) {
-    throw new Error(
-      `ArrayBuffer maxByteLength mismatch: expected ${a.maxByteLength}, got ${b.maxByteLength}`,
-    )
-  }
-
-  if (a.resizable !== b.resizable) {
-    throw new Error(
-      `ArrayBuffer resizable mismatch: expected ${a.resizable}, got ${b.resizable}`,
-    )
-  }
-
-  if (a.detached !== b.detached) {
-    throw new Error(
-      `ArrayBuffer detached mismatch: expected ${a.detached}, got ${b.detached}`,
-    )
+  if (
+    a.byteLength !== b.byteLength ||
+    a.maxByteLength !== b.maxByteLength ||
+    a.resizable !== b.resizable ||
+    a.detached !== b.detached
+  ) {
+    return false
   }
 
   if (a.detached) {
@@ -57,4 +39,43 @@ const strictArrayBufferEqualityTester = (
   return true
 }
 
-expect.addEqualityTesters([strictArrayBufferEqualityTester])
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray
+const strictTypedArrayEqualityTester = (
+  a: unknown,
+  b: unknown,
+): boolean | undefined => {
+  if (!(a instanceof TypedArray) || !(b instanceof TypedArray)) {
+    // Defer to other equality testers.
+    return undefined
+  }
+
+  if (
+    a.constructor !== b.constructor ||
+    a.length !== b.length ||
+    a.byteLength !== b.byteLength ||
+    a.byteOffset !== b.byteOffset
+  ) {
+    return false
+  }
+
+  return strictArrayBufferEqualityTester(a.buffer, b.buffer)
+}
+
+const TypedArray = Object.getPrototypeOf(Int8Array) as
+  | typeof Int8Array
+  | typeof Uint8Array
+  | typeof Uint8ClampedArray
+  | typeof Int16Array
+  | typeof Uint16Array
+  | typeof Int32Array
+  | typeof Uint32Array
+  | typeof Float16Array
+  | typeof Float32Array
+  | typeof Float64Array
+  | typeof BigInt64Array
+  | typeof BigUint64Array
+
+expect.addEqualityTesters([
+  strictArrayBufferEqualityTester,
+  strictTypedArrayEqualityTester,
+])

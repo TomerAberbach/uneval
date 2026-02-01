@@ -240,6 +240,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
       case `URL`:
       case `RegExp`:
       case `URLSearchParams`:
+        break
       case `Int8Array`:
       case `Uint8Array`:
       case `Uint8ClampedArray`:
@@ -252,6 +253,24 @@ const createBindings = (value: unknown): Map<object, Binding> => {
       case `Float64Array`:
       case `BigInt64Array`:
       case `BigUint64Array`:
+        traverse(
+          (
+            value as
+              | Int8Array
+              | Uint8Array
+              | Uint8ClampedArray
+              | Int16Array
+              | Uint16Array
+              | Int32Array
+              | Uint32Array
+              | Float16Array
+              | Float32Array
+              | Float64Array
+              | BigInt64Array
+              | BigUint64Array
+          ).buffer,
+          value,
+        )
         break
       default: {
         // TODO(#9): Support all property types, including non-enumerable ones.
@@ -634,7 +653,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       if (
         byteLength == 0 ||
         (firstNonZeroIndex = (uint8Array = new Uint8Array(
-          arrayBuffer,
+          arrayBuffer.slice(),
         )).findIndex(value => value != 0)) == -1
       ) {
         return newInstance(
@@ -664,7 +683,6 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       return newInstance(type, `${byteLength},{maxByteLength:${maxByteLength}}`)
     }
     // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
-    // TODO(#14): Support shared buffers between typed arrays.
     case `Int8Array`:
     case `Uint8Array`:
     case `Uint8ClampedArray`:
@@ -674,37 +692,120 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Uint32Array`:
     case `Float16Array`:
     case `Float32Array`:
-    case `Float64Array`: {
-      const values = [...(value as Iterable<number>)]
-      return newInstance(
+    case `Float64Array`:
+      return srcifyTypedArray(
+        value as
+          | Int8Array
+          | Uint8Array
+          | Uint8ClampedArray
+          | Int16Array
+          | Uint16Array
+          | Int32Array
+          | Uint32Array
+          | Float16Array
+          | Float32Array
+          | Float64Array,
         type,
-        values.length
-          ? values.every(value => Object.is(value, 0))
-            ? values.length
-            : // Must be non-null because `number[]` can't be circular.
-              srcifyInternal(values, state)!
-          : ``,
+        0,
+        state,
       )
-    }
     // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
-    // TODO(#14): Support shared buffers between typed arrays.
     case `BigInt64Array`:
-    case `BigUint64Array`: {
-      const values = [...(value as Iterable<bigint>)]
-      return newInstance(
+    case `BigUint64Array`:
+      return srcifyTypedArray(
+        value as BigInt64Array | BigUint64Array,
         type,
-        values.length
-          ? values.every(value => value == 0n)
-            ? values.length
-            : // Must be non-null because `bigint[]` can't be circular.
-              srcifyInternal(values, state)!
-          : ``,
+        0n,
+        state,
       )
-    }
     default:
       return srcifyObjectLike(value, state)
   }
 }
+
+const srcifyTypedArray = (
+  typedArray:
+    | Int8Array
+    | Uint8Array
+    | Uint8ClampedArray
+    | Int16Array
+    | Uint16Array
+    | Int32Array
+    | Uint32Array
+    | Float16Array
+    | Float32Array
+    | Float64Array
+    | BigInt64Array
+    | BigUint64Array,
+  type: string,
+  zero: 0n | 0,
+  state: State,
+) => {
+  const isFloatingPoint =
+    type == `Float16Array` || type == `Float32Array` || type == `Float64Array`
+  const hasNonCanonicalNaN =
+    isFloatingPoint &&
+    [...(typedArray as Float16Array | Float32Array | Float64Array)].some(
+      isNonCanonicalNaN,
+    )
+
+  if (
+    // We have to construct from a buffer if it has a binding, meaning that it's
+    // shared between multiple values.
+    state._bindings.has(typedArray.buffer) ||
+    // Also, if the byte lengths differ between the typed array and the buffer,
+    // then that means this typed array is a view of a slice of a buffer. The
+    // only way to achieve that is by constructing from a buffer.
+    typedArray.byteLength != typedArray.buffer.byteLength ||
+    // Lastly, if the underlying buffer is resizable, then we must also
+    // construct from a buffer. The default buffer created from
+    // `new TypedArray(...)` is not resizable.
+    (typedArray.buffer as ArrayBuffer).resizable ||
+    // For floating-point arrays with non-canonical NaN values, we must
+    // construct from the buffer to preserve the exact NaN bit pattern.
+    hasNonCanonicalNaN
+  ) {
+    const bufferSource = srcifyInternal(typedArray.buffer, state)!
+
+    return newInstance(
+      type,
+      `${bufferSource}${
+        typedArray.byteOffset + typedArray.byteLength ==
+        typedArray.buffer.byteLength
+          ? typedArray.byteOffset > 0
+            ? `,${typedArray.byteOffset}`
+            : ``
+          : `,${typedArray.byteOffset},${
+              typedArray.byteLength / typedArray.BYTES_PER_ELEMENT
+            }`
+      }`,
+    )
+  }
+
+  const values = [...typedArray]
+  return newInstance(
+    type,
+    values.length
+      ? values.every(value => Object.is(value, zero))
+        ? values.length
+        : // Must be non-null because `(number | bigint)[]` can't be circular.
+          srcifyInternal(values, state)!
+      : ``,
+  )
+}
+
+const isNonCanonicalNaN = (value: number): boolean => {
+  if (!Number.isNaN(value)) {
+    return false
+  }
+
+  float64ScratchView.setFloat64(0, value)
+  return float64ScratchView.getBigUint64(0) !== CANONICAL_NAN_BITS
+}
+
+const float64ScratchView = new DataView(new ArrayBuffer(8))
+float64ScratchView.setFloat64(0, Number.NaN)
+const CANONICAL_NAN_BITS = float64ScratchView.getBigUint64(0)
 
 const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}(${args})`

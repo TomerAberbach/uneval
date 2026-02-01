@@ -1,15 +1,77 @@
 import { fc } from '@fast-check/vitest'
 
+const urlArb = fc.webUrl().map(url => new URL(url))
+const urlSearchParamsArb = urlArb.map(url => url.searchParams)
+
+const nonDetachedArrayBufferArb = fc
+  .record({ array: fc.int8Array(), maxByteLength: fc.nat({ max: 50 }) })
+  .map(({ array, maxByteLength }) => {
+    const buffer = new ArrayBuffer(array.length, {
+      maxByteLength: maxByteLength < array.length ? undefined : maxByteLength,
+    })
+    const view = new DataView(buffer)
+    for (const [index, value] of array.entries()) {
+      view.setInt8(index, value)
+    }
+    return buffer
+  })
+const arrayBufferArb = fc
+  .record({ buffer: nonDetachedArrayBufferArb, detached: fc.boolean() })
+  .map(({ buffer, detached }) => {
+    if (detached) {
+      buffer.transfer()
+    }
+    return buffer
+  })
+
+const typedArrayArb = fc
+  .record({
+    TypedArray: fc.constantFrom(
+      Int8Array,
+      Uint8Array,
+      Uint8ClampedArray,
+      Int16Array,
+      Uint16Array,
+      Int32Array,
+      Uint32Array,
+      Float32Array,
+      Float64Array,
+      BigInt64Array,
+      BigUint64Array,
+    ),
+    buffer: nonDetachedArrayBufferArb,
+    range: fc.tuple(fc.nat(), fc.nat()),
+  })
+  .map(({ TypedArray, buffer, range: [start, end] }) => {
+    const maxElements = Math.floor(
+      buffer.byteLength / TypedArray.BYTES_PER_ELEMENT,
+    )
+    start %= maxElements + 1
+    end %= maxElements + 1
+    if (start > end) {
+      ;[start, end] = [end, start]
+    }
+
+    return new TypedArray(
+      buffer,
+      start * TypedArray.BYTES_PER_ELEMENT,
+      end - start,
+    )
+  })
+
 const circularSymbol = Symbol(`circular`)
 const depthIdentifier = fc.createDepthIdentifier()
-const circularArb = fc
+export const anythingArb = fc
   .array(
     fc.letrec(tie => ({
       object: fc.dictionary(fc.string(), tie(`innerValue`), {
         depthIdentifier,
         maxKeys: 5,
       }),
-      array: fc.array(tie(`innerValue`), { depthIdentifier, maxLength: 5 }),
+      array: fc.sparseArray(tie(`innerValue`), {
+        depthIdentifier,
+        maxLength: 5,
+      }),
       map: fc.map(tie(`innerValue`), tie(`innerValue`), {
         depthIdentifier,
         maxKeys: 5,
@@ -18,13 +80,20 @@ const circularArb = fc
       innerValue: fc.oneof(
         { depthIdentifier },
         fc.record({ [circularSymbol]: fc.nat({ max: 5 }) }),
-        tie(`object`),
-        tie(`array`),
-        tie(`map`),
-        tie(`set`),
+        tie(`value`),
       ),
       value: fc.oneof(
         { depthIdentifier },
+        fc.boolean(),
+        fc.float(),
+        fc.double(),
+        fc.bigInt(),
+        fc.date(),
+        fc.string({ unit: `binary` }),
+        urlArb,
+        urlSearchParamsArb,
+        typedArrayArb,
+        arrayBufferArb,
         tie(`object`),
         tie(`array`),
         tie(`map`),
@@ -78,8 +147,10 @@ const circularArb = fc
           }
         }
         return false
-      } else {
+      } else if (isPlainObject(value)) {
         return Object.values(value).some(hasCircularSymbolLoop)
+      } else {
+        return false
       }
     }
 
@@ -123,60 +194,23 @@ const circularArb = fc
           newValue.add(replace(item))
         }
         return newValue
-      } else {
+      } else if (isPlainObject(value)) {
         const newValue = { ...value }
         replaced.set(value, newValue)
         for (const [key, item] of Object.entries(newValue)) {
           ;(newValue as Record<PropertyKey, unknown>)[key] = replace(item)
         }
         return newValue
+      } else {
+        replaced.set(value, value)
+        return value
       }
     }
 
     return replace(values[0])
   })
 
-export const anythingArb = fc.oneof(
-  {
-    weight: 50,
-    arbitrary: fc.anything({
-      stringUnit: `binary`,
-      withBigInt: true,
-      withBoxedValues: true,
-      withDate: true,
-      withNullPrototype: true,
-      withMap: true,
-      withSet: true,
-      withSparseArray: true,
-      withTypedArray: true,
-    }),
-  },
-  { weight: 5, arbitrary: circularArb },
-  { weight: 1, arbitrary: fc.bigInt64Array() },
-  { weight: 1, arbitrary: fc.bigUint64Array() },
-  { weight: 1, arbitrary: fc.webUrl().map(url => new URL(url)) },
-  { weight: 1, arbitrary: fc.webUrl().map(url => new URL(url).searchParams) },
-  {
-    weight: 1,
-    arbitrary: fc
-      .record({
-        array: fc.int8Array(),
-        detached: fc.boolean(),
-        maxByteLength: fc.nat({ max: 50 }),
-      })
-      .map(({ array, detached, maxByteLength }) => {
-        const buffer = new ArrayBuffer(array.length, {
-          maxByteLength:
-            maxByteLength < array.length ? undefined : maxByteLength,
-        })
-        const view = new DataView(buffer)
-        for (const [index, value] of array.entries()) {
-          view.setInt8(index, value)
-        }
-        if (detached) {
-          buffer.transfer()
-        }
-        return buffer
-      }),
-  },
-)
+const isPlainObject = (object: object): boolean => {
+  const prototype = Object.getPrototypeOf(object) as unknown
+  return prototype === null || prototype === Object.prototype
+}
