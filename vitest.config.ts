@@ -9,5 +9,8 @@ export default defineConfig({
       include: [`src`],
       exclude: [`*.bench.ts`, `arbs.ts`],
     },
+    chaiConfig: {
+      truncateThreshold: Infinity,
+    },
   },
 })
