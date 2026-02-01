@@ -232,7 +232,6 @@ const createBindings = (value: unknown): Map<object, Binding> => {
         }
         break
       }
-      // TODO(#12): Support `Float16Array`
       // TODO(#13): Support Node `Buffer`
       case `Boolean`:
       case `Number`:
@@ -248,6 +247,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
       case `Uint16Array`:
       case `Int32Array`:
       case `Uint32Array`:
+      case `Float16Array`:
       case `Float32Array`:
       case `Float64Array`:
       case `BigInt64Array`:
@@ -663,7 +663,6 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       })
       return newInstance(type, `${byteLength},{maxByteLength:${maxByteLength}}`)
     }
-    // TODO(#12): Support `Float16Array`
     // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
     // TODO(#14): Support shared buffers between typed arrays.
     case `Int8Array`:
@@ -673,6 +672,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Uint16Array`:
     case `Int32Array`:
     case `Uint32Array`:
+    case `Float16Array`:
     case `Float32Array`:
     case `Float64Array`: {
       const values = [...(value as Iterable<number>)]
