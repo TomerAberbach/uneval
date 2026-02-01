@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-wrapper-object-types */
+/* eslint-disable eqeqeq */ // For smaller bundle size.
 
 import { generateIdentifier } from './identifier.ts'
 
@@ -7,7 +7,7 @@ type Binding = {
   /** The name of the binding. */
   _name: string
   /** The value of the binding as a source string. */
-  _source: string
+  _source?: string
   /**
    * The binding values this binding depends on, corresponding to keys in
    * {@link State._bindings}.
@@ -127,7 +127,7 @@ const srcify = (value: unknown): string => {
       // which it can't be if it has no binding.
       result!,
     )
-  } else if (bodyResults.at(-1)?._evaluatesTo !== returnBinding._name) {
+  } else if (bodyResults.at(-1)?._evaluatesTo != returnBinding._name) {
     // The value the returned source evaluates to does have a binding, but the
     // last mutation in the body does not evaluate to it, so we have to add a
     // reference to the value's binding at the end of the body expression to
@@ -152,7 +152,6 @@ const createBindings = (value: unknown): Map<object, Binding> => {
     if (!bindings.has(value)) {
       bindings.set(value, {
         _name: generateIdentifier(bindings.size),
-        _source: ``,
         _dependencies: new Set(),
       })
     }
@@ -165,7 +164,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
   const parents = new Set<object>()
 
   const traverse = (value: unknown, parent?: object) => {
-    if (value === null || typeof value !== `object`) {
+    if (!value || typeof value != `object`) {
       return
     }
 
@@ -209,7 +208,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
               item as object,
             ) &&
             key &&
-            typeof key === `object`
+            typeof key == `object`
           ) {
             // If the item is circular and the key is an object, then the key
             // also needs a binding so we can reference it in mutations.
@@ -227,7 +226,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
           // we'll have to construct it, put it in a binding, then `.set(...)`
           // it.
           (arrayBuffer.resizable &&
-            new Uint8Array(arrayBuffer).some(value => value !== 0))
+            new Uint8Array(arrayBuffer).some(value => value != 0))
         ) {
           ensureBinding(value)
         }
@@ -261,7 +260,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
         }
 
         const prototype = Object.getPrototypeOf(value) as unknown
-        if (prototype !== Object.prototype) {
+        if (prototype != Object.prototype) {
           // We only render the prototype if it's not equal the default one in
           // this realm.
           traverse(prototype, value)
@@ -306,40 +305,19 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
 const srcifyInternal = ((value: unknown, state: State): string | null => {
   switch (typeof value) {
     case `undefined`:
-      return `undefined`
+      return `void 0`
     case `boolean`:
-      return String(value)
+      return srcifyBoolean(value)
     case `number`:
-      // `String(-0)` becomes `'0'` so we have to special-case it.
-      return Object.is(value, -0) ? `-0` : String(value)
+      return srcifyNumber(value)
     case `bigint`:
       return `${value}n`
     case `string`:
-      return (
-        JSON.stringify(value)
-          // Prevent XSS attack via closing an inline script tag.
-          // eslint-disable-next-line unicorn/prefer-string-replace-all
-          .replace(/<\/(?=script)/giu, `<\\u002f`)
-          // These whitespace characters are safe JSON, but not safe JS:
-          // https://stackoverflow.com/a/9168133
-          .replaceAll(`\u2028`, `\\u2028`)
-          .replaceAll(`\u2029`, `\\u2029`)
-      )
-    case `symbol`: {
-      let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
-      if (key) {
-        return `Symbol.${key}`
-      }
-
-      key = Symbol.keyFor(value)
-      if (key) {
-        return `Symbol.for(${srcifyInternal(key, state)})`
-      }
-
-      throw new TypeError(`Unsupported symbol`)
-    }
+      return srcifyString(value)
+    case `symbol`:
+      return srcifySymbol(value, state)
     case `object`:
-      return value === null ? `null` : srcifyObject(value, state)
+      return value == null ? `null` : srcifyObject(value, state)
     case `function`:
       throw new TypeError(`Unsupported function`)
   }
@@ -351,15 +329,66 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
   (value: unknown, state: State): string | null
 }
 
+const srcifyBoolean = (value: boolean): string =>
+  // Convert `false` to `!1` and `true` to `!0`
+  `!${
+    // eslint-disable-next-line no-implicit-coercion
+    +!value
+  }`
+
+const srcifyNumber = (value: number): string => {
+  if (value == Infinity) {
+    return `1/0`
+  } else if (value == -Infinity) {
+    return `-1/0`
+  }
+
+  const source = `${value}`
+  if (Object.is(value, -0)) {
+    // Converting -0 to a string becomes `0` so we have to special-case it.
+    return `-${source}`
+  }
+
+  // Convert `0.123` to `.123` and  `-0.123` to `-.123`.
+  return source.replace(ZERO_POINT_REG_EXP, match => match.slice(0, -1))
+}
+
+// eslint-disable-next-line require-unicode-regexp
+const ZERO_POINT_REG_EXP = /^-?0(?=\.)/
+
+const srcifyString = (value: string): string =>
+  JSON.stringify(value)
+    // Prevent XSS attack via closing an inline script tag.
+    // eslint-disable-next-line unicorn/prefer-string-replace-all
+    .replace(/<\/(?=script)/giu, `<\\u002f`)
+    // These whitespace characters are safe JSON, but not safe JS:
+    // https://stackoverflow.com/a/9168133
+    .replaceAll(`\u2028`, `\\u2028`)
+    .replaceAll(`\u2029`, `\\u2029`)
+
+const srcifySymbol = (value: symbol, state: State): string => {
+  let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
+  if (key) {
+    return `Symbol.${key}`
+  }
+
+  key = Symbol.keyFor(value)
+  if (key) {
+    return `Symbol.for(${srcifyInternal(key, state)})`
+  }
+
+  throw new TypeError(`Unsupported symbol`)
+}
+
 const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
   Reflect.ownKeys(Symbol).flatMap(key => {
     // This doesn't happen in practice, but best to be safe if one day a
     // non-string key as added to `Symbol`.
-    if (typeof key !== `string`) {
+    if (typeof key != `string`) {
       return []
     }
     const value = Symbol[key as keyof typeof Symbol]
-    return typeof value === `symbol` ? [[value, key]] : []
+    return typeof value == `symbol` ? [[value, key]] : []
   }),
 )
 
@@ -414,13 +443,13 @@ const srcifyMutation = (
 } => {
   const bindingName = state._bindings.get(mutation._target)!._name
   const valueSource = mutation._input
-    ? typeof mutation._input === `string`
+    ? typeof mutation._input == `string`
       ? mutation._input
       : state._bindings.get(mutation._input)!._name
     : ``
   switch (mutation._type) {
     case SET_OBJECT_STRING_PROPERTY:
-      return mutation._property === __PROTO__
+      return mutation._property == __PROTO__
         ? {
             _source: objectDefineProperty(bindingName, valueSource),
             // `Object.defineProperty` always returns the input object.
@@ -480,7 +509,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         }
 
         const result = srcifyInternal(array[i], state)
-        if (result === null) {
+        if (result == null) {
           state._mutations.push({
             _target: value,
             _type: SET_ARRAY_INDEX,
@@ -502,20 +531,9 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       return `[${itemSources.join(`,`)}]`
     }
     case `Boolean`:
-    case `String`: {
-      const primitive = (value as Boolean).valueOf()
-      return newInstance(
-        type,
-        primitive ? srcifyInternal(primitive, state) : ``,
-      )
-    }
-    case `Number`: {
-      const primitive = (value as Number).valueOf()
-      return newInstance(
-        type,
-        Object.is(primitive, 0) ? `` : srcifyInternal(primitive, state),
-      )
-    }
+    case `Number`:
+    case `String`:
+      return `Object(${srcifyInternal(value.valueOf(), state)})`
     case `Date`:
       return newInstance(type, srcifyInternal((value as Date).valueOf(), state))
     case `URL`:
@@ -536,7 +554,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
           const keyResult = srcifyInternal(key, state)
           const itemResult = srcifyInternal(item, state)
 
-          if (keyResult === null) {
+          if (keyResult == null) {
             // If the key is circular, then omit this entry for now and set it
             // later.
             state._mutations.push({
@@ -551,7 +569,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
             return []
           }
 
-          if (itemResult === null) {
+          if (itemResult == null) {
             // If the item is circular, then omit the item part of the entry
             // for now and set it later.
             state._mutations.push({
@@ -573,7 +591,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       const values = [...(value as Iterable<unknown>)]
         .flatMap(item => {
           const result = srcifyInternal(item, state)
-          if (result === null) {
+          if (result == null) {
             state._mutations.push({
               _target: value,
               _type: ADD_TO_SET,
@@ -610,10 +628,10 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       let uint8Array: Uint8Array
       let firstNonZeroIndex: number
       if (
-        byteLength === 0 ||
+        byteLength == 0 ||
         (firstNonZeroIndex = (uint8Array = new Uint8Array(
           arrayBuffer,
-        )).findIndex(value => value !== 0)) === -1
+        )).findIndex(value => value != 0)) == -1
       ) {
         return newInstance(
           type,
@@ -629,7 +647,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         return `${srcifyInternal(uint8Array, state)!}.buffer`
       }
 
-      const lastNonZeroIndex = uint8Array.findLastIndex(value => value !== 0)
+      const lastNonZeroIndex = uint8Array.findLastIndex(value => value != 0)
 
       state._mutations.push({
         _target: value,
@@ -672,7 +690,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       return newInstance(
         type,
         values.length
-          ? values.every(value => value === 0n)
+          ? values.every(value => value == 0n)
             ? values.length
             : // Must be non-null because `bigint[]` can't be circular.
               srcifyInternal(values, state)!
@@ -692,7 +710,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
   // TODO(#9): Support all property types, including non-enumerable ones.
   let source = `{${Reflect.ownKeys(object)
     .filter(key => {
-      if (key === __PROTO__) {
+      if (key == __PROTO__) {
         // TODO(#10): Use `Object.assign` after `Object.defineProperty` if
         // `__proto__` is in the middle of the ordering, so that we preserve
         // the property order instead of always putting it at the end.
@@ -704,11 +722,11 @@ const srcifyObjectLike = (object: object, state: State): string => {
     })
     .flatMap(key => {
       const symbolResult =
-        typeof key === `symbol` ? srcifyInternal(key, state) : null
+        typeof key == `symbol` ? srcifyInternal(key, state) : null
 
       const value = Reflect.get(object, key) as unknown
       const valueResult = srcifyInternal(value, state)
-      if (valueResult === null) {
+      if (valueResult == null) {
         state._mutations.push({
           _target: object,
           // `value` must be an object if it's circular.
@@ -725,7 +743,12 @@ const srcifyObjectLike = (object: object, state: State): string => {
       }
 
       key = key as string
-      if (NAT_REG_EXP.test(key)) {
+
+      // eslint-disable-next-line no-implicit-coercion
+      const number = +key
+      const isNumericKey =
+        key == `${number}` && number >= 0 && Number.isSafeInteger(number)
+      if (isNumericKey) {
         return [`${key}:${valueResult}`]
       }
 
@@ -733,12 +756,12 @@ const srcifyObjectLike = (object: object, state: State): string => {
         return [`${srcifyInternal(key, state)}:${valueResult}`]
       }
 
-      return [key === valueResult ? key : `${key}:${valueResult}`]
+      return [key == valueResult ? key : `${key}:${valueResult}`]
     })
     .join(`,`)}}`
   if (__proto__) {
     const result = srcifyInternal(__proto__._value, state)
-    if (result === null) {
+    if (result == null) {
       state._mutations.push({
         _target: object,
         _type: SET_OBJECT_STRING_PROPERTY,
@@ -752,7 +775,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
-  if (prototype !== Object.prototype) {
+  if (prototype != Object.prototype) {
     // We only render the prototype if it's not equal the default one in this
     // realm.
     source = `Object.setPrototypeOf(${source},${
@@ -772,7 +795,6 @@ const objectDefineProperty = (objectSource: string, valueSource: string) =>
 
 const __PROTO__ = `__proto__`
 const PROPERTY_REG_EXP = /^\p{ID_Start}\p{ID_Continue}*$/u
-const NAT_REG_EXP = /^[1-9][0-9]*$/u
 
 const getType = (value: object): string =>
   // `.constructor` returns `undefined` for objects with null prototype.

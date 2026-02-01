@@ -14,47 +14,59 @@ test.prop([anythingArb], { numRuns: 500 })(`srcify works`, value => {
 
 test.each([
   // Undefined and null
-  { name: `undefined`, value: undefined, source: `undefined` },
+  { name: `undefined`, value: undefined, source: `void 0` },
   { name: `null`, value: null, source: `null` },
 
   // Boolean
-  { name: `false`, value: false, source: `false` },
-  { name: `boxed false`, value: new Boolean(false), source: `new Boolean()` },
-  { name: `true`, value: true, source: `true` },
-  { name: `boxed true`, value: new Boolean(true), source: `new Boolean(true)` },
+  { name: `false`, value: false, source: `!1` },
+  { name: `boxed false`, value: new Boolean(false), source: `Object(!1)` },
+  { name: `true`, value: true, source: `!0` },
+  { name: `boxed true`, value: new Boolean(true), source: `Object(!0)` },
 
   // Number
   { name: `zero`, value: 0, source: `0` },
-  { name: `boxed zero`, value: new Number(0), source: `new Number()` },
+  { name: `boxed zero`, value: new Number(0), source: `Object(0)` },
   { name: `negative zero`, value: -0, source: `-0` },
   {
     name: `boxed negative zero`,
     value: new Number(-0),
-    source: `new Number(-0)`,
+    source: `Object(-0)`,
   },
   { name: `positive integer`, value: 42, source: `42` },
   {
     name: `boxed positive integer`,
     value: new Number(42),
-    source: `new Number(42)`,
+    source: `Object(42)`,
   },
   { name: `negative integer`, value: -42, source: `-42` },
   {
     name: `boxed negative integer`,
     value: new Number(-42),
-    source: `new Number(-42)`,
+    source: `Object(-42)`,
   },
   { name: `positive decimal`, value: 3.14, source: `3.14` },
   {
     name: `boxed positive decimal`,
     value: new Number(3.14),
-    source: `new Number(3.14)`,
+    source: `Object(3.14)`,
   },
   { name: `negative decimal`, value: -3.14, source: `-3.14` },
   {
     name: `boxed negative decimal`,
     value: new Number(-3.14),
-    source: `new Number(-3.14)`,
+    source: `Object(-3.14)`,
+  },
+  { name: `decimal between 0 and 1`, value: 0.12, source: `.12` },
+  {
+    name: `boxed decimal between 0 and 1`,
+    value: new Number(0.12),
+    source: `Object(.12)`,
+  },
+  { name: `decimal between -1 and 0`, value: -0.12, source: `-.12` },
+  {
+    name: `boxed decimal between -1 and 0`,
+    value: new Number(-0.12),
+    source: `Object(-.12)`,
   },
   {
     name: `max safe integer value`,
@@ -64,7 +76,7 @@ test.each([
   {
     name: `boxed max safe integer value`,
     value: new Number(Number.MAX_SAFE_INTEGER),
-    source: `new Number(9007199254740991)`,
+    source: `Object(9007199254740991)`,
   },
   {
     name: `max number value`,
@@ -74,7 +86,7 @@ test.each([
   {
     name: `boxed max number value`,
     value: new Number(Number.MAX_VALUE),
-    source: `new Number(1.7976931348623157e+308)`,
+    source: `Object(1.7976931348623157e+308)`,
   },
   {
     name: `min safe integer value`,
@@ -84,7 +96,7 @@ test.each([
   {
     name: `boxed min safe integer value`,
     value: new Number(Number.MIN_SAFE_INTEGER),
-    source: `new Number(-9007199254740991)`,
+    source: `Object(-9007199254740991)`,
   },
   {
     name: `min number value`,
@@ -94,25 +106,25 @@ test.each([
   {
     name: `boxed min number value`,
     value: new Number(Number.MIN_VALUE),
-    source: `new Number(5e-324)`,
+    source: `Object(5e-324)`,
   },
   { name: `NaN`, value: Number.NaN, source: `NaN` },
   {
     name: `boxed NaN`,
     value: new Number(Number.NaN),
-    source: `new Number(NaN)`,
+    source: `Object(NaN)`,
   },
-  { name: `infinity`, value: Infinity, source: `Infinity` },
+  { name: `infinity`, value: Infinity, source: `1/0` },
   {
     name: `boxed infinity`,
     value: new Number(Infinity),
-    source: `new Number(Infinity)`,
+    source: `Object(1/0)`,
   },
-  { name: `negative infinity`, value: -Infinity, source: `-Infinity` },
+  { name: `negative infinity`, value: -Infinity, source: `-1/0` },
   {
     name: `boxed negative infinity`,
     value: new Number(-Infinity),
-    source: `new Number(-Infinity)`,
+    source: `Object(-1/0)`,
   },
 
   // BigInt
@@ -133,30 +145,30 @@ test.each([
 
   // String
   { name: `empty string`, value: ``, source: `""` },
-  { name: `boxed empty string`, value: new String(``), source: `new String()` },
+  { name: `boxed empty string`, value: new String(``), source: `Object("")` },
   { name: `single character string`, value: `a`, source: `"a"` },
   {
     name: `boxed single character string`,
     value: new String(`a`),
-    source: `new String("a")`,
+    source: `Object("a")`,
   },
   { name: `string with spaces`, value: `a b c`, source: `"a b c"` },
   {
     name: `boxed string with spaces`,
     value: new String(`a b c`),
-    source: `new String("a b c")`,
+    source: `Object("a b c")`,
   },
   { name: `string with single quotes`, value: `'''`, source: `"'''"` },
   {
     name: `boxed string with single quotes`,
     value: new String(`'''`),
-    source: `new String("'''")`,
+    source: `Object("'''")`,
   },
   { name: `string with double quote`, value: `"`, source: `"\\""` },
   {
     name: `boxed string with double quote`,
     value: new String(`"`),
-    source: `new String("\\"")`,
+    source: `Object("\\"")`,
   },
   {
     name: `string with closing script tag`,
@@ -166,7 +178,7 @@ test.each([
   {
     name: `boxed string with closing script tag`,
     value: new String(`</script>`),
-    source: `new String("<\\u002fscript>")`,
+    source: `Object("<\\u002fscript>")`,
   },
   {
     name: `string with capitalized closing script tag`,
@@ -176,7 +188,7 @@ test.each([
   {
     name: `boxed string with capitalized closing script tag`,
     value: new String(`</SCRIPT>`),
-    source: `new String("<\\u002fSCRIPT>")`,
+    source: `Object("<\\u002fSCRIPT>")`,
   },
   {
     name: `string with mixed capitalization closing script tag`,
@@ -186,49 +198,49 @@ test.each([
   {
     name: `boxed string with mixed capitalization capitalized closing script tag`,
     value: new String(`</sCrIpT>`),
-    source: `new String("<\\u002fsCrIpT>")`,
+    source: `Object("<\\u002fsCrIpT>")`,
   },
   { name: `null terminator string`, value: `\0`, source: `"\\u0000"` },
   {
     name: `boxed null terminator string`,
     value: new String(`\0`),
-    source: `new String("\\u0000")`,
+    source: `Object("\\u0000")`,
   },
   { name: `backspace string`, value: `\b`, source: `"\\b"` },
   {
     name: `boxed backspace string`,
     value: new String(`\b`),
-    source: `new String("\\b")`,
+    source: `Object("\\b")`,
   },
   { name: `tab string`, value: `\t`, source: `"\\t"` },
   {
     name: `boxed tab string`,
     value: new String(`\t`),
-    source: `new String("\\t")`,
+    source: `Object("\\t")`,
   },
   { name: `newline string`, value: `\n`, source: `"\\n"` },
   {
     name: `boxed newline string`,
     value: new String(`\n`),
-    source: `new String("\\n")`,
+    source: `Object("\\n")`,
   },
   { name: `carriage return string`, value: `\r`, source: `"\\r"` },
   {
     name: `boxed carriage return string`,
     value: new String(`\r`),
-    source: `new String("\\r")`,
+    source: `Object("\\r")`,
   },
   { name: `backslash string`, value: `\\`, source: `"\\\\"` },
   {
     name: `boxed backslash string`,
     value: new String(`\\`),
-    source: `new String("\\\\")`,
+    source: `Object("\\\\")`,
   },
   { name: `line separator string`, value: `\u2028`, source: `"\\u2028"` },
   {
     name: `boxed line separator string`,
     value: new String(`\u2028`),
-    source: `new String("\\u2028")`,
+    source: `Object("\\u2028")`,
   },
   {
     name: `multiple line separator string`,
@@ -238,13 +250,13 @@ test.each([
   {
     name: `boxed multiple line separator string`,
     value: new String(`\u2028\u2028`),
-    source: `new String("\\u2028\\u2028")`,
+    source: `Object("\\u2028\\u2028")`,
   },
   { name: `paragraph separator string`, value: `\u2029`, source: `"\\u2029"` },
   {
     name: `boxed paragraph separator string`,
     value: new String(`\u2029`),
-    source: `new String("\\u2029")`,
+    source: `Object("\\u2029")`,
   },
   {
     name: `multiple paragraph separator string`,
@@ -254,7 +266,7 @@ test.each([
   {
     name: `boxed multiple paragraph separator string`,
     value: new String(`\u2029\u2029`),
-    source: `new String("\\u2029\\u2029")`,
+    source: `Object("\\u2029\\u2029")`,
   },
 
   // Symbol
@@ -361,6 +373,12 @@ test.each([
     value: { 'a b c': 2 },
     source: `{"a b c":2}`,
   },
+  { name: `object with zero property`, value: { 0: 2 }, source: `{0:2}` },
+  {
+    name: `object with multiple zeros property`,
+    value: { '00': 2 },
+    source: `{"00":2}`,
+  },
   { name: `object with integer property`, value: { 1: 2 }, source: `{1:2}` },
   {
     name: `object with integer property with matching value`,
@@ -386,6 +404,16 @@ test.each([
     name: `object with string negative decimal property`,
     value: { '-1.2': 2 },
     source: `{"-1.2":2}`,
+  },
+  {
+    name: `object with large safe integer property`,
+    value: { 1_000_000_000_000_000: 2 },
+    source: `{1000000000000000:2}`,
+  },
+  {
+    name: `object with non-safe integer property`,
+    value: { '10000000000000000000000000000000000000000': 2 },
+    source: `{"10000000000000000000000000000000000000000":2}`,
   },
   {
     name: `object with symbol property`,
