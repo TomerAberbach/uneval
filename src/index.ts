@@ -325,8 +325,6 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
           .replaceAll(`\u2028`, `\\u2028`)
           .replaceAll(`\u2029`, `\\u2029`)
       )
-    case `object`:
-      return value === null ? `null` : srcifyObject(value, state)
     case `symbol`: {
       let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
       if (key) {
@@ -340,6 +338,8 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
 
       throw new TypeError(`Unsupported symbol`)
     }
+    case `object`:
+      return value === null ? `null` : srcifyObject(value, state)
     case `function`:
       throw new TypeError(`Unsupported function`)
   }
