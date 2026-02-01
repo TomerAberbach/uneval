@@ -625,6 +625,27 @@ test.each([
     source: `new Uint32Array([1,2,3,4])`,
   },
 
+  // Float16Array
+  ...(typeof Float16Array === `undefined`
+    ? []
+    : [
+        {
+          name: `empty Float16Array`,
+          value: new Float16Array(),
+          source: `new Float16Array()`,
+        },
+        {
+          name: `non-empty uninitialized Float16Array`,
+          value: new Float16Array(1024),
+          source: `new Float16Array(1024)`,
+        },
+        {
+          name: `non-empty initialized Float16Array`,
+          value: new Float16Array([1, -2, 3.140_625, 4]),
+          source: `new Float16Array([1,-2,3.140625,4])`,
+        },
+      ]),
+
   // Float32Array
   {
     name: `empty Float32Array`,
