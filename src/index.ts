@@ -260,6 +260,8 @@ const createBindings = (value: unknown): Map<object, Binding> => {
         }
 
         const prototype = Object.getPrototypeOf(value) as unknown
+        // TODO(#31): Check if an object is a plain object based on properties
+        // on the prototype.
         if (prototype != Object.prototype) {
           // We only render the prototype if it's not equal the default one in
           // this realm.
@@ -356,6 +358,8 @@ const srcifyNumber = (value: number): string => {
 // eslint-disable-next-line require-unicode-regexp
 const ZERO_POINT_REG_EXP = /^-?0(?=\.)/
 
+// TODO(#29): Correctly handle lone surrogates.
+// TODO(#30): Stringify `\0` as `\0` instead of `\u0000`
 const srcifyString = (value: string): string =>
   JSON.stringify(value)
     // Prevent XSS attack via closing an inline script tag.
@@ -775,6 +779,8 @@ const srcifyObjectLike = (object: object, state: State): string => {
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
+  // TODO(#31): Check if an object is a plain object based on properties on the
+  // prototype.
   if (prototype != Object.prototype) {
     // We only render the prototype if it's not equal the default one in this
     // realm.
