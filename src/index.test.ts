@@ -443,7 +443,7 @@ test.each([
       enumerable: true,
       writable: true,
     }),
-    source: `Object.defineProperty({},"__proto__",{value:null,writable:true,enumerable:true,configurable:true})`,
+    source: `{["__proto__"]:null}`,
   },
 
   // Set

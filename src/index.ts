@@ -811,20 +811,8 @@ const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}(${args})`
 
 const unevalObjectLike = (object: object, state: State): string => {
-  let __proto__: { _value: unknown } | undefined
   // TODO(#9): Support all property types, including non-enumerable ones.
   let source = `{${Reflect.ownKeys(object)
-    .filter(key => {
-      if (key == __PROTO__) {
-        // TODO(#10): Use `Object.assign` after `Object.defineProperty` if
-        // `__proto__` is in the middle of the ordering, so that we preserve
-        // the property order instead of always putting it at the end.
-        __proto__ = { _value: Reflect.get(object, key) as unknown }
-        return false
-      } else {
-        return true
-      }
-    })
     .flatMap(key => {
       const symbolResult =
         typeof key == `symbol` ? unevalInternal(key, state) : null
@@ -847,6 +835,12 @@ const unevalObjectLike = (object: object, state: State): string => {
         return [`[${symbolResult}]:${valueResult}`]
       }
 
+      if (key === __PROTO__) {
+        // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
+        // property rather than setting `Object.prototype`.
+        return [`[${unevalInternal(__PROTO__, state)}]:${valueResult}`]
+      }
+
       key = key as string
 
       // eslint-disable-next-line no-implicit-coercion
@@ -864,20 +858,6 @@ const unevalObjectLike = (object: object, state: State): string => {
       return [key == valueResult ? key : `${key}:${valueResult}`]
     })
     .join(`,`)}}`
-  if (__proto__) {
-    const result = unevalInternal(__proto__._value, state)
-    if (result == null) {
-      state._mutations.push({
-        _target: object,
-        _type: SET_OBJECT_STRING_PROPERTY,
-        _property: __PROTO__,
-        // `__proto__._value` must be an object if it's circular.
-        _input: __proto__._value as object,
-      })
-    } else {
-      source = objectDefineProperty(source, result)
-    }
-  }
 
   const prototype = Object.getPrototypeOf(object) as unknown
   // TODO(#31): Check if an object is a plain object based on properties on the
