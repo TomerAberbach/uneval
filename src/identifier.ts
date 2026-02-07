@@ -12,7 +12,7 @@ export const generateIdentifier = (n: number): string => {
     // Any identifiers with 2 or more characters could clash with reserved
     // keywords or global identifiers we reference. We could list all those out
     // and check them, but ending up with identifiers are more than
-    // `IDENTIFIER_CHARS.length` in length is so rare in `srcify` (requires a
+    // `IDENTIFIER_CHARS.length` in length is so rare in `uneval` (requires a
     // ton of shared or circular references) that it's not worth increasing the
     // bundle size for.
     identifier = `$${identifier}`
