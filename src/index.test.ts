@@ -373,6 +373,16 @@ test.each([
     value: { 'a b c': 2 },
     source: `{"a b c":2}`,
   },
+  {
+    name: `object with string with underscores property`,
+    value: { __a__: 2 },
+    source: `{__a__:2}`,
+  },
+  {
+    name: `object with string with dollar signs property`,
+    value: { $a$: 2 },
+    source: `{$a$:2}`,
+  },
   { name: `object with zero property`, value: { 0: 2 }, source: `{0:2}` },
   {
     name: `object with multiple zeros property`,
@@ -444,6 +454,32 @@ test.each([
       writable: true,
     }),
     source: `{["__proto__"]:null}`,
+  },
+  {
+    name: `object with copy of default prototype`,
+    value: Object.create(
+      Object.fromEntries(
+        Object.getOwnPropertyNames(Object.prototype).map(key => [
+          key,
+          (Object.prototype as Record<string, unknown>)[key],
+        ]),
+      ),
+    ),
+    source: `{}`,
+  },
+  {
+    name: `object with near copy of default prototype`,
+    value: Object.create(
+      Object.fromEntries(
+        Object.getOwnPropertyNames(Object.prototype)
+          .slice(1)
+          .map(key => {
+            const value = (Object.prototype as Record<string, unknown>)[key]
+            return [key, typeof value === `function` ? `function` : value]
+          }),
+      ),
+    ),
+    source: `Object.setPrototypeOf({},{__defineGetter__:"function",__defineSetter__:"function",hasOwnProperty:"function",__lookupGetter__:"function",__lookupSetter__:"function",isPrototypeOf:"function",propertyIsEnumerable:"function",toString:"function",valueOf:"function",["__proto__"]:null,toLocaleString:"function"})`,
   },
 
   // Set
