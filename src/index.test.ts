@@ -8,7 +8,7 @@ import { expect } from 'vitest'
 import { anythingArb } from './arbs.ts'
 import srcify from './index.ts'
 
-test.prop([anythingArb], { numRuns: 500 })(`srcify works`, value => {
+test.prop([anythingArb], { numRuns: 100_000 })(`srcify works`, value => {
   expectSrcifyRoundtrips(value)
 })
 
@@ -506,214 +506,6 @@ test.each([
     source: `new URLSearchParams([["a","b"]])`,
   },
 
-  // Int8Array
-  {
-    name: `empty Int8Array`,
-    value: new Int8Array(),
-    source: `new Int8Array()`,
-  },
-  {
-    name: `non-empty uninitialized Int8Array`,
-    value: new Int8Array(1024),
-    source: `new Int8Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Int8Array`,
-    value: new Int8Array([1, -2, 3, 4]),
-    source: `new Int8Array([1,-2,3,4])`,
-  },
-
-  // Uint8Array
-  {
-    name: `empty Uint8Array`,
-    value: new Uint8Array(),
-    source: `new Uint8Array()`,
-  },
-  {
-    name: `non-empty uninitialized Uint8Array`,
-    value: new Uint8Array(1024),
-    source: `new Uint8Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Uint8Array`,
-    value: new Uint8Array([1, 2, 3, 4]),
-    source: `new Uint8Array([1,2,3,4])`,
-  },
-
-  // Uint8ClampedArray
-  {
-    name: `empty Uint8ClampedArray`,
-    value: new Uint8ClampedArray(),
-    source: `new Uint8ClampedArray()`,
-  },
-  {
-    name: `non-empty uninitialized Uint8ClampedArray`,
-    value: new Uint8ClampedArray(1024),
-    source: `new Uint8ClampedArray(1024)`,
-  },
-  {
-    name: `non-empty initialized Uint8ClampedArray`,
-    value: new Uint8ClampedArray([1, 2, 3, 4]),
-    source: `new Uint8ClampedArray([1,2,3,4])`,
-  },
-
-  // Int16Array
-  {
-    name: `empty Int16Array`,
-    value: new Int16Array(),
-    source: `new Int16Array()`,
-  },
-  {
-    name: `non-empty uninitialized Int16Array`,
-    value: new Int16Array(1024),
-    source: `new Int16Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Int16Array`,
-    value: new Int16Array([1, -2, 3, 4]),
-    source: `new Int16Array([1,-2,3,4])`,
-  },
-
-  // Uint16Array
-  {
-    name: `empty Uint16Array`,
-    value: new Uint16Array(),
-    source: `new Uint16Array()`,
-  },
-  {
-    name: `non-empty uninitialized Uint16Array`,
-    value: new Uint16Array(1024),
-    source: `new Uint16Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Uint16Array`,
-    value: new Uint16Array([1, 2, 3, 4]),
-    source: `new Uint16Array([1,2,3,4])`,
-  },
-
-  // Int32Array
-  {
-    name: `empty Int32Array`,
-    value: new Int32Array(),
-    source: `new Int32Array()`,
-  },
-  {
-    name: `non-empty uninitialized Int32Array`,
-    value: new Int32Array(1024),
-    source: `new Int32Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Int32Array`,
-    value: new Int32Array([1, -2, 3, 4]),
-    source: `new Int32Array([1,-2,3,4])`,
-  },
-
-  // Uint32Array
-  {
-    name: `empty Uint32Array`,
-    value: new Uint32Array(),
-    source: `new Uint32Array()`,
-  },
-  {
-    name: `non-empty uninitialized Uint32Array`,
-    value: new Uint32Array(1024),
-    source: `new Uint32Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Uint32Array`,
-    value: new Uint32Array([1, 2, 3, 4]),
-    source: `new Uint32Array([1,2,3,4])`,
-  },
-
-  // Float16Array
-  ...(typeof Float16Array === `undefined`
-    ? []
-    : [
-        {
-          name: `empty Float16Array`,
-          value: new Float16Array(),
-          source: `new Float16Array()`,
-        },
-        {
-          name: `non-empty uninitialized Float16Array`,
-          value: new Float16Array(1024),
-          source: `new Float16Array(1024)`,
-        },
-        {
-          name: `non-empty initialized Float16Array`,
-          value: new Float16Array([1, -2, 3.140_625, 4]),
-          source: `new Float16Array([1,-2,3.140625,4])`,
-        },
-      ]),
-
-  // Float32Array
-  {
-    name: `empty Float32Array`,
-    value: new Float32Array(),
-    source: `new Float32Array()`,
-  },
-  {
-    name: `non-empty uninitialized Float32Array`,
-    value: new Float32Array(1024),
-    source: `new Float32Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Float32Array`,
-    value: new Float32Array([1, -2, 3.140_000_104_904_175, 4]),
-    source: `new Float32Array([1,-2,3.140000104904175,4])`,
-  },
-
-  // Float64Array
-  {
-    name: `empty Float64Array`,
-    value: new Float64Array(),
-    source: `new Float64Array()`,
-  },
-  {
-    name: `non-empty uninitialized Float64Array`,
-    value: new Float64Array(1024),
-    source: `new Float64Array(1024)`,
-  },
-  {
-    name: `non-empty initialized Float64Array`,
-    value: new Float64Array([1, -2, 3.14, 4]),
-    source: `new Float64Array([1,-2,3.14,4])`,
-  },
-
-  // BigInt64Array
-  {
-    name: `empty BigInt64Array`,
-    value: new BigInt64Array(),
-    source: `new BigInt64Array()`,
-  },
-  {
-    name: `non-empty uninitialized BigInt64Array`,
-    value: new BigInt64Array(1024),
-    source: `new BigInt64Array(1024)`,
-  },
-  {
-    name: `non-empty initialized BigInt64Array`,
-    value: new BigInt64Array([1n, -2n, 3n, 4n]),
-    source: `new BigInt64Array([1n,-2n,3n,4n])`,
-  },
-
-  // BigUint64Array
-  {
-    name: `empty BigUint64Array`,
-    value: new BigUint64Array(),
-    source: `new BigUint64Array()`,
-  },
-  {
-    name: `non-empty uninitialized BigUint64Array`,
-    value: new BigUint64Array(1024),
-    source: `new BigUint64Array(1024)`,
-  },
-  {
-    name: `non-empty initialized BigUint64Array`,
-    value: new BigUint64Array([1n, 2n, 3n, 4n]),
-    source: `new BigUint64Array([1n,2n,3n,4n])`,
-  },
-
   // ArrayBuffer
   {
     name: `empty non-resizable ArrayBuffer`,
@@ -954,6 +746,554 @@ test.each([
       return buffer
     })(),
     source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+  },
+
+  // Int8Array
+  {
+    name: `empty Int8Array`,
+    value: new Int8Array(),
+    source: `new Int8Array()`,
+  },
+  {
+    name: `non-empty uninitialized Int8Array`,
+    value: new Int8Array(1024),
+    source: `new Int8Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Int8Array`,
+    value: new Int8Array([1, -2, 3, 4]),
+    source: `new Int8Array([1,-2,3,4])`,
+  },
+
+  // Uint8Array
+  {
+    name: `empty Uint8Array`,
+    value: new Uint8Array(),
+    source: `new Uint8Array()`,
+  },
+  {
+    name: `non-empty uninitialized Uint8Array`,
+    value: new Uint8Array(1024),
+    source: `new Uint8Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Uint8Array`,
+    value: new Uint8Array([1, 2, 3, 4]),
+    source: `new Uint8Array([1,2,3,4])`,
+  },
+  {
+    name: `leading Uint8Array view`,
+    value: new Uint8Array(new ArrayBuffer(4), 0, 3),
+    source: `new Uint8Array(new ArrayBuffer(4),0,3)`,
+  },
+  {
+    name: `middle Uint8Array view`,
+    value: new Uint8Array(new ArrayBuffer(4), 1, 2),
+    source: `new Uint8Array(new ArrayBuffer(4),1,2)`,
+  },
+  {
+    name: `trailing Uint8Array view`,
+    value: new Uint8Array(new ArrayBuffer(4), 1, 3),
+    source: `new Uint8Array(new ArrayBuffer(4),1)`,
+  },
+  {
+    name: `resizable Uint8Array`,
+    value: new Uint8Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Uint8Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Uint8Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Uint8Array(buffer), new Uint8Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Uint8Array(a),new Uint8Array(a)])()`,
+  },
+
+  // Uint8ClampedArray
+  {
+    name: `empty Uint8ClampedArray`,
+    value: new Uint8ClampedArray(),
+    source: `new Uint8ClampedArray()`,
+  },
+  {
+    name: `non-empty uninitialized Uint8ClampedArray`,
+    value: new Uint8ClampedArray(1024),
+    source: `new Uint8ClampedArray(1024)`,
+  },
+  {
+    name: `non-empty initialized Uint8ClampedArray`,
+    value: new Uint8ClampedArray([1, 2, 3, 4]),
+    source: `new Uint8ClampedArray([1,2,3,4])`,
+  },
+  {
+    name: `leading Uint8ClampedArray view`,
+    value: new Uint8ClampedArray(new ArrayBuffer(4), 0, 3),
+    source: `new Uint8ClampedArray(new ArrayBuffer(4),0,3)`,
+  },
+  {
+    name: `middle Uint8ClampedArray view`,
+    value: new Uint8ClampedArray(new ArrayBuffer(4), 1, 2),
+    source: `new Uint8ClampedArray(new ArrayBuffer(4),1,2)`,
+  },
+  {
+    name: `trailing Uint8ClampedArray view`,
+    value: new Uint8ClampedArray(new ArrayBuffer(4), 1, 3),
+    source: `new Uint8ClampedArray(new ArrayBuffer(4),1)`,
+  },
+  {
+    name: `resizable Uint8ClampedArray`,
+    value: new Uint8ClampedArray(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Uint8ClampedArray(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Uint8ClampedArray with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Uint8ClampedArray(buffer), new Uint8ClampedArray(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])()`,
+  },
+
+  // Int16Array
+  {
+    name: `empty Int16Array`,
+    value: new Int16Array(),
+    source: `new Int16Array()`,
+  },
+  {
+    name: `non-empty uninitialized Int16Array`,
+    value: new Int16Array(1024),
+    source: `new Int16Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Int16Array`,
+    value: new Int16Array([1, -2, 3, 4]),
+    source: `new Int16Array([1,-2,3,4])`,
+  },
+  {
+    name: `leading Int16Array view`,
+    value: new Int16Array(new ArrayBuffer(8), 0, 2),
+    source: `new Int16Array(new ArrayBuffer(8),0,2)`,
+  },
+  {
+    name: `middle Int16Array view`,
+    value: new Int16Array(new ArrayBuffer(8), 2, 2),
+    source: `new Int16Array(new ArrayBuffer(8),2,2)`,
+  },
+  {
+    name: `trailing Int16Array view`,
+    value: new Int16Array(new ArrayBuffer(8), 4, 2),
+    source: `new Int16Array(new ArrayBuffer(8),4)`,
+  },
+  {
+    name: `resizable Int16Array`,
+    value: new Int16Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Int16Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Int16Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Int16Array(buffer), new Int16Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Int16Array(a),new Int16Array(a)])()`,
+  },
+
+  // Uint16Array
+  {
+    name: `empty Uint16Array`,
+    value: new Uint16Array(),
+    source: `new Uint16Array()`,
+  },
+  {
+    name: `non-empty uninitialized Uint16Array`,
+    value: new Uint16Array(1024),
+    source: `new Uint16Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Uint16Array`,
+    value: new Uint16Array([1, 2, 3, 4]),
+    source: `new Uint16Array([1,2,3,4])`,
+  },
+  {
+    name: `leading Uint16Array view`,
+    value: new Uint16Array(new ArrayBuffer(8), 0, 2),
+    source: `new Uint16Array(new ArrayBuffer(8),0,2)`,
+  },
+  {
+    name: `middle Uint16Array view`,
+    value: new Uint16Array(new ArrayBuffer(8), 2, 2),
+    source: `new Uint16Array(new ArrayBuffer(8),2,2)`,
+  },
+  {
+    name: `trailing Uint16Array view`,
+    value: new Uint16Array(new ArrayBuffer(8), 4, 2),
+    source: `new Uint16Array(new ArrayBuffer(8),4)`,
+  },
+  {
+    name: `resizable Uint16Array`,
+    value: new Uint16Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Uint16Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Uint16Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Uint16Array(buffer), new Uint16Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Uint16Array(a),new Uint16Array(a)])()`,
+  },
+
+  // Int32Array
+  {
+    name: `empty Int32Array`,
+    value: new Int32Array(),
+    source: `new Int32Array()`,
+  },
+  {
+    name: `non-empty uninitialized Int32Array`,
+    value: new Int32Array(1024),
+    source: `new Int32Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Int32Array`,
+    value: new Int32Array([1, -2, 3, 4]),
+    source: `new Int32Array([1,-2,3,4])`,
+  },
+  {
+    name: `leading Int32Array view`,
+    value: new Int32Array(new ArrayBuffer(16), 0, 2),
+    source: `new Int32Array(new ArrayBuffer(16),0,2)`,
+  },
+  {
+    name: `middle Int32Array view`,
+    value: new Int32Array(new ArrayBuffer(16), 4, 2),
+    source: `new Int32Array(new ArrayBuffer(16),4,2)`,
+  },
+  {
+    name: `trailing Int32Array view`,
+    value: new Int32Array(new ArrayBuffer(16), 8, 2),
+    source: `new Int32Array(new ArrayBuffer(16),8)`,
+  },
+  {
+    name: `resizable Int32Array`,
+    value: new Int32Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Int32Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Int32Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Int32Array(buffer), new Int32Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Int32Array(a),new Int32Array(a)])()`,
+  },
+
+  // Uint32Array
+  {
+    name: `empty Uint32Array`,
+    value: new Uint32Array(),
+    source: `new Uint32Array()`,
+  },
+  {
+    name: `non-empty uninitialized Uint32Array`,
+    value: new Uint32Array(1024),
+    source: `new Uint32Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Uint32Array`,
+    value: new Uint32Array([1, 2, 3, 4]),
+    source: `new Uint32Array([1,2,3,4])`,
+  },
+  {
+    name: `leading Uint32Array view`,
+    value: new Uint32Array(new ArrayBuffer(16), 0, 2),
+    source: `new Uint32Array(new ArrayBuffer(16),0,2)`,
+  },
+  {
+    name: `middle Uint32Array view`,
+    value: new Uint32Array(new ArrayBuffer(16), 4, 2),
+    source: `new Uint32Array(new ArrayBuffer(16),4,2)`,
+  },
+  {
+    name: `trailing Uint32Array view`,
+    value: new Uint32Array(new ArrayBuffer(16), 8, 2),
+    source: `new Uint32Array(new ArrayBuffer(16),8)`,
+  },
+  {
+    name: `resizable Uint32Array`,
+    value: new Uint32Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Uint32Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Uint32Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Uint32Array(buffer), new Uint32Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Uint32Array(a),new Uint32Array(a)])()`,
+  },
+
+  // Float16Array
+  ...(typeof Float16Array === `undefined`
+    ? []
+    : [
+        {
+          name: `empty Float16Array`,
+          value: new Float16Array(),
+          source: `new Float16Array()`,
+        },
+        {
+          name: `non-empty uninitialized Float16Array`,
+          value: new Float16Array(1024),
+          source: `new Float16Array(1024)`,
+        },
+        {
+          name: `non-empty initialized Float16Array`,
+          value: new Float16Array([1, -2, 3.140_625, 4]),
+          source: `new Float16Array([1,-2,3.140625,4])`,
+        },
+        {
+          name: `middle Float16Array view`,
+          value: new Float16Array(new ArrayBuffer(8), 2, 2),
+          source: `new Float16Array(new ArrayBuffer(8),2,2)`,
+        },
+        {
+          name: `trailing Float16Array view`,
+          value: new Float16Array(new ArrayBuffer(8), 4, 2),
+          source: `new Float16Array(new ArrayBuffer(8),4)`,
+        },
+        {
+          name: `resizable Float16Array`,
+          value: new Float16Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+          source: `new Float16Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+        },
+        {
+          name: `resizable Float16Array`,
+          value: new Float16Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+          source: `new Float16Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+        },
+        {
+          name: `Float16Array with shared buffer reference`,
+          value: (() => {
+            const buffer = new ArrayBuffer()
+            return [new Float16Array(buffer), new Float16Array(buffer)]
+          })(),
+          source: `((a=new ArrayBuffer())=>[new Float16Array(a),new Float16Array(a)])()`,
+        },
+        {
+          name: `Float16Array from NaN`,
+          value: new Float16Array([Number.NaN]),
+          source: `new Float16Array([NaN])`,
+        },
+        {
+          name: `Float16Array from non-canonical NaN`,
+          value: new Float16Array(new Uint8Array([0, 125]).buffer),
+          source: `new Float16Array(new Uint8Array([0,125]).buffer)`,
+        },
+      ]),
+
+  // Float32Array
+  {
+    name: `empty Float32Array`,
+    value: new Float32Array(),
+    source: `new Float32Array()`,
+  },
+  {
+    name: `non-empty uninitialized Float32Array`,
+    value: new Float32Array(1024),
+    source: `new Float32Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Float32Array`,
+    value: new Float32Array([1, -2, 3.140_000_104_904_175, 4]),
+    source: `new Float32Array([1,-2,3.140000104904175,4])`,
+  },
+  {
+    name: `leading Float32Array view`,
+    value: new Float32Array(new ArrayBuffer(16), 0, 2),
+    source: `new Float32Array(new ArrayBuffer(16),0,2)`,
+  },
+  {
+    name: `middle Float32Array view`,
+    value: new Float32Array(new ArrayBuffer(16), 4, 2),
+    source: `new Float32Array(new ArrayBuffer(16),4,2)`,
+  },
+  {
+    name: `trailing Float32Array view`,
+    value: new Float32Array(new ArrayBuffer(16), 8, 2),
+    source: `new Float32Array(new ArrayBuffer(16),8)`,
+  },
+  {
+    name: `resizable Float32Array`,
+    value: new Float32Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Float32Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Float32Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Float32Array(buffer), new Float32Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Float32Array(a),new Float32Array(a)])()`,
+  },
+  {
+    name: `Float32Array from NaN`,
+    value: new Float32Array([Number.NaN]),
+    source: `new Float32Array([NaN])`,
+  },
+  {
+    name: `Float32Array from non-canonical NaN`,
+    value: new Float32Array(new Uint8Array([0, 0, 255, 127]).buffer),
+    source: `new Float32Array(new Uint8Array([0,0,255,127]).buffer)`,
+  },
+
+  // Float64Array
+  {
+    name: `empty Float64Array`,
+    value: new Float64Array(),
+    source: `new Float64Array()`,
+  },
+  {
+    name: `non-empty uninitialized Float64Array`,
+    value: new Float64Array(1024),
+    source: `new Float64Array(1024)`,
+  },
+  {
+    name: `non-empty initialized Float64Array`,
+    value: new Float64Array([1, -2, 3.14, 4]),
+    source: `new Float64Array([1,-2,3.14,4])`,
+  },
+  {
+    name: `leading Float64Array view`,
+    value: new Float64Array(new ArrayBuffer(32), 0, 2),
+    source: `new Float64Array(new ArrayBuffer(32),0,2)`,
+  },
+  {
+    name: `middle Float64Array view`,
+    value: new Float64Array(new ArrayBuffer(32), 8, 2),
+    source: `new Float64Array(new ArrayBuffer(32),8,2)`,
+  },
+  {
+    name: `trailing Float64Array view`,
+    value: new Float64Array(new ArrayBuffer(32), 16, 2),
+    source: `new Float64Array(new ArrayBuffer(32),16)`,
+  },
+  {
+    name: `resizable Float64Array`,
+    value: new Float64Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Float64Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Float64Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Float64Array(buffer), new Float64Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new Float64Array(a),new Float64Array(a)])()`,
+  },
+  {
+    name: `Float64Array from NaN`,
+    value: new Float64Array([Number.NaN]),
+    source: `new Float64Array([NaN])`,
+  },
+  {
+    name: `Float64Array from non-canonical NaN`,
+    value: new Float64Array(
+      new Uint8Array([0, 0, 0, 0, 0, 0, 255, 127]).buffer,
+    ),
+    source: `new Float64Array(new Uint8Array([0,0,0,0,0,0,255,127]).buffer)`,
+  },
+
+  // BigInt64Array
+  {
+    name: `empty BigInt64Array`,
+    value: new BigInt64Array(),
+    source: `new BigInt64Array()`,
+  },
+  {
+    name: `non-empty uninitialized BigInt64Array`,
+    value: new BigInt64Array(1024),
+    source: `new BigInt64Array(1024)`,
+  },
+  {
+    name: `non-empty initialized BigInt64Array`,
+    value: new BigInt64Array([1n, -2n, 3n, 4n]),
+    source: `new BigInt64Array([1n,-2n,3n,4n])`,
+  },
+  {
+    name: `leading BigInt64Array view`,
+    value: new BigInt64Array(new ArrayBuffer(32), 0, 2),
+    source: `new BigInt64Array(new ArrayBuffer(32),0,2)`,
+  },
+  {
+    name: `middle BigInt64Array view`,
+    value: new BigInt64Array(new ArrayBuffer(32), 8, 2),
+    source: `new BigInt64Array(new ArrayBuffer(32),8,2)`,
+  },
+  {
+    name: `trailing BigInt64Array view`,
+    value: new BigInt64Array(new ArrayBuffer(32), 16, 2),
+    source: `new BigInt64Array(new ArrayBuffer(32),16)`,
+  },
+  {
+    name: `resizable BigInt64Array`,
+    value: new BigInt64Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new BigInt64Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `BigInt64Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new BigInt64Array(buffer), new BigInt64Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new BigInt64Array(a),new BigInt64Array(a)])()`,
+  },
+
+  // BigUint64Array
+  {
+    name: `empty BigUint64Array`,
+    value: new BigUint64Array(),
+    source: `new BigUint64Array()`,
+  },
+  {
+    name: `non-empty uninitialized BigUint64Array`,
+    value: new BigUint64Array(1024),
+    source: `new BigUint64Array(1024)`,
+  },
+  {
+    name: `non-empty initialized BigUint64Array`,
+    value: new BigUint64Array([1n, 2n, 3n, 4n]),
+    source: `new BigUint64Array([1n,2n,3n,4n])`,
+  },
+  {
+    name: `leading BigUint64Array view`,
+    value: new BigUint64Array(new ArrayBuffer(32), 0, 2),
+    source: `new BigUint64Array(new ArrayBuffer(32),0,2)`,
+  },
+  {
+    name: `middle BigUint64Array view`,
+    value: new BigUint64Array(new ArrayBuffer(32), 8, 2),
+    source: `new BigUint64Array(new ArrayBuffer(32),8,2)`,
+  },
+  {
+    name: `trailing BigUint64Array view`,
+    value: new BigUint64Array(new ArrayBuffer(32), 16, 2),
+    source: `new BigUint64Array(new ArrayBuffer(32),16)`,
+  },
+  {
+    name: `resizable BigUint64Array`,
+    value: new BigUint64Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new BigUint64Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `BigUint64Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new BigUint64Array(buffer), new BigUint64Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer())=>[new BigUint64Array(a),new BigUint64Array(a)])()`,
   },
 
   // Shared reference
