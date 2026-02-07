@@ -1,4 +1,6 @@
-/* eslint-disable eqeqeq */ // For smaller bundle size.
+// For smaller bundle size.
+/* eslint-disable no-implicit-coercion */
+/* eslint-disable eqeqeq */
 
 import { generateIdentifier } from './identifier.ts'
 
@@ -279,9 +281,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
         }
 
         const prototype = Object.getPrototypeOf(value) as unknown
-        // TODO(#31): Check if an object is a plain object based on properties
-        // on the prototype.
-        if (prototype != Object.prototype) {
+        if (!isDefaultObjectPrototype(prototype)) {
           // We only render the prototype if it's not equal the default one in
           // this realm.
           traverse(prototype, value)
@@ -352,10 +352,7 @@ const unevalInternal = ((value: unknown, state: State): string | null => {
 
 const unevalBoolean = (value: boolean): string =>
   // Convert `false` to `!1` and `true` to `!0`
-  `!${
-    // eslint-disable-next-line no-implicit-coercion
-    +!value
-  }`
+  `!${+!value}`
 
 const unevalNumber = (value: number): string => {
   if (value == Infinity) {
@@ -843,7 +840,6 @@ const unevalObjectLike = (object: object, state: State): string => {
 
       key = key as string
 
-      // eslint-disable-next-line no-implicit-coercion
       const number = +key
       const isNumericKey =
         key == `${number}` && number >= 0 && Number.isSafeInteger(number)
@@ -862,7 +858,7 @@ const unevalObjectLike = (object: object, state: State): string => {
   const prototype = Object.getPrototypeOf(object) as unknown
   // TODO(#31): Check if an object is a plain object based on properties on the
   // prototype.
-  if (prototype != Object.prototype) {
+  if (!isDefaultObjectPrototype(prototype)) {
     // We only render the prototype if it's not equal the default one in this
     // realm.
     source = `Object.setPrototypeOf(${source},${
@@ -881,7 +877,18 @@ const objectDefineProperty = (objectSource: string, valueSource: string) =>
   },writable:true,enumerable:true,configurable:true})`
 
 const __PROTO__ = `__proto__`
-const PROPERTY_REG_EXP = /^\p{ID_Start}\p{ID_Continue}*$/u
+const PROPERTY_REG_EXP = /^[$_\p{ID_Start}][$_\p{ID_Continue}]*$/u
+
+const isDefaultObjectPrototype = (value: unknown): boolean =>
+  value == Object.prototype ||
+  (!!value &&
+    typeof value == `object` &&
+    ownKeysString(value) == DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING)
+
+const ownKeysString = (value: object) =>
+  Object.getOwnPropertyNames(value).sort().join(`\0`)
+
+const DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING = ownKeysString(Object.prototype)
 
 const getType = (value: object): string =>
   // `.constructor` returns `undefined` for objects with null prototype.
