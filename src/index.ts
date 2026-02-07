@@ -47,6 +47,17 @@ type Mutation = {
 /** State maintained while converting a value to source. */
 type State = {
   /**
+   * A map from object to the binding where it should be stored.
+   *
+   * Bindings are used to share objects that are referenced multiple times or to
+   * create circular references in conjunction with {@link State._mutations}.
+   */
+  _bindings: Map<object, Binding>
+
+  /** A map from value to user provided custom source. */
+  _customSources: Map<unknown, string>
+
+  /**
    * Parents objects that have already been visited above the current object
    * tree being traversed.
    *
@@ -60,19 +71,32 @@ type State = {
    */
   _currentBinding?: Binding
 
-  /**
-   * A map from object to the binding where it should be stored.
-   *
-   * Bindings are used to share objects that are referenced multiple times or to
-   * create circular references in conjunction with {@link State._mutations}.
-   */
-  _bindings: Map<object, Binding>
-
   /** A list of mutations of bindings. */
   _mutations: Mutation[]
 }
 
-// TODO(#16): Support custom uneval handlers.
+/** Options for {@link uneval}. */
+export type UnevalOptions = {
+  /**
+   * A custom function for unevaling values.
+   *
+   * Return the following types depending on the desired behavior:
+   * - `string` to provide a custom uneval result for {@link value}
+   * - `undefined` (or don't return anything, which is equivalent) to use the
+   *   default behavior for {@link value}
+   *
+   * It can be used to uneval already supported values differently or to uneval
+   * unsupported values such as functions.
+   *
+   * The {@link uneval} param is the same uneval function these options were
+   * passed to. You may use it to delegate back to uneval for sub-objects.
+   */
+  custom?: (
+    value: unknown,
+    uneval: (value: unknown) => string,
+  ) => string | undefined
+}
+
 // TODO(#17): Support ignoring unsupported things (like functions and symbols).
 /**
  * Converts the given {@link value} to JavaScript source code.
@@ -92,12 +116,13 @@ type State = {
  * assert.deepEqual(roundtrippedObject, object)
  * ```
  */
-const uneval = (value: unknown): string => {
+const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   const state: State = {
+    ...createBindingsAndCustomSources(value, custom),
     _currentParents: new Set(),
-    _bindings: createBindings(value),
     _mutations: [],
   }
+
   const result = unevalInternal(value, state)
 
   if (!state._bindings.size) {
@@ -148,8 +173,16 @@ const uneval = (value: unknown): string => {
   return `((${parametersSource})=>${bodySource})()`
 }
 
-const createBindings = (value: unknown): Map<object, Binding> => {
+const createBindingsAndCustomSources = (
+  value: unknown,
+  custom: UnevalOptions[`custom`],
+): {
+  _bindings: Map<object, Binding>
+  _customSources: Map<unknown, string>
+} => {
   const bindings = new Map<object, Binding>()
+  const customSources = new Map<unknown, string>()
+
   const ensureBinding = (value: object) => {
     if (!bindings.has(value)) {
       bindings.set(value, {
@@ -165,8 +198,30 @@ const createBindings = (value: unknown): Map<object, Binding> => {
   // circular references. This is always a subset of `seen`.
   const parents = new Set<object>()
 
+  const computeCustomSource = (value: unknown): boolean => {
+    if (customSources.has(value)) {
+      if (isObject(value)) {
+        // If the value is an object and it has been seen before, then we want
+        // to create a binding for it to share its custom source.
+        ensureBinding(value)
+      }
+      return true
+    }
+
+    const source = custom?.(value, value => uneval(value, { custom }))
+    if (source == null) {
+      return false
+    }
+
+    customSources.set(value, source)
+    return true
+  }
+
   const traverse = (value: unknown, parent?: object) => {
+    // Note that we purposefully do not traverse functions here because we don't
+    // support them natively.
     if (!value || typeof value != `object`) {
+      computeCustomSource(value)
       return
     }
 
@@ -191,6 +246,10 @@ const createBindings = (value: unknown): Map<object, Binding> => {
   }
 
   const traverseObject = (value: object) => {
+    if (computeCustomSource(value)) {
+      return
+    }
+
     switch (getType(value)) {
       case `Array`:
       case `Set`:
@@ -209,8 +268,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
               // it's just a lookup, and this saves bytes.
               item as object,
             ) &&
-            key &&
-            typeof key == `object`
+            isObject(key)
           ) {
             // If the item is circular and the key is an object, then the key
             // also needs a binding so we can reference it in mutations.
@@ -293,7 +351,7 @@ const createBindings = (value: unknown): Map<object, Binding> => {
 
   traverse(value)
 
-  return bindings
+  return { _bindings: bindings, _customSources: customSources }
 }
 
 const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
@@ -324,6 +382,15 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
 
 // TODO(#19): Support `Temporal` objects.
 const unevalInternal = ((value: unknown, state: State): string | null => {
+  const customSource = isObject(value)
+    ? // Don't check the custom source now because we may need to create a
+      // binding in `unevalObject`.
+      undefined
+    : state._customSources.get(value)
+  if (customSource != null) {
+    return customSource
+  }
+
   switch (typeof value) {
     case `undefined`:
       return `void 0`
@@ -338,9 +405,8 @@ const unevalInternal = ((value: unknown, state: State): string | null => {
     case `symbol`:
       return unevalSymbol(value, state)
     case `object`:
-      return value == null ? `null` : unevalObject(value, state)
     case `function`:
-      throw new TypeError(`Unsupported function`)
+      return value == null ? `null` : unevalObject(value, state)
   }
 }) as {
   (
@@ -516,6 +582,15 @@ const unevalMutation = (
 }
 
 const unevalObjectInternal = (value: object, state: State): string => {
+  const customSource = state._customSources.get(value)
+  if (customSource != null) {
+    return customSource
+  }
+
+  if (typeof value == `function`) {
+    throw new TypeError(`Unsupported function`)
+  }
+
   const type = getType(value)
   switch (type) {
     // TODO(#8): Serialize extremely sparse arrays more efficiently.
@@ -881,14 +956,18 @@ const PROPERTY_REG_EXP = /^[$_\p{ID_Start}][$_\p{ID_Continue}]*$/u
 
 const isDefaultObjectPrototype = (value: unknown): boolean =>
   value == Object.prototype ||
-  (!!value &&
-    typeof value == `object` &&
+  (isObject(value) &&
     ownKeysString(value) == DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING)
 
 const ownKeysString = (value: object) =>
   Object.getOwnPropertyNames(value).sort().join(`\0`)
 
 const DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING = ownKeysString(Object.prototype)
+
+const isObject = (value: unknown): value is object => {
+  const type = typeof value
+  return (type == `object` && !!value) || type == `function`
+}
 
 const getType = (value: object): string =>
   // `.constructor` returns `undefined` for objects with null prototype.

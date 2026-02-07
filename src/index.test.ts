@@ -7,12 +7,19 @@ import { test } from '@fast-check/vitest'
 import { expect } from 'vitest'
 import { anythingArb } from './arbs.ts'
 import uneval from './index.ts'
+import type { UnevalOptions } from './index.ts'
 
 test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
   expectUnevalRoundtrips(value)
 })
 
-test.each([
+test.each<{
+  name: string
+  value: unknown
+  source: string
+  options?: UnevalOptions
+  roundtrips?: boolean
+}>([
   // Undefined and null
   { name: `undefined`, value: undefined, source: `void 0` },
   { name: `null`, value: null, source: `null` },
@@ -1566,27 +1573,126 @@ test.each([
     })(),
     source: `((c={},b=[,c],a=new Set([b]))=>(b[0]=a,c[""]=a))()`,
   },
-] satisfies { name: string; value: unknown; source: string }[])(
-  `uneval $name`,
-  ({ value, source }) => {
-    expect(expectUnevalRoundtrips(value)).toBe(source)
-  },
-)
 
-test.each([
+  // Custom
+  {
+    name: `custom option for functions`,
+    value: { x: 42, f: () => `hi` },
+    options: {
+      custom: value =>
+        typeof value === `function` ? String(value) : undefined,
+    },
+    source: `{x:42,f:() => \`hi\`}`,
+    roundtrips: false,
+  },
+  {
+    name: `custom option for symbols`,
+    value: { x: 42, s: Symbol(`hi`) },
+    options: {
+      custom: (value, uneval) =>
+        typeof value === `symbol`
+          ? `Symbol(${uneval(value.description)})`
+          : undefined,
+    },
+    source: `{x:42,s:Symbol("hi")}`,
+    roundtrips: false,
+  },
+  (() => {
+    class Person {
+      public name: string
+
+      public constructor(name: string) {
+        this.name = name
+      }
+    }
+    // So that we can test roundtripping works.
+    ;(globalThis as Record<string, unknown>).Person = Person
+
+    return {
+      name: `custom option for classes`,
+      value: new Person(`Tomer`),
+      options: {
+        custom: (value, uneval) =>
+          value instanceof Person
+            ? `new Person(${uneval(value.name)})`
+            : undefined,
+      },
+      source: `new Person("Tomer")`,
+    }
+  })(),
+  {
+    name: `custom option with nested behavior`,
+    value: Symbol(`hi`),
+    options: {
+      custom: (value, uneval) => {
+        if (typeof value === `string`) {
+          const uppercase = value.toUpperCase()
+          if (uppercase === value) {
+            // Avoid infinite recursion.
+            return undefined
+          }
+          return uneval(uppercase)
+        }
+
+        if (typeof value === `symbol`) {
+          return `Symbol(${
+            // This should delegate to the above.
+            uneval(value.description)
+          })`
+        }
+
+        return undefined
+      },
+    },
+    source: `Symbol("HI")`,
+    roundtrips: false,
+  },
+  (() => {
+    let callCount = 0
+    return {
+      name: `custom option with repeated primitive`,
+      value: { a: 1, b: 1, c: 1 },
+      options: {
+        custom: (value, uneval) => {
+          if (typeof value === `number`) {
+            expect(callCount).toBe(0)
+            callCount++
+            return uneval(String(value))
+          }
+
+          return undefined
+        },
+      },
+      source: `{a:"1",b:"1",c:"1"}`,
+      roundtrips: false,
+    }
+  })(),
+])(`uneval $name`, ({ value, source, options, roundtrips = true }) => {
+  const actualSource = (roundtrips ? expectUnevalRoundtrips : uneval)(
+    value,
+    options,
+  )
+
+  expect(actualSource).toBe(source)
+})
+
+test.each<{
+  name: string
+  value: unknown
+}>([
   // eslint-disable-next-line symbol-description
   { name: `unique symbol`, value: Symbol() },
   { name: `unique symbol with description`, value: Symbol(`howdy`) },
   { name: `function`, value: () => {} },
-] satisfies {
-  name: string
-  value: unknown
-}[])(`uneval $name`, ({ value }) => {
+])(`uneval $name`, ({ value }) => {
   expect(() => uneval(value)).toThrowError()
 })
 
-const expectUnevalRoundtrips = (value: unknown): string => {
-  const source = uneval(value)
+const expectUnevalRoundtrips = (
+  value: unknown,
+  options?: UnevalOptions,
+): string => {
+  const source = uneval(value, options)
 
   let roundtrippedValue: unknown
   try {
