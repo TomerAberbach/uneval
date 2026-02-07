@@ -1,5 +1,5 @@
 {
-  "name": "srcify",
+  "name": "@tomer/uneval",
   "version": "0.0.0",
   "author": {
     "name": "Tomer Aberbach",
@@ -14,10 +14,10 @@
     "serialize",
     "roundtrip"
   ],
-  "homepage": "https://github.com/TomerAberbach/srcify",
-  "repository": "TomerAberbach/srcify",
+  "homepage": "https://github.com/TomerAberbach/uneval",
+  "repository": "TomerAberbach/uneval",
   "bugs": {
-    "url": "https://github.com/TomerAberbach/srcify/issues"
+    "url": "https://github.com/TomerAberbach/uneval/issues"
   },
   "funding": {
     "url": "https://github.com/sponsors/TomerAberbach"

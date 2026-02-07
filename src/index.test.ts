@@ -6,10 +6,10 @@
 import { test } from '@fast-check/vitest'
 import { expect } from 'vitest'
 import { anythingArb } from './arbs.ts'
-import srcify from './index.ts'
+import uneval from './index.ts'
 
-test.prop([anythingArb], { numRuns: 100_000 })(`srcify works`, value => {
-  expectSrcifyRoundtrips(value)
+test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
+  expectUnevalRoundtrips(value)
 })
 
 test.each([
@@ -1531,9 +1531,9 @@ test.each([
     source: `((c={},b=[,c],a=new Set([b]))=>(b[0]=a,c[""]=a))()`,
   },
 ] satisfies { name: string; value: unknown; source: string }[])(
-  `srcify $name`,
+  `uneval $name`,
   ({ value, source }) => {
-    expect(expectSrcifyRoundtrips(value)).toBe(source)
+    expect(expectUnevalRoundtrips(value)).toBe(source)
   },
 )
 
@@ -1545,12 +1545,12 @@ test.each([
 ] satisfies {
   name: string
   value: unknown
-}[])(`srcify $name`, ({ value }) => {
-  expect(() => srcify(value)).toThrowError()
+}[])(`uneval $name`, ({ value }) => {
+  expect(() => uneval(value)).toThrowError()
 })
 
-const expectSrcifyRoundtrips = (value: unknown): string => {
-  const source = srcify(value)
+const expectUnevalRoundtrips = (value: unknown): string => {
+  const source = uneval(value)
 
   let roundtrippedValue: unknown
   try {

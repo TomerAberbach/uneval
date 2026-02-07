@@ -6,7 +6,7 @@ import jsesc from 'jsesc'
 import serializeJavaScript from 'serialize-javascript'
 import toSource from 'tosource'
 import { bench, describe } from 'vitest'
-import srcify from './index.ts'
+import uneval from './index.ts'
 
 describe.each([
   [`booleans`, fc.boolean()],
@@ -18,9 +18,9 @@ describe.each([
 ])(`%s`, (_, arb: fc.Arbitrary<unknown>) => {
   const values = fc.sample(arb, { seed: 42, numRuns: 5000 })
 
-  bench(`srcify`, () => {
+  bench(`uneval`, () => {
     for (const value of values) {
-      ;(0, eval)(`(${srcify(value)})`)
+      ;(0, eval)(`(${uneval(value)})`)
     }
   })
 

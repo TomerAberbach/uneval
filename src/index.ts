@@ -70,7 +70,7 @@ type State = {
   _mutations: Mutation[]
 }
 
-// TODO(#16): Support custom srcify handlers.
+// TODO(#16): Support custom uneval handlers.
 // TODO(#17): Support ignoring unsupported things (like functions and symbols).
 /**
  * Converts the given {@link value} to JavaScript source code.
@@ -78,11 +78,11 @@ type State = {
  * @example
  * ```js
  * import assert from 'node:assert'
- * import srcify from 'srcify'
+ * import uneval from 'uneval'
  *
  * const object = { message: `hello world` }
  *
- * const source = srcify(object)
+ * const source = uneval(object)
  * console.log(source)
  * //=> {message:"hello world"}
  *
@@ -90,13 +90,13 @@ type State = {
  * assert.deepEqual(roundtrippedObject, object)
  * ```
  */
-const srcify = (value: unknown): string => {
+const uneval = (value: unknown): string => {
   const state: State = {
     _currentParents: new Set(),
     _bindings: createBindings(value),
     _mutations: [],
   }
-  const result = srcifyInternal(value, state)
+  const result = unevalInternal(value, state)
 
   if (!state._bindings.size) {
     // If no bindings were created, then it's impossible for the returned source
@@ -110,7 +110,7 @@ const srcify = (value: unknown): string => {
   ).join(`,`)
 
   const bodyResults = state._mutations.map(mutation =>
-    srcifyMutation(mutation, state),
+    unevalMutation(mutation, state),
   )
   const bodySources = bodyResults.map(result => result._source)
 
@@ -323,22 +323,22 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
 }
 
 // TODO(#19): Support `Temporal` objects.
-const srcifyInternal = ((value: unknown, state: State): string | null => {
+const unevalInternal = ((value: unknown, state: State): string | null => {
   switch (typeof value) {
     case `undefined`:
       return `void 0`
     case `boolean`:
-      return srcifyBoolean(value)
+      return unevalBoolean(value)
     case `number`:
-      return srcifyNumber(value)
+      return unevalNumber(value)
     case `bigint`:
       return `${value}n`
     case `string`:
-      return srcifyString(value)
+      return unevalString(value)
     case `symbol`:
-      return srcifySymbol(value, state)
+      return unevalSymbol(value, state)
     case `object`:
-      return value == null ? `null` : srcifyObject(value, state)
+      return value == null ? `null` : unevalObject(value, state)
     case `function`:
       throw new TypeError(`Unsupported function`)
   }
@@ -350,14 +350,14 @@ const srcifyInternal = ((value: unknown, state: State): string | null => {
   (value: unknown, state: State): string | null
 }
 
-const srcifyBoolean = (value: boolean): string =>
+const unevalBoolean = (value: boolean): string =>
   // Convert `false` to `!1` and `true` to `!0`
   `!${
     // eslint-disable-next-line no-implicit-coercion
     +!value
   }`
 
-const srcifyNumber = (value: number): string => {
+const unevalNumber = (value: number): string => {
   if (value == Infinity) {
     return `1/0`
   } else if (value == -Infinity) {
@@ -379,7 +379,7 @@ const ZERO_POINT_REG_EXP = /^-?0(?=\.)/
 
 // TODO(#29): Correctly handle lone surrogates.
 // TODO(#30): Stringify `\0` as `\0` instead of `\u0000`
-const srcifyString = (value: string): string =>
+const unevalString = (value: string): string =>
   JSON.stringify(value)
     // Prevent XSS attack via closing an inline script tag.
     // eslint-disable-next-line unicorn/prefer-string-replace-all
@@ -389,7 +389,7 @@ const srcifyString = (value: string): string =>
     .replaceAll(`\u2028`, `\\u2028`)
     .replaceAll(`\u2029`, `\\u2029`)
 
-const srcifySymbol = (value: symbol, state: State): string => {
+const unevalSymbol = (value: symbol, state: State): string => {
   let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
   if (key) {
     return `Symbol.${key}`
@@ -397,7 +397,7 @@ const srcifySymbol = (value: symbol, state: State): string => {
 
   key = Symbol.keyFor(value)
   if (key) {
-    return `Symbol.for(${srcifyInternal(key, state)})`
+    return `Symbol.for(${unevalInternal(key, state)})`
   }
 
   throw new TypeError(`Unsupported symbol`)
@@ -415,11 +415,11 @@ const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
   }),
 )
 
-const srcifyObject = (value: object, state: State): string | null => {
+const unevalObject = (value: object, state: State): string | null => {
   const binding = state._bindings.get(value)
   if (!binding) {
     // This value has no binding so we can render its source inline.
-    return srcifyObjectInternal(value, state)
+    return unevalObjectInternal(value, state)
   }
 
   if (state._currentParents.has(value)) {
@@ -443,7 +443,7 @@ const srcifyObject = (value: object, state: State): string | null => {
     // compute and set its source.
     state._currentBinding = binding
     state._currentParents.add(value)
-    binding._source = srcifyObjectInternal(value, state)
+    binding._source = unevalObjectInternal(value, state)
     state._currentParents.delete(value)
     state._currentBinding = previousBinding
   }
@@ -451,7 +451,7 @@ const srcifyObject = (value: object, state: State): string | null => {
   return binding._name
 }
 
-const srcifyMutation = (
+const unevalMutation = (
   mutation: Mutation,
   state: State,
 ): {
@@ -482,7 +482,7 @@ const srcifyMutation = (
             _source: `${bindingName}${
               PROPERTY_REG_EXP.test(mutation._property)
                 ? `.${mutation._property}`
-                : `[${srcifyInternal(mutation._property, state)}]`
+                : `[${unevalInternal(mutation._property, state)}]`
             }=${valueSource}`,
             // An assignment evaluates to the right-hand side.
             _evaluatesTo: valueSource,
@@ -518,7 +518,7 @@ const srcifyMutation = (
   }
 }
 
-const srcifyObjectInternal = (value: object, state: State): string => {
+const unevalObjectInternal = (value: object, state: State): string => {
   const type = getType(value)
   switch (type) {
     // TODO(#8): Serialize extremely sparse arrays more efficiently.
@@ -531,7 +531,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
           continue
         }
 
-        const result = srcifyInternal(array[i], state)
+        const result = unevalInternal(array[i], state)
         if (result == null) {
           state._mutations.push({
             _target: value,
@@ -556,26 +556,26 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Boolean`:
     case `Number`:
     case `String`:
-      return `Object(${srcifyInternal(value.valueOf(), state)})`
+      return `Object(${unevalInternal(value.valueOf(), state)})`
     case `Date`:
-      return newInstance(type, srcifyInternal((value as Date).valueOf(), state))
+      return newInstance(type, unevalInternal((value as Date).valueOf(), state))
     case `URL`:
-      return newInstance(type, srcifyInternal((value as URL).href, state))
+      return newInstance(type, unevalInternal((value as URL).href, state))
     // TODO(#11): Serialize RegExp objects as literals.
     case `RegExp`: {
       const { source, flags } = value as RegExp
       return newInstance(
         type,
-        `${srcifyInternal(source, state)}${
-          flags && `,${srcifyInternal(flags, state)}`
+        `${unevalInternal(source, state)}${
+          flags && `,${unevalInternal(flags, state)}`
         }`,
       )
     }
     case `Map`: {
       const entries = [...(value as Iterable<[unknown, unknown]>)]
         .flatMap(([key, item]) => {
-          const keyResult = srcifyInternal(key, state)
-          const itemResult = srcifyInternal(item, state)
+          const keyResult = unevalInternal(key, state)
+          const itemResult = unevalInternal(item, state)
 
           if (keyResult == null) {
             // If the key is circular, then omit this entry for now and set it
@@ -613,7 +613,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Set`: {
       const values = [...(value as Iterable<unknown>)]
         .flatMap(item => {
-          const result = srcifyInternal(item, state)
+          const result = unevalInternal(item, state)
           if (result == null) {
             state._mutations.push({
               _target: value,
@@ -635,7 +635,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
         type,
         values.length
           ? // Must be non-null because `[string, string][]` can't be circular.
-            srcifyInternal(values, state)!
+            unevalInternal(values, state)!
           : ``,
       )
     }
@@ -667,7 +667,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
       }
 
       if (!resizable) {
-        return `${srcifyInternal(uint8Array, state)!}.buffer`
+        return `${unevalInternal(uint8Array, state)!}.buffer`
       }
 
       const lastNonZeroIndex = uint8Array.findLastIndex(value => value != 0)
@@ -693,7 +693,7 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     case `Float16Array`:
     case `Float32Array`:
     case `Float64Array`:
-      return srcifyTypedArray(
+      return unevalTypedArray(
         value as
           | Int8Array
           | Uint8Array
@@ -712,18 +712,18 @@ const srcifyObjectInternal = (value: object, state: State): string => {
     // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
     case `BigInt64Array`:
     case `BigUint64Array`:
-      return srcifyTypedArray(
+      return unevalTypedArray(
         value as BigInt64Array | BigUint64Array,
         type,
         0n,
         state,
       )
     default:
-      return srcifyObjectLike(value, state)
+      return unevalObjectLike(value, state)
   }
 }
 
-const srcifyTypedArray = (
+const unevalTypedArray = (
   typedArray:
     | Int8Array
     | Uint8Array
@@ -765,7 +765,7 @@ const srcifyTypedArray = (
     // construct from the buffer to preserve the exact NaN bit pattern.
     hasNonCanonicalNaN
   ) {
-    const bufferSource = srcifyInternal(typedArray.buffer, state)!
+    const bufferSource = unevalInternal(typedArray.buffer, state)!
 
     return newInstance(
       type,
@@ -789,7 +789,7 @@ const srcifyTypedArray = (
       ? values.every(value => Object.is(value, zero))
         ? values.length
         : // Must be non-null because `(number | bigint)[]` can't be circular.
-          srcifyInternal(values, state)!
+          unevalInternal(values, state)!
       : ``,
   )
 }
@@ -810,7 +810,7 @@ const CANONICAL_NAN_BITS = float64ScratchView.getBigUint64(0)
 const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}(${args})`
 
-const srcifyObjectLike = (object: object, state: State): string => {
+const unevalObjectLike = (object: object, state: State): string => {
   let __proto__: { _value: unknown } | undefined
   // TODO(#9): Support all property types, including non-enumerable ones.
   let source = `{${Reflect.ownKeys(object)
@@ -827,10 +827,10 @@ const srcifyObjectLike = (object: object, state: State): string => {
     })
     .flatMap(key => {
       const symbolResult =
-        typeof key == `symbol` ? srcifyInternal(key, state) : null
+        typeof key == `symbol` ? unevalInternal(key, state) : null
 
       const value = Reflect.get(object, key) as unknown
-      const valueResult = srcifyInternal(value, state)
+      const valueResult = unevalInternal(value, state)
       if (valueResult == null) {
         state._mutations.push({
           _target: object,
@@ -858,14 +858,14 @@ const srcifyObjectLike = (object: object, state: State): string => {
       }
 
       if (!PROPERTY_REG_EXP.test(key)) {
-        return [`${srcifyInternal(key, state)}:${valueResult}`]
+        return [`${unevalInternal(key, state)}:${valueResult}`]
       }
 
       return [key == valueResult ? key : `${key}:${valueResult}`]
     })
     .join(`,`)}}`
   if (__proto__) {
-    const result = srcifyInternal(__proto__._value, state)
+    const result = unevalInternal(__proto__._value, state)
     if (result == null) {
       state._mutations.push({
         _target: object,
@@ -888,7 +888,7 @@ const srcifyObjectLike = (object: object, state: State): string => {
     source = `Object.setPrototypeOf(${source},${
       // This must be non-null because prototypes cannot be circular. Trying
       // to make them circular results in an error.
-      srcifyInternal(prototype, state)!
+      unevalInternal(prototype, state)!
     })`
   }
 
@@ -908,4 +908,4 @@ const getType = (value: object): string =>
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   value.constructor?.name ?? `Object`
 
-export default srcify
+export default uneval
