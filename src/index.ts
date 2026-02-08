@@ -125,11 +125,6 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
     return result!
   }
 
-  const parametersSource = Array.from(
-    topologicallySortBindings(state._bindings),
-    binding => `${binding._name}=${binding._source}`,
-  ).join(`,`)
-
   const bodyResults = state._mutations.map(mutation =>
     unevalMutation(mutation, state),
   )
@@ -164,7 +159,19 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
     bodySource = `(${bodySource})`
   }
 
-  return `((${parametersSource})=>${bodySource})()`
+  const bindings = [...topologicallySortBindings(state._bindings)]
+  if (bindings.some(binding => binding._dependencies.size > 0)) {
+    const parametersSource = bindings
+      .map(binding => `${binding._name}=${binding._source}`)
+      .join(`,`)
+    return `((${parametersSource})=>${bodySource})()`
+  }
+
+  const paramsSource = bindings.map(binding => binding._name).join(`,`)
+  const argsSource = bindings.map(binding => binding._source).join(`,`)
+  return `(${
+    bindings.length > 1 ? `(${paramsSource})` : paramsSource
+  }=>${bodySource})(${argsSource})`
 }
 
 const createState = (
@@ -748,7 +755,16 @@ const unevalObjectInternal = (value: object, state: State): string => {
     }
     case `Buffer`: {
       const buffer = value as Buffer
-      const arrayBuffer = buffer.buffer
+      const arrayBuffer = buffer.buffer as ArrayBuffer
+      if (
+        !buffer.byteOffset &&
+        !buffer.byteLength &&
+        !arrayBuffer.resizable &&
+        !arrayBuffer.detached
+      ) {
+        return `${type}.alloc(0)`
+      }
+
       return `${type}.from(${unevalInternal(arrayBuffer, state)!}${
         buffer.byteOffset + buffer.byteLength == arrayBuffer.byteLength
           ? buffer.byteOffset > 0
@@ -899,16 +915,14 @@ const unevalTypedArray = (
     )
   }
 
-  const values = [...typedArray]
-  return newInstance(
-    type,
-    values.length
-      ? values.every(value => Object.is(value, zero))
-        ? values.length
-        : // Must be non-null because `(number | bigint)[]` can't be circular.
-          unevalInternal(values, state)!
-      : ``,
-  )
+  if (typedArray.some(value => !Object.is(value, zero))) {
+    return `${type}.of(${Array.from<number | bigint, string>(
+      typedArray,
+      value => unevalInternal(value, state),
+    ).join(`,`)})`
+  }
+
+  return newInstance(type, typedArray.length || ``)
 }
 
 const isNonCanonicalNaN = (value: number): boolean => {
@@ -917,7 +931,7 @@ const isNonCanonicalNaN = (value: number): boolean => {
   }
 
   float64ScratchView.setFloat64(0, value)
-  return float64ScratchView.getBigUint64(0) !== CANONICAL_NAN_BITS
+  return float64ScratchView.getBigUint64(0) != CANONICAL_NAN_BITS
 }
 
 const float64ScratchView = new DataView(new ArrayBuffer(8))
@@ -953,7 +967,7 @@ const unevalObjectLike = (object: object, state: State): string => {
       continue
     }
 
-    if (key === __PROTO__) {
+    if (key == __PROTO__) {
       // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
       // property rather than setting `Object.prototype`.
       propertySources.push(

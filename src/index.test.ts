@@ -581,7 +581,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer)`,
   },
   {
     name: `empty resizable full capacity ArrayBuffer`,
@@ -595,7 +595,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `empty resizable ArrayBuffer`,
@@ -609,7 +609,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty non-resizable uninitialized ArrayBuffer`,
@@ -623,12 +623,12 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer)`,
   },
   {
     name: `non-empty non-resizable ArrayBuffer initialized with trailing zeros`,
     value: new Uint8Array([1, 2, 3, 0, 0, 0, 0, 0]).buffer,
-    source: `new Uint8Array([1,2,3,0,0,0,0,0]).buffer`,
+    source: `Uint8Array.of(1,2,3,0,0,0,0,0).buffer`,
   },
   {
     name: `detached non-empty non-resizable ArrayBuffer initialized with trailing zeros`,
@@ -637,12 +637,12 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer)`,
   },
   {
     name: `non-empty non-resizable ArrayBuffer initialized with leading and trailing zeros`,
     value: new Uint8Array([0, 2, 3, 0, 0, 0, 0, 0]).buffer,
-    source: `new Uint8Array([0,2,3,0,0,0,0,0]).buffer`,
+    source: `Uint8Array.of(0,2,3,0,0,0,0,0).buffer`,
   },
   {
     name: `detached non-empty non-resizable ArrayBuffer initialized with leading and trailing zeros`,
@@ -651,12 +651,12 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer)`,
   },
   {
     name: `non-empty non-resizable ArrayBuffer initialized with leading zeros`,
     value: new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer,
-    source: `new Uint8Array([0,0,0,0,0,1,2,3]).buffer`,
+    source: `Uint8Array.of(0,0,0,0,0,1,2,3).buffer`,
   },
   {
     name: `detached non-empty non-resizable ArrayBuffer initialized with leading zeros`,
@@ -665,7 +665,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer)`,
   },
   {
     name: `non-empty resizable full capacity uninitialized ArrayBuffer`,
@@ -679,7 +679,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable full capacity ArrayBuffer initialized with trailing zeros`,
@@ -688,7 +688,7 @@ test.each<{
       new Uint8Array(buffer).set([1, 2, 3])
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3]),a))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3]),a))(new ArrayBuffer(8,{maxByteLength:8}))`,
   },
   {
     name: `detached non-empty resizable full capacity ArrayBuffer initialized with trailing zeros`,
@@ -698,7 +698,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable full capacity ArrayBuffer initialized with leading and trailing zeros`,
@@ -707,7 +707,7 @@ test.each<{
       new Uint8Array(buffer).set([0, 0, 1, 2, 3])
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3],2),a))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],2),a))(new ArrayBuffer(8,{maxByteLength:8}))`,
   },
   {
     name: `detached non-empty resizable full capacity ArrayBuffer initialized with leading and trailing zeros`,
@@ -717,7 +717,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable full capacity ArrayBuffer initialized with leading zeros`,
@@ -726,7 +726,7 @@ test.each<{
       new Uint8Array(buffer).set([0, 0, 0, 0, 0, 1, 2, 3])
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3],5),a))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],5),a))(new ArrayBuffer(8,{maxByteLength:8}))`,
   },
   {
     name: `detached non-empty resizable full capacity ArrayBuffer initialized with leading zeros`,
@@ -736,7 +736,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable uninitialized ArrayBuffer`,
@@ -750,7 +750,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable ArrayBuffer initialized with trailing zeros`,
@@ -759,7 +759,7 @@ test.each<{
       new Uint8Array(buffer).set([1, 2, 3])
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3]),a))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3]),a))(new ArrayBuffer(8,{maxByteLength:10}))`,
   },
   {
     name: `detached non-empty resizable ArrayBuffer initialized with trailing zeros`,
@@ -769,7 +769,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable ArrayBuffer initialized with leading and trailing zeros`,
@@ -778,7 +778,7 @@ test.each<{
       new Uint8Array(buffer).set([0, 0, 1, 2, 3])
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3],2),a))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],2),a))(new ArrayBuffer(8,{maxByteLength:10}))`,
   },
   {
     name: `detached non-empty resizable ArrayBuffer initialized with leading and trailing zeros`,
@@ -788,7 +788,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
   {
     name: `non-empty resizable ArrayBuffer initialized with leading zeros`,
@@ -797,7 +797,7 @@ test.each<{
       new Uint8Array(buffer).set([0, 0, 0, 0, 0, 1, 2, 3])
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3],5),a))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],5),a))(new ArrayBuffer(8,{maxByteLength:10}))`,
   },
   {
     name: `detached non-empty resizable ArrayBuffer initialized with leading zeros`,
@@ -807,14 +807,14 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
+    source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
 
   // Buffer
   {
     name: `empty non-resizable Buffer`,
     value: Buffer.from([]),
-    source: `Buffer.from(new ArrayBuffer)`,
+    source: `Buffer.alloc(0)`,
   },
   {
     name: `empty resizable full capacity Buffer`,
@@ -834,17 +834,17 @@ test.each<{
   {
     name: `non-empty non-resizable Buffer initialized with trailing zeros`,
     value: Buffer.from(new Uint8Array([1, 2, 3, 0, 0, 0, 0, 0]).buffer),
-    source: `Buffer.from(new Uint8Array([1,2,3,0,0,0,0,0]).buffer)`,
+    source: `Buffer.from(Uint8Array.of(1,2,3,0,0,0,0,0).buffer)`,
   },
   {
     name: `non-empty non-resizable Buffer initialized with leading and trailing zeros`,
     value: Buffer.from(new Uint8Array([0, 2, 3, 0, 0, 0, 0, 0]).buffer),
-    source: `Buffer.from(new Uint8Array([0,2,3,0,0,0,0,0]).buffer)`,
+    source: `Buffer.from(Uint8Array.of(0,2,3,0,0,0,0,0).buffer)`,
   },
   {
     name: `non-empty non-resizable Buffer initialized with leading zeros`,
     value: Buffer.from(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer),
-    source: `Buffer.from(new Uint8Array([0,0,0,0,0,1,2,3]).buffer)`,
+    source: `Buffer.from(Uint8Array.of(0,0,0,0,0,1,2,3).buffer)`,
   },
   {
     name: `non-empty resizable full capacity uninitialized Buffer`,
@@ -858,7 +858,7 @@ test.each<{
       new Uint8Array(arrayBuffer).set([1, 2, 3])
       return Buffer.from(arrayBuffer)
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3]),Buffer.from(a)))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3]),Buffer.from(a)))(new ArrayBuffer(8,{maxByteLength:8}))`,
   },
   {
     name: `non-empty resizable full capacity Buffer initialized with leading and trailing zeros`,
@@ -867,7 +867,7 @@ test.each<{
       new Uint8Array(arrayBuffer).set([0, 0, 1, 2, 3])
       return Buffer.from(arrayBuffer)
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3],2),Buffer.from(a)))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],2),Buffer.from(a)))(new ArrayBuffer(8,{maxByteLength:8}))`,
   },
   {
     name: `non-empty resizable full capacity Buffer initialized with leading zeros`,
@@ -876,7 +876,7 @@ test.each<{
       new Uint8Array(arrayBuffer).set([0, 0, 0, 0, 0, 1, 2, 3])
       return Buffer.from(arrayBuffer)
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3],5),Buffer.from(a)))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],5),Buffer.from(a)))(new ArrayBuffer(8,{maxByteLength:8}))`,
   },
   {
     name: `non-empty resizable uninitialized Buffer`,
@@ -890,7 +890,7 @@ test.each<{
       new Uint8Array(arrayBuffer).set([1, 2, 3])
       return Buffer.from(arrayBuffer)
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3]),Buffer.from(a)))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3]),Buffer.from(a)))(new ArrayBuffer(8,{maxByteLength:10}))`,
   },
   {
     name: `non-empty resizable Buffer initialized with leading and trailing zeros`,
@@ -899,7 +899,7 @@ test.each<{
       new Uint8Array(arrayBuffer).set([0, 0, 1, 2, 3])
       return Buffer.from(arrayBuffer)
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3],2),Buffer.from(a)))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],2),Buffer.from(a)))(new ArrayBuffer(8,{maxByteLength:10}))`,
   },
   {
     name: `non-empty resizable Buffer initialized with leading zeros`,
@@ -908,7 +908,7 @@ test.each<{
       new Uint8Array(arrayBuffer).set([0, 0, 0, 0, 0, 1, 2, 3])
       return Buffer.from(arrayBuffer)
     })(),
-    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3],5),Buffer.from(a)))()`,
+    source: `(a=>(new Uint8Array(a).set([1,2,3],5),Buffer.from(a)))(new ArrayBuffer(8,{maxByteLength:10}))`,
   },
   {
     name: `leading Buffer view`,
@@ -940,7 +940,7 @@ test.each<{
   {
     name: `non-empty initialized Int8Array`,
     value: new Int8Array([1, -2, 3, 4]),
-    source: `new Int8Array([1,-2,3,4])`,
+    source: `Int8Array.of(1,-2,3,4)`,
   },
   {
     name: `leading Int8Array view`,
@@ -968,7 +968,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Int8Array(buffer), new Int8Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Int8Array(a),new Int8Array(a)])()`,
+    source: `(a=>[new Int8Array(a),new Int8Array(a)])(new ArrayBuffer)`,
   },
 
   // Uint8Array
@@ -985,7 +985,7 @@ test.each<{
   {
     name: `non-empty initialized Uint8Array`,
     value: new Uint8Array([1, 2, 3, 4]),
-    source: `new Uint8Array([1,2,3,4])`,
+    source: `Uint8Array.of(1,2,3,4)`,
   },
   {
     name: `leading Uint8Array view`,
@@ -1013,7 +1013,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint8Array(buffer), new Uint8Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Uint8Array(a),new Uint8Array(a)])()`,
+    source: `(a=>[new Uint8Array(a),new Uint8Array(a)])(new ArrayBuffer)`,
   },
 
   // Uint8ClampedArray
@@ -1030,7 +1030,7 @@ test.each<{
   {
     name: `non-empty initialized Uint8ClampedArray`,
     value: new Uint8ClampedArray([1, 2, 3, 4]),
-    source: `new Uint8ClampedArray([1,2,3,4])`,
+    source: `Uint8ClampedArray.of(1,2,3,4)`,
   },
   {
     name: `leading Uint8ClampedArray view`,
@@ -1058,7 +1058,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint8ClampedArray(buffer), new Uint8ClampedArray(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])()`,
+    source: `(a=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])(new ArrayBuffer)`,
   },
 
   // Int16Array
@@ -1075,7 +1075,7 @@ test.each<{
   {
     name: `non-empty initialized Int16Array`,
     value: new Int16Array([1, -2, 3, 4]),
-    source: `new Int16Array([1,-2,3,4])`,
+    source: `Int16Array.of(1,-2,3,4)`,
   },
   {
     name: `leading Int16Array view`,
@@ -1103,7 +1103,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Int16Array(buffer), new Int16Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Int16Array(a),new Int16Array(a)])()`,
+    source: `(a=>[new Int16Array(a),new Int16Array(a)])(new ArrayBuffer)`,
   },
 
   // Uint16Array
@@ -1120,7 +1120,7 @@ test.each<{
   {
     name: `non-empty initialized Uint16Array`,
     value: new Uint16Array([1, 2, 3, 4]),
-    source: `new Uint16Array([1,2,3,4])`,
+    source: `Uint16Array.of(1,2,3,4)`,
   },
   {
     name: `leading Uint16Array view`,
@@ -1148,7 +1148,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint16Array(buffer), new Uint16Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Uint16Array(a),new Uint16Array(a)])()`,
+    source: `(a=>[new Uint16Array(a),new Uint16Array(a)])(new ArrayBuffer)`,
   },
 
   // Int32Array
@@ -1165,7 +1165,7 @@ test.each<{
   {
     name: `non-empty initialized Int32Array`,
     value: new Int32Array([1, -2, 3, 4]),
-    source: `new Int32Array([1,-2,3,4])`,
+    source: `Int32Array.of(1,-2,3,4)`,
   },
   {
     name: `leading Int32Array view`,
@@ -1193,7 +1193,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Int32Array(buffer), new Int32Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Int32Array(a),new Int32Array(a)])()`,
+    source: `(a=>[new Int32Array(a),new Int32Array(a)])(new ArrayBuffer)`,
   },
 
   // Uint32Array
@@ -1210,7 +1210,7 @@ test.each<{
   {
     name: `non-empty initialized Uint32Array`,
     value: new Uint32Array([1, 2, 3, 4]),
-    source: `new Uint32Array([1,2,3,4])`,
+    source: `Uint32Array.of(1,2,3,4)`,
   },
   {
     name: `leading Uint32Array view`,
@@ -1238,7 +1238,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint32Array(buffer), new Uint32Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Uint32Array(a),new Uint32Array(a)])()`,
+    source: `(a=>[new Uint32Array(a),new Uint32Array(a)])(new ArrayBuffer)`,
   },
 
   // Float16Array
@@ -1258,7 +1258,7 @@ test.each<{
         {
           name: `non-empty initialized Float16Array`,
           value: new Float16Array([1, -2, 3.140_625, 4]),
-          source: `new Float16Array([1,-2,3.140625,4])`,
+          source: `Float16Array.of(1,-2,3.140625,4)`,
         },
         {
           name: `middle Float16Array view`,
@@ -1286,17 +1286,17 @@ test.each<{
             const buffer = new ArrayBuffer()
             return [new Float16Array(buffer), new Float16Array(buffer)]
           })(),
-          source: `((a=new ArrayBuffer)=>[new Float16Array(a),new Float16Array(a)])()`,
+          source: `(a=>[new Float16Array(a),new Float16Array(a)])(new ArrayBuffer)`,
         },
         {
           name: `Float16Array from NaN`,
           value: new Float16Array([Number.NaN]),
-          source: `new Float16Array([NaN])`,
+          source: `Float16Array.of(NaN)`,
         },
         {
           name: `Float16Array from non-canonical NaN`,
           value: new Float16Array(new Uint8Array([0, 125]).buffer),
-          source: `new Float16Array(new Uint8Array([0,125]).buffer)`,
+          source: `new Float16Array(Uint8Array.of(0,125).buffer)`,
         },
       ]),
 
@@ -1314,7 +1314,7 @@ test.each<{
   {
     name: `non-empty initialized Float32Array`,
     value: new Float32Array([1, -2, 3.140_000_104_904_175, 4]),
-    source: `new Float32Array([1,-2,3.140000104904175,4])`,
+    source: `Float32Array.of(1,-2,3.140000104904175,4)`,
   },
   {
     name: `leading Float32Array view`,
@@ -1342,17 +1342,17 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Float32Array(buffer), new Float32Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Float32Array(a),new Float32Array(a)])()`,
+    source: `(a=>[new Float32Array(a),new Float32Array(a)])(new ArrayBuffer)`,
   },
   {
     name: `Float32Array from NaN`,
     value: new Float32Array([Number.NaN]),
-    source: `new Float32Array([NaN])`,
+    source: `Float32Array.of(NaN)`,
   },
   {
     name: `Float32Array from non-canonical NaN`,
     value: new Float32Array(new Uint8Array([0, 0, 255, 127]).buffer),
-    source: `new Float32Array(new Uint8Array([0,0,255,127]).buffer)`,
+    source: `new Float32Array(Uint8Array.of(0,0,255,127).buffer)`,
   },
 
   // Float64Array
@@ -1369,7 +1369,7 @@ test.each<{
   {
     name: `non-empty initialized Float64Array`,
     value: new Float64Array([1, -2, 3.14, 4]),
-    source: `new Float64Array([1,-2,3.14,4])`,
+    source: `Float64Array.of(1,-2,3.14,4)`,
   },
   {
     name: `leading Float64Array view`,
@@ -1397,19 +1397,19 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Float64Array(buffer), new Float64Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new Float64Array(a),new Float64Array(a)])()`,
+    source: `(a=>[new Float64Array(a),new Float64Array(a)])(new ArrayBuffer)`,
   },
   {
     name: `Float64Array from NaN`,
     value: new Float64Array([Number.NaN]),
-    source: `new Float64Array([NaN])`,
+    source: `Float64Array.of(NaN)`,
   },
   {
     name: `Float64Array from non-canonical NaN`,
     value: new Float64Array(
       new Uint8Array([0, 0, 0, 0, 0, 0, 255, 127]).buffer,
     ),
-    source: `new Float64Array(new Uint8Array([0,0,0,0,0,0,255,127]).buffer)`,
+    source: `new Float64Array(Uint8Array.of(0,0,0,0,0,0,255,127).buffer)`,
   },
 
   // BigInt64Array
@@ -1426,7 +1426,7 @@ test.each<{
   {
     name: `non-empty initialized BigInt64Array`,
     value: new BigInt64Array([1n, -2n, 3n, 4n]),
-    source: `new BigInt64Array([1n,-2n,3n,4n])`,
+    source: `BigInt64Array.of(1n,-2n,3n,4n)`,
   },
   {
     name: `leading BigInt64Array view`,
@@ -1454,7 +1454,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new BigInt64Array(buffer), new BigInt64Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new BigInt64Array(a),new BigInt64Array(a)])()`,
+    source: `(a=>[new BigInt64Array(a),new BigInt64Array(a)])(new ArrayBuffer)`,
   },
 
   // BigUint64Array
@@ -1471,7 +1471,7 @@ test.each<{
   {
     name: `non-empty initialized BigUint64Array`,
     value: new BigUint64Array([1n, 2n, 3n, 4n]),
-    source: `new BigUint64Array([1n,2n,3n,4n])`,
+    source: `BigUint64Array.of(1n,2n,3n,4n)`,
   },
   {
     name: `leading BigUint64Array view`,
@@ -1499,7 +1499,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new BigUint64Array(buffer), new BigUint64Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer)=>[new BigUint64Array(a),new BigUint64Array(a)])()`,
+    source: `(a=>[new BigUint64Array(a),new BigUint64Array(a)])(new ArrayBuffer)`,
   },
 
   // Shared reference
@@ -1509,7 +1509,7 @@ test.each<{
       const object = {}
       return { a: object, b: object }
     })(),
-    source: `((a={})=>({a,b:a}))()`,
+    source: `(a=>({a,b:a}))({})`,
   },
   {
     name: `many shared object references`,
@@ -1517,7 +1517,7 @@ test.each<{
       const objects = Array.from({ length: 100 }, () => ({}))
       return [...objects, ...objects]
     })(),
-    source: `((a={},b={},c={},d={},e={},f={},g={},h={},i={},j={},k={},l={},m={},n={},o={},p={},q={},r={},s={},t={},u={},v={},w={},x={},y={},z={},A={},B={},C={},D={},E={},F={},G={},H={},I={},J={},K={},L={},M={},N={},O={},P={},Q={},R={},S={},T={},U={},V={},W={},X={},Y={},Z={},$aa={},$ab={},$ac={},$ad={},$ae={},$af={},$ag={},$ah={},$ai={},$aj={},$ak={},$al={},$am={},$an={},$ao={},$ap={},$aq={},$ar={},$as={},$at={},$au={},$av={},$aw={},$ax={},$ay={},$az={},$aA={},$aB={},$aC={},$aD={},$aE={},$aF={},$aG={},$aH={},$aI={},$aJ={},$aK={},$aL={},$aM={},$aN={},$aO={},$aP={},$aQ={},$aR={},$aS={},$aT={},$aU={},$aV={})=>[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV])()`,
+    source: `((a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV)=>[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV])({},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{})`,
   },
 
   // Circular reference
@@ -1528,7 +1528,7 @@ test.each<{
       circular.ref = circular
       return circular
     })(),
-    source: `((a={})=>a.ref=a)()`,
+    source: `(a=>a.ref=a)({})`,
   },
   {
     name: `object containing directly circular object`,
@@ -1537,7 +1537,7 @@ test.each<{
       circular.ref = circular
       return { circular }
     })(),
-    source: `((a={})=>(a.ref=a,{circular:a}))()`,
+    source: `(a=>(a.ref=a,{circular:a}))({})`,
   },
   {
     name: `object containing directly circular object on property with same name as binding`,
@@ -1546,7 +1546,7 @@ test.each<{
       circular.ref = circular
       return { a: circular }
     })(),
-    source: `((a={})=>(a.ref=a,{a}))()`,
+    source: `(a=>(a.ref=a,{a}))({})`,
   },
   {
     name: `mutually circular object`,
@@ -1585,7 +1585,7 @@ test.each<{
       circular[`a b c`] = circular
       return circular
     })(),
-    source: `((a={})=>a["a b c"]=a)()`,
+    source: `(a=>a["a b c"]=a)({})`,
   },
   {
     name: `circular object through symbol property`,
@@ -1594,7 +1594,7 @@ test.each<{
       circular[Symbol.hasInstance] = circular
       return circular
     })(),
-    source: `((a={})=>a[Symbol.hasInstance]=a)()`,
+    source: `(a=>a[Symbol.hasInstance]=a)({})`,
   },
   {
     name: `circular array`,
@@ -1603,7 +1603,7 @@ test.each<{
       circular.push(circular)
       return circular
     })(),
-    source: `((a=[])=>a[0]=a)()`,
+    source: `(a=>a[0]=a)([])`,
   },
   {
     name: `mutually circular array`,
@@ -1627,7 +1627,7 @@ test.each<{
         writable: true,
       })
     })(),
-    source: `((a={})=>Object.defineProperty(a,"__proto__",{value:a,writable:true,enumerable:true,configurable:true}))()`,
+    source: `(a=>Object.defineProperty(a,"__proto__",{value:a,writable:true,enumerable:true,configurable:true}))({})`,
   },
   {
     name: `prototype containing circular reference`,
@@ -1645,7 +1645,7 @@ test.each<{
       circular.add(circular)
       return circular
     })(),
-    source: `((a=new Set)=>a.add(a))()`,
+    source: `(a=>a.add(a))(new Set)`,
   },
   {
     name: `set containing value with circular reference`,
@@ -1663,7 +1663,7 @@ test.each<{
       circular.set(`hi`, circular)
       return circular
     })(),
-    source: `((a=new Map([["hi"]]))=>a.set("hi",a))()`,
+    source: `(a=>a.set("hi",a))(new Map([["hi"]]))`,
   },
   {
     name: `circular map containing value with circular reference`,
@@ -1682,7 +1682,7 @@ test.each<{
       circular.set(circular, `howdy`)
       return circular
     })(),
-    source: `((a=new Map)=>a.set(a,"howdy"))()`,
+    source: `(a=>a.set(a,"howdy"))(new Map)`,
   },
   {
     name: `map containing key with circular reference`,
