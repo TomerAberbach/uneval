@@ -6,22 +6,22 @@ const urlSearchParamsArb = urlArb.map(url => url.searchParams)
 const nonDetachedArrayBufferArb = fc
   .record({ array: fc.int8Array(), maxByteLength: fc.nat({ max: 50 }) })
   .map(({ array, maxByteLength }) => {
-    const buffer = new ArrayBuffer(array.length, {
+    const arrayBuffer = new ArrayBuffer(array.length, {
       maxByteLength: maxByteLength < array.length ? undefined : maxByteLength,
     })
-    const view = new DataView(buffer)
+    const view = new DataView(arrayBuffer)
     for (const [index, value] of array.entries()) {
       view.setInt8(index, value)
     }
-    return buffer
+    return arrayBuffer
   })
 const arrayBufferArb = fc
-  .record({ buffer: nonDetachedArrayBufferArb, detached: fc.boolean() })
-  .map(({ buffer, detached }) => {
+  .record({ arrayBuffer: nonDetachedArrayBufferArb, detached: fc.boolean() })
+  .map(({ arrayBuffer, detached }) => {
     if (detached) {
-      buffer.transfer()
+      arrayBuffer.transfer()
     }
-    return buffer
+    return arrayBuffer
   })
 
 const typedArrayArb = fc
@@ -59,6 +59,21 @@ const typedArrayArb = fc
     )
   })
 
+const bufferArb = fc
+  .record({
+    arrayBuffer: nonDetachedArrayBufferArb,
+    range: fc.tuple(fc.nat(), fc.nat()),
+  })
+  .map(({ arrayBuffer, range: [start, end] }) => {
+    start %= arrayBuffer.byteLength + 1
+    end %= arrayBuffer.byteLength + 1
+    if (start > end) {
+      ;[start, end] = [end, start]
+    }
+
+    return Buffer.from(arrayBuffer, start, end - start)
+  })
+
 const circularSymbol = Symbol(`circular`)
 const depthIdentifier = fc.createDepthIdentifier()
 export const anythingArb = fc
@@ -94,6 +109,7 @@ export const anythingArb = fc
         urlSearchParamsArb,
         typedArrayArb,
         arrayBufferArb,
+        bufferArb,
         tie(`object`),
         tie(`array`),
         tie(`map`),

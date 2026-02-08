@@ -30,9 +30,7 @@ const strictArrayBufferEqualityTester = (
   const viewB = new Uint8Array(b)
   for (let i = 0; i < viewA.length; i++) {
     if (viewA[i] !== viewB[i]) {
-      throw new Error(
-        `ArrayBuffer byte mismatch at index ${i}: expected ${viewA[i]}, got ${viewB[i]}`,
-      )
+      return false
     }
   }
 
@@ -61,6 +59,37 @@ const strictTypedArrayEqualityTester = (
   return strictArrayBufferEqualityTester(a.buffer, b.buffer)
 }
 
+// https://nodejs.org/api/buffer.html
+const strictBufferEqualityTester = (
+  a: unknown,
+  b: unknown,
+): boolean | undefined => {
+  if (!Buffer.isBuffer(a) || !Buffer.isBuffer(b)) {
+    // Defer to other equality testers.
+    return undefined
+  }
+
+  if (
+    a.length !== b.length ||
+    a.byteLength !== b.byteLength ||
+    a.byteOffset !== b.byteOffset
+  ) {
+    return false
+  }
+
+  if (strictArrayBufferEqualityTester(a.buffer, b.buffer) === false) {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false
+    }
+  }
+
+  return true
+}
+
 const TypedArray = Object.getPrototypeOf(Int8Array) as
   | typeof Int8Array
   | typeof Uint8Array
@@ -78,4 +107,5 @@ const TypedArray = Object.getPrototypeOf(Int8Array) as
 expect.addEqualityTesters([
   strictArrayBufferEqualityTester,
   strictTypedArrayEqualityTester,
+  strictBufferEqualityTester,
 ])
