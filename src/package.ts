@@ -5,7 +5,10 @@ import toSource from 'tosource'
 import tomerUneval from './index.ts'
 
 export const unevals = {
-  tomer: tomerUneval,
+  tomer:
+    // Uncomment to benchmark the the built version.
+    // (await import(`../dist/index.js`)).default,
+    tomerUneval,
   devalue: (value, { custom } = {}) => devalue.uneval(value, custom),
   jsesc: (() => {
     const options = { wrap: true, compact: true }

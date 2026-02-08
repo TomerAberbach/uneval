@@ -10,7 +10,9 @@ import type { UnevalOptions } from './index.ts'
 import uneval from './package.ts'
 
 test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
-  expectUnevalRoundtrips(value)
+  const source = expectUnevalRoundtrips(value)
+  // Ensure no `</script>` XSS.
+  expect(source).not.toMatch(/<\/script>/gi)
 })
 
 test.each<{
@@ -177,53 +179,17 @@ test.each<{
     value: new String(`"`),
     source: `Object("\\"")`,
   },
+  { name: `backslash string`, value: `\\`, source: `"\\\\"` },
   {
-    name: `string with closing script tag`,
-    value: `</script>`,
-    source: `"<\\u002fscript>"`,
+    name: `boxed backslash string`,
+    value: new String(`\\`),
+    source: `Object("\\\\")`,
   },
-  {
-    name: `boxed string with closing script tag`,
-    value: new String(`</script>`),
-    source: `Object("<\\u002fscript>")`,
-  },
-  {
-    name: `string with capitalized closing script tag`,
-    value: `</SCRIPT>`,
-    source: `"<\\u002fSCRIPT>"`,
-  },
-  {
-    name: `boxed string with capitalized closing script tag`,
-    value: new String(`</SCRIPT>`),
-    source: `Object("<\\u002fSCRIPT>")`,
-  },
-  {
-    name: `string with mixed capitalization closing script tag`,
-    value: `</sCrIpT>`,
-    source: `"<\\u002fsCrIpT>"`,
-  },
-  {
-    name: `boxed string with mixed capitalization capitalized closing script tag`,
-    value: new String(`</sCrIpT>`),
-    source: `Object("<\\u002fsCrIpT>")`,
-  },
-  { name: `null terminator string`, value: `\0`, source: `"\\u0000"` },
+  { name: `null terminator string`, value: `\0`, source: `"\\0"` },
   {
     name: `boxed null terminator string`,
     value: new String(`\0`),
-    source: `Object("\\u0000")`,
-  },
-  { name: `backspace string`, value: `\b`, source: `"\\b"` },
-  {
-    name: `boxed backspace string`,
-    value: new String(`\b`),
-    source: `Object("\\b")`,
-  },
-  { name: `tab string`, value: `\t`, source: `"\\t"` },
-  {
-    name: `boxed tab string`,
-    value: new String(`\t`),
-    source: `Object("\\t")`,
+    source: `Object("\\0")`,
   },
   { name: `newline string`, value: `\n`, source: `"\\n"` },
   {
@@ -237,11 +203,29 @@ test.each<{
     value: new String(`\r`),
     source: `Object("\\r")`,
   },
-  { name: `backslash string`, value: `\\`, source: `"\\\\"` },
+  { name: `tab string`, value: `\t`, source: `"\\t"` },
   {
-    name: `boxed backslash string`,
-    value: new String(`\\`),
-    source: `Object("\\\\")`,
+    name: `boxed tab string`,
+    value: new String(`\t`),
+    source: `Object("\\t")`,
+  },
+  { name: `backspace string`, value: `\b`, source: `"\\b"` },
+  {
+    name: `boxed backspace string`,
+    value: new String(`\b`),
+    source: `Object("\\b")`,
+  },
+  { name: `form feed string`, value: `\f`, source: `"\\f"` },
+  {
+    name: `boxed form feed string`,
+    value: new String(`\f`),
+    source: `Object("\\f")`,
+  },
+  { name: `vertical tabulator string`, value: `\v`, source: `"\\v"` },
+  {
+    name: `boxed vertical tabulator string`,
+    value: new String(`\v`),
+    source: `Object("\\v")`,
   },
   { name: `line separator string`, value: `\u2028`, source: `"\\u2028"` },
   {
@@ -274,6 +258,41 @@ test.each<{
     name: `boxed multiple paragraph separator string`,
     value: new String(`\u2029\u2029`),
     source: `Object("\\u2029\\u2029")`,
+  },
+  {
+    name: `string with closing script tag`,
+    value: `</script>`,
+    source: `"<\\u002fscript>"`,
+  },
+  {
+    name: `string with multiple closing script tags`,
+    value: ` </script> sdf </script> sdfsfd </script>  sdf </script>`,
+    source: `" <\\u002fscript> sdf <\\u002fscript> sdfsfd <\\u002fscript>  sdf <\\u002fscript>"`,
+  },
+  {
+    name: `boxed string with closing script tag`,
+    value: new String(`</script>`),
+    source: `Object("<\\u002fscript>")`,
+  },
+  {
+    name: `string with capitalized closing script tag`,
+    value: `</SCRIPT>`,
+    source: `"<\\u002fSCRIPT>"`,
+  },
+  {
+    name: `boxed string with capitalized closing script tag`,
+    value: new String(`</SCRIPT>`),
+    source: `Object("<\\u002fSCRIPT>")`,
+  },
+  {
+    name: `string with mixed capitalization closing script tag`,
+    value: `</sCrIpT>`,
+    source: `"<\\u002fsCrIpT>"`,
+  },
+  {
+    name: `boxed string with mixed capitalization capitalized closing script tag`,
+    value: new String(`</sCrIpT>`),
+    source: `Object("<\\u002fsCrIpT>")`,
   },
 
   // Symbol
