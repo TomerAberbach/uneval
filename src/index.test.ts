@@ -1556,7 +1556,7 @@ test.each<{
       circular1.ref = circular2
       return circular1
     })(),
-    source: `((b={},a={ref:b})=>b.ref=a)()`,
+    source: `((b,a={ref:b})=>b.ref=a)({})`,
   },
   {
     name: `object containing mutually circular object`,
@@ -1566,7 +1566,7 @@ test.each<{
       circular1.ref = circular2
       return { circular: circular1 }
     })(),
-    source: `((b={},a={ref:b})=>(b.ref=a,{circular:a}))()`,
+    source: `((b,a={ref:b})=>(b.ref=a,{circular:a}))({})`,
   },
   {
     name: `object containing both mutually circular objects`,
@@ -1576,7 +1576,7 @@ test.each<{
       circular1.ref = circular2
       return { a: circular1, b: circular2 }
     })(),
-    source: `((b={},a={ref:b})=>(b.ref=a,{a,b}))()`,
+    source: `((b,a={ref:b})=>(b.ref=a,{a,b}))({})`,
   },
   {
     name: `circular object through string property with spaces`,
@@ -1614,7 +1614,7 @@ test.each<{
       circular1.push(circular2)
       return circular1
     })(),
-    source: `((b=[,],a=[b])=>(b[0]=a,b[1]=b,a))()`,
+    source: `((b,a=[b])=>(b[0]=a,b[1]=b,a))([,])`,
   },
   {
     name: `circular own __proto__`,
@@ -1636,7 +1636,7 @@ test.each<{
       const circular2 = { ref: circular1 }
       return Object.setPrototypeOf(circular1, circular2) as unknown
     })(),
-    source: `((b={},a=Object.setPrototypeOf({},b))=>b.ref=a)()`,
+    source: `((b,a=Object.setPrototypeOf({},b))=>b.ref=a)({})`,
   },
   {
     name: `directly circular set`,
@@ -1654,7 +1654,7 @@ test.each<{
       circular.add({ '': circular })
       return circular
     })(),
-    source: `((b={},a=new Set([b]))=>b[""]=a)()`,
+    source: `((b,a=new Set([b]))=>b[""]=a)({})`,
   },
   {
     name: `directly circular map entry value`,
@@ -1673,7 +1673,7 @@ test.each<{
       circular.set(`hello`, { circular })
       return circular
     })(),
-    source: `((b={},a=new Map([["hi"],["hello",b]]))=>(a.set("hi",a),b.circular=a))()`,
+    source: `((b,a=new Map([["hi"],["hello",b]]))=>(a.set("hi",a),b.circular=a))({})`,
   },
   {
     name: `directly circular map entry key`,
@@ -1691,7 +1691,7 @@ test.each<{
       circular.set({ '': circular }, circular)
       return circular
     })(),
-    source: `((b={},a=new Map([[b]]))=>(b[""]=a,a.set(b,a)))()`,
+    source: `((b,a=new Map([[b]]))=>(b[""]=a,a.set(b,a)))({})`,
   },
   {
     name: `map containing entry value map with circular key to outer map`,
@@ -1700,7 +1700,7 @@ test.each<{
       circular.set({}, { '': new Map([[circular, new Map()]]) })
       return circular
     })(),
-    source: `((b=new Map,a=new Map([[{},{"":b}]]))=>(b.set(a,new Map),a))()`,
+    source: `((b,a=new Map([[{},{"":b}]]))=>(b.set(a,new Map),a))(new Map)`,
   },
   {
     name: `map containing array key with circular reference to outer map`,
@@ -1710,7 +1710,7 @@ test.each<{
       array.push(circular)
       return circular
     })(),
-    source: `((b=[],a=new Map([[b,{}]]))=>b[0]=a)()`,
+    source: `((b,a=new Map([[b,{}]]))=>b[0]=a)([])`,
   },
   {
     name: `absurd circular map`,
@@ -1722,7 +1722,7 @@ test.each<{
       b.set(c, a)
       return a
     })(),
-    source: `((d={},c={"":d},b=new Map([[c]]),a=[b,[d]])=>(b.set(c,a),a))()`,
+    source: `((d,c={"":d},b=new Map([[c]]),a=[b,[d]])=>(b.set(c,a),a))({})`,
   },
   {
     name: `absurd circular set and object`,
@@ -1734,7 +1734,7 @@ test.each<{
       c[``] = a
       return a
     })(),
-    source: `((c={},b=[,c],a=new Set([b]))=>(b[0]=a,c[""]=a))()`,
+    source: `((c,b=[,c],a=new Set([b]))=>(b[0]=a,c[""]=a))({})`,
   },
 
   // Custom

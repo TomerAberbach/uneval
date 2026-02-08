@@ -160,18 +160,24 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   }
 
   const bindings = [...topologicallySortBindings(state._bindings)]
-  if (bindings.some(binding => binding._dependencies.size > 0)) {
-    const parametersSource = bindings
-      .map(binding => `${binding._name}=${binding._source}`)
-      .join(`,`)
-    return `((${parametersSource})=>${bodySource})()`
+
+  const parameterSources: string[] = []
+  const argSources: string[] = []
+  let hasDependency = false
+  for (const binding of bindings) {
+    hasDependency ||= !!binding._dependencies.size
+    if (hasDependency) {
+      parameterSources.push(`${binding._name}=${binding._source}`)
+    } else {
+      parameterSources.push(binding._name)
+      argSources.push(binding._source!)
+    }
   }
 
-  const paramsSource = bindings.map(binding => binding._name).join(`,`)
-  const argsSource = bindings.map(binding => binding._source).join(`,`)
+  const parametersSource = parameterSources.join(`,`)
   return `(${
-    bindings.length > 1 ? `(${paramsSource})` : paramsSource
-  }=>${bodySource})(${argsSource})`
+    bindings.length > 1 ? `(${parametersSource})` : parametersSource
+  }=>${bodySource})(${argSources.join(`,`)})`
 }
 
 const createState = (
