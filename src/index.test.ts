@@ -490,11 +490,11 @@ test.each<{
   },
 
   // Set
-  { name: `empty Set`, value: new Set(), source: `new Set()` },
+  { name: `empty Set`, value: new Set(), source: `new Set` },
   {
     name: `empty Set from empty array`,
     value: new Set([]),
-    source: `new Set()`,
+    source: `new Set`,
   },
   {
     name: `non-empty Set`,
@@ -503,11 +503,11 @@ test.each<{
   },
 
   // Map
-  { name: `empty Map`, value: new Map(), source: `new Map()` },
+  { name: `empty Map`, value: new Map(), source: `new Map` },
   {
     name: `empty Map from empty array`,
     value: new Map([]),
-    source: `new Map()`,
+    source: `new Map`,
   },
   {
     name: `non-empty Map`,
@@ -541,7 +541,7 @@ test.each<{
   {
     name: `empty URLSearchParams`,
     value: new URLSearchParams(),
-    source: `new URLSearchParams()`,
+    source: `new URLSearchParams`,
   },
   {
     name: `non-empty URLSearchParams`,
@@ -553,7 +553,7 @@ test.each<{
   {
     name: `empty non-resizable ArrayBuffer`,
     value: new ArrayBuffer(),
-    source: `new ArrayBuffer()`,
+    source: `new ArrayBuffer`,
   },
   {
     name: `detached empty non-resizable ArrayBuffer`,
@@ -562,7 +562,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer())=>(a.transfer(),a))()`,
+    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
   },
   {
     name: `empty resizable full capacity ArrayBuffer`,
@@ -604,7 +604,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer())=>(a.transfer(),a))()`,
+    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
   },
   {
     name: `non-empty non-resizable ArrayBuffer initialized with trailing zeros`,
@@ -618,7 +618,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer())=>(a.transfer(),a))()`,
+    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
   },
   {
     name: `non-empty non-resizable ArrayBuffer initialized with leading and trailing zeros`,
@@ -632,7 +632,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer())=>(a.transfer(),a))()`,
+    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
   },
   {
     name: `non-empty non-resizable ArrayBuffer initialized with leading zeros`,
@@ -646,7 +646,7 @@ test.each<{
       buffer.transfer()
       return buffer
     })(),
-    source: `((a=new ArrayBuffer())=>(a.transfer(),a))()`,
+    source: `((a=new ArrayBuffer)=>(a.transfer(),a))()`,
   },
   {
     name: `non-empty resizable full capacity uninitialized ArrayBuffer`,
@@ -795,7 +795,7 @@ test.each<{
   {
     name: `empty Int8Array`,
     value: new Int8Array(),
-    source: `new Int8Array()`,
+    source: `new Int8Array`,
   },
   {
     name: `non-empty uninitialized Int8Array`,
@@ -812,7 +812,7 @@ test.each<{
   {
     name: `empty Uint8Array`,
     value: new Uint8Array(),
-    source: `new Uint8Array()`,
+    source: `new Uint8Array`,
   },
   {
     name: `non-empty uninitialized Uint8Array`,
@@ -850,14 +850,14 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint8Array(buffer), new Uint8Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Uint8Array(a),new Uint8Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Uint8Array(a),new Uint8Array(a)])()`,
   },
 
   // Uint8ClampedArray
   {
     name: `empty Uint8ClampedArray`,
     value: new Uint8ClampedArray(),
-    source: `new Uint8ClampedArray()`,
+    source: `new Uint8ClampedArray`,
   },
   {
     name: `non-empty uninitialized Uint8ClampedArray`,
@@ -895,14 +895,14 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint8ClampedArray(buffer), new Uint8ClampedArray(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])()`,
   },
 
   // Int16Array
   {
     name: `empty Int16Array`,
     value: new Int16Array(),
-    source: `new Int16Array()`,
+    source: `new Int16Array`,
   },
   {
     name: `non-empty uninitialized Int16Array`,
@@ -940,14 +940,14 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Int16Array(buffer), new Int16Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Int16Array(a),new Int16Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Int16Array(a),new Int16Array(a)])()`,
   },
 
   // Uint16Array
   {
     name: `empty Uint16Array`,
     value: new Uint16Array(),
-    source: `new Uint16Array()`,
+    source: `new Uint16Array`,
   },
   {
     name: `non-empty uninitialized Uint16Array`,
@@ -985,14 +985,14 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint16Array(buffer), new Uint16Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Uint16Array(a),new Uint16Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Uint16Array(a),new Uint16Array(a)])()`,
   },
 
   // Int32Array
   {
     name: `empty Int32Array`,
     value: new Int32Array(),
-    source: `new Int32Array()`,
+    source: `new Int32Array`,
   },
   {
     name: `non-empty uninitialized Int32Array`,
@@ -1030,14 +1030,14 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Int32Array(buffer), new Int32Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Int32Array(a),new Int32Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Int32Array(a),new Int32Array(a)])()`,
   },
 
   // Uint32Array
   {
     name: `empty Uint32Array`,
     value: new Uint32Array(),
-    source: `new Uint32Array()`,
+    source: `new Uint32Array`,
   },
   {
     name: `non-empty uninitialized Uint32Array`,
@@ -1075,7 +1075,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Uint32Array(buffer), new Uint32Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Uint32Array(a),new Uint32Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Uint32Array(a),new Uint32Array(a)])()`,
   },
 
   // Float16Array
@@ -1085,7 +1085,7 @@ test.each<{
         {
           name: `empty Float16Array`,
           value: new Float16Array(),
-          source: `new Float16Array()`,
+          source: `new Float16Array`,
         },
         {
           name: `non-empty uninitialized Float16Array`,
@@ -1123,7 +1123,7 @@ test.each<{
             const buffer = new ArrayBuffer()
             return [new Float16Array(buffer), new Float16Array(buffer)]
           })(),
-          source: `((a=new ArrayBuffer())=>[new Float16Array(a),new Float16Array(a)])()`,
+          source: `((a=new ArrayBuffer)=>[new Float16Array(a),new Float16Array(a)])()`,
         },
         {
           name: `Float16Array from NaN`,
@@ -1141,7 +1141,7 @@ test.each<{
   {
     name: `empty Float32Array`,
     value: new Float32Array(),
-    source: `new Float32Array()`,
+    source: `new Float32Array`,
   },
   {
     name: `non-empty uninitialized Float32Array`,
@@ -1179,7 +1179,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Float32Array(buffer), new Float32Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Float32Array(a),new Float32Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Float32Array(a),new Float32Array(a)])()`,
   },
   {
     name: `Float32Array from NaN`,
@@ -1196,7 +1196,7 @@ test.each<{
   {
     name: `empty Float64Array`,
     value: new Float64Array(),
-    source: `new Float64Array()`,
+    source: `new Float64Array`,
   },
   {
     name: `non-empty uninitialized Float64Array`,
@@ -1234,7 +1234,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new Float64Array(buffer), new Float64Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new Float64Array(a),new Float64Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new Float64Array(a),new Float64Array(a)])()`,
   },
   {
     name: `Float64Array from NaN`,
@@ -1253,7 +1253,7 @@ test.each<{
   {
     name: `empty BigInt64Array`,
     value: new BigInt64Array(),
-    source: `new BigInt64Array()`,
+    source: `new BigInt64Array`,
   },
   {
     name: `non-empty uninitialized BigInt64Array`,
@@ -1291,14 +1291,14 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new BigInt64Array(buffer), new BigInt64Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new BigInt64Array(a),new BigInt64Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new BigInt64Array(a),new BigInt64Array(a)])()`,
   },
 
   // BigUint64Array
   {
     name: `empty BigUint64Array`,
     value: new BigUint64Array(),
-    source: `new BigUint64Array()`,
+    source: `new BigUint64Array`,
   },
   {
     name: `non-empty uninitialized BigUint64Array`,
@@ -1336,7 +1336,7 @@ test.each<{
       const buffer = new ArrayBuffer()
       return [new BigUint64Array(buffer), new BigUint64Array(buffer)]
     })(),
-    source: `((a=new ArrayBuffer())=>[new BigUint64Array(a),new BigUint64Array(a)])()`,
+    source: `((a=new ArrayBuffer)=>[new BigUint64Array(a),new BigUint64Array(a)])()`,
   },
 
   // Shared reference
@@ -1482,7 +1482,7 @@ test.each<{
       circular.add(circular)
       return circular
     })(),
-    source: `((a=new Set())=>a.add(a))()`,
+    source: `((a=new Set)=>a.add(a))()`,
   },
   {
     name: `set containing value with circular reference`,
@@ -1519,7 +1519,7 @@ test.each<{
       circular.set(circular, `howdy`)
       return circular
     })(),
-    source: `((a=new Map())=>a.set(a,"howdy"))()`,
+    source: `((a=new Map)=>a.set(a,"howdy"))()`,
   },
   {
     name: `map containing key with circular reference`,
@@ -1537,7 +1537,7 @@ test.each<{
       circular.set({}, { '': new Map([[circular, new Map()]]) })
       return circular
     })(),
-    source: `((b=new Map(),a=new Map([[{},{"":b}]]))=>(b.set(a,new Map()),a))()`,
+    source: `((b=new Map,a=new Map([[{},{"":b}]]))=>(b.set(a,new Map),a))()`,
   },
   {
     name: `map containing array key with circular reference to outer map`,
