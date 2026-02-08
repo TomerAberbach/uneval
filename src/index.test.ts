@@ -810,6 +810,122 @@ test.each<{
     source: `((a=new ArrayBuffer(0,{maxByteLength:0}))=>(a.transfer(),a))()`,
   },
 
+  // Buffer
+  {
+    name: `empty non-resizable Buffer`,
+    value: Buffer.from([]),
+    source: `Buffer.from(new ArrayBuffer)`,
+  },
+  {
+    name: `empty resizable full capacity Buffer`,
+    value: Buffer.from(new ArrayBuffer(0, { maxByteLength: 0 })),
+    source: `Buffer.from(new ArrayBuffer(0,{maxByteLength:0}))`,
+  },
+  {
+    name: `empty resizable Buffer`,
+    value: Buffer.from(new ArrayBuffer(0, { maxByteLength: 3 })),
+    source: `Buffer.from(new ArrayBuffer(0,{maxByteLength:3}))`,
+  },
+  {
+    name: `non-empty non-resizable uninitialized Buffer`,
+    value: Buffer.from(new ArrayBuffer(8)),
+    source: `Buffer.from(new ArrayBuffer(8))`,
+  },
+  {
+    name: `non-empty non-resizable Buffer initialized with trailing zeros`,
+    value: Buffer.from(new Uint8Array([1, 2, 3, 0, 0, 0, 0, 0]).buffer),
+    source: `Buffer.from(new Uint8Array([1,2,3,0,0,0,0,0]).buffer)`,
+  },
+  {
+    name: `non-empty non-resizable Buffer initialized with leading and trailing zeros`,
+    value: Buffer.from(new Uint8Array([0, 2, 3, 0, 0, 0, 0, 0]).buffer),
+    source: `Buffer.from(new Uint8Array([0,2,3,0,0,0,0,0]).buffer)`,
+  },
+  {
+    name: `non-empty non-resizable Buffer initialized with leading zeros`,
+    value: Buffer.from(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer),
+    source: `Buffer.from(new Uint8Array([0,0,0,0,0,1,2,3]).buffer)`,
+  },
+  {
+    name: `non-empty resizable full capacity uninitialized Buffer`,
+    value: Buffer.from(new ArrayBuffer(8, { maxByteLength: 8 })),
+    source: `Buffer.from(new ArrayBuffer(8,{maxByteLength:8}))`,
+  },
+  {
+    name: `non-empty resizable full capacity Buffer initialized with trailing zeros`,
+    value: (() => {
+      const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 8 })
+      new Uint8Array(arrayBuffer).set([1, 2, 3])
+      return Buffer.from(arrayBuffer)
+    })(),
+    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3]),Buffer.from(a)))()`,
+  },
+  {
+    name: `non-empty resizable full capacity Buffer initialized with leading and trailing zeros`,
+    value: (() => {
+      const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 8 })
+      new Uint8Array(arrayBuffer).set([0, 0, 1, 2, 3])
+      return Buffer.from(arrayBuffer)
+    })(),
+    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3],2),Buffer.from(a)))()`,
+  },
+  {
+    name: `non-empty resizable full capacity Buffer initialized with leading zeros`,
+    value: (() => {
+      const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 8 })
+      new Uint8Array(arrayBuffer).set([0, 0, 0, 0, 0, 1, 2, 3])
+      return Buffer.from(arrayBuffer)
+    })(),
+    source: `((a=new ArrayBuffer(8,{maxByteLength:8}))=>(new Uint8Array(a).set([1,2,3],5),Buffer.from(a)))()`,
+  },
+  {
+    name: `non-empty resizable uninitialized Buffer`,
+    value: Buffer.from(new ArrayBuffer(8, { maxByteLength: 10 })),
+    source: `Buffer.from(new ArrayBuffer(8,{maxByteLength:10}))`,
+  },
+  {
+    name: `non-empty resizable Buffer initialized with trailing zeros`,
+    value: (() => {
+      const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 10 })
+      new Uint8Array(arrayBuffer).set([1, 2, 3])
+      return Buffer.from(arrayBuffer)
+    })(),
+    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3]),Buffer.from(a)))()`,
+  },
+  {
+    name: `non-empty resizable Buffer initialized with leading and trailing zeros`,
+    value: (() => {
+      const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 10 })
+      new Uint8Array(arrayBuffer).set([0, 0, 1, 2, 3])
+      return Buffer.from(arrayBuffer)
+    })(),
+    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3],2),Buffer.from(a)))()`,
+  },
+  {
+    name: `non-empty resizable Buffer initialized with leading zeros`,
+    value: (() => {
+      const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 10 })
+      new Uint8Array(arrayBuffer).set([0, 0, 0, 0, 0, 1, 2, 3])
+      return Buffer.from(arrayBuffer)
+    })(),
+    source: `((a=new ArrayBuffer(8,{maxByteLength:10}))=>(new Uint8Array(a).set([1,2,3],5),Buffer.from(a)))()`,
+  },
+  {
+    name: `leading Buffer view`,
+    value: Buffer.from(new ArrayBuffer(4), 0, 3),
+    source: `Buffer.from(new ArrayBuffer(4),0,3)`,
+  },
+  {
+    name: `middle Buffer view`,
+    value: Buffer.from(new ArrayBuffer(4), 1, 2),
+    source: `Buffer.from(new ArrayBuffer(4),1,2)`,
+  },
+  {
+    name: `trailing Buffer view`,
+    value: Buffer.from(new ArrayBuffer(4), 1, 3),
+    source: `Buffer.from(new ArrayBuffer(4),1)`,
+  },
+
   // Int8Array
   {
     name: `empty Int8Array`,
@@ -825,6 +941,34 @@ test.each<{
     name: `non-empty initialized Int8Array`,
     value: new Int8Array([1, -2, 3, 4]),
     source: `new Int8Array([1,-2,3,4])`,
+  },
+  {
+    name: `leading Int8Array view`,
+    value: new Int8Array(new ArrayBuffer(4), 0, 3),
+    source: `new Int8Array(new ArrayBuffer(4),0,3)`,
+  },
+  {
+    name: `middle Int8Array view`,
+    value: new Int8Array(new ArrayBuffer(4), 1, 2),
+    source: `new Int8Array(new ArrayBuffer(4),1,2)`,
+  },
+  {
+    name: `trailing Int8Array view`,
+    value: new Int8Array(new ArrayBuffer(4), 1, 3),
+    source: `new Int8Array(new ArrayBuffer(4),1)`,
+  },
+  {
+    name: `resizable Int8Array`,
+    value: new Int8Array(new ArrayBuffer(0, { maxByteLength: 1 })),
+    source: `new Int8Array(new ArrayBuffer(0,{maxByteLength:1}))`,
+  },
+  {
+    name: `Int8Array with shared buffer reference`,
+    value: (() => {
+      const buffer = new ArrayBuffer()
+      return [new Int8Array(buffer), new Int8Array(buffer)]
+    })(),
+    source: `((a=new ArrayBuffer)=>[new Int8Array(a),new Int8Array(a)])()`,
   },
 
   // Uint8Array

@@ -285,7 +285,6 @@ const createState = (
         }
         break
       }
-      // TODO(#13): Support Node `Buffer`
       case `Boolean`:
       case `Number`:
       case `String`:
@@ -294,6 +293,7 @@ const createState = (
       case `RegExp`:
       case `URLSearchParams`:
         break
+      case `Buffer`:
       case `Int8Array`:
       case `Uint8Array`:
       case `Uint8ClampedArray`:
@@ -309,6 +309,7 @@ const createState = (
         traverse(
           (
             value as
+              | Buffer
               | Int8Array
               | Uint8Array
               | Uint8ClampedArray
@@ -745,7 +746,17 @@ const unevalObjectInternal = (value: object, state: State): string => {
           : ``,
       )
     }
-    // TODO(#13): Support Node `Buffer`
+    case `Buffer`: {
+      const buffer = value as Buffer
+      const arrayBuffer = buffer.buffer
+      return `${type}.from(${unevalInternal(arrayBuffer, state)!}${
+        buffer.byteOffset + buffer.byteLength == arrayBuffer.byteLength
+          ? buffer.byteOffset > 0
+            ? `,${buffer.byteOffset}`
+            : ``
+          : `,${buffer.byteOffset},${buffer.byteLength}`
+      })`
+    }
     case `ArrayBuffer`: {
       const arrayBuffer = value as ArrayBuffer
       const { detached, resizable, byteLength, maxByteLength } = arrayBuffer
