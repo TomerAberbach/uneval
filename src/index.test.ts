@@ -6,8 +6,8 @@
 import { test } from '@fast-check/vitest'
 import { expect } from 'vitest'
 import { anythingArb } from './arbs.ts'
-import uneval from './index.ts'
 import type { UnevalOptions } from './index.ts'
+import uneval from './package.ts'
 
 test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
   expectUnevalRoundtrips(value)
