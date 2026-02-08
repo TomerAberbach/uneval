@@ -6,7 +6,7 @@ import tomerUneval from './index.ts'
 
 export const unevals = {
   tomer:
-    // Uncomment to benchmark the the built version.
+    // Uncomment to benchmark the built version.
     // (await import(`../dist/index.js`)).default,
     tomerUneval,
   devalue: (value, { custom } = {}) => devalue.uneval(value, custom),
