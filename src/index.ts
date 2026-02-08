@@ -117,14 +117,8 @@ export type UnevalOptions = {
  * ```
  */
 const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
-  const state: State = {
-    ...createBindingsAndCustomSources(value, custom),
-    _currentParents: new Set(),
-    _mutations: [],
-  }
-
+  const state = createState(value, custom)
   const result = unevalInternal(value, state)
-
   if (!state._bindings.size) {
     // If no bindings were created, then it's impossible for the returned source
     // to reference one, so it must be a string.
@@ -173,13 +167,10 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   return `((${parametersSource})=>${bodySource})()`
 }
 
-const createBindingsAndCustomSources = (
+const createState = (
   value: unknown,
   custom: UnevalOptions[`custom`],
-): {
-  _bindings: Map<object, Binding>
-  _customSources: Map<unknown, string>
-} => {
+): State => {
   const bindings = new Map<object, Binding>()
   const customSources = new Map<unknown, string>()
 
@@ -192,30 +183,32 @@ const createBindingsAndCustomSources = (
     }
   }
 
-  // Values seen at any point during traversal. Used to detect shared references.
-  const seen = new Set<object>()
-  // Values seen above the current value during traversal. Used to detect
-  // circular references. This is always a subset of `seen`.
-  const parents = new Set<object>()
+  // Values seen at any point during traversal. Used to detect circular and
+  // shared references.
+  const SOMEWHERE = 1
+  const PARENT = 2
+  const seenLocation = new Map<object, typeof SOMEWHERE | typeof PARENT>()
 
-  const computeCustomSource = (value: unknown): boolean => {
-    if (customSources.has(value)) {
-      if (isObject(value)) {
-        // If the value is an object and it has been seen before, then we want
-        // to create a binding for it to share its custom source.
-        ensureBinding(value)
+  const computeCustomSource = custom
+    ? (value: unknown): boolean => {
+        if (customSources.has(value)) {
+          if (isObject(value)) {
+            // If the value is an object and it has been seen before, then we want
+            // to create a binding for it to share its custom source.
+            ensureBinding(value)
+          }
+          return true
+        }
+
+        const source = custom(value, value => uneval(value, { custom }))
+        if (source == null) {
+          return false
+        }
+
+        customSources.set(value, source)
+        return true
       }
-      return true
-    }
-
-    const source = custom?.(value, value => uneval(value, { custom }))
-    if (source == null) {
-      return false
-    }
-
-    customSources.set(value, source)
-    return true
-  }
+    : () => false
 
   const traverse = (value: unknown, parent?: object) => {
     // Note that we purposefully do not traverse functions here because we don't
@@ -225,12 +218,13 @@ const createBindingsAndCustomSources = (
       return
     }
 
-    if (seen.has(value)) {
+    const location = seenLocation.get(value)
+    if (location) {
       // If a object value is used more than once, then it needs a binding for
       // the shared reference.
       ensureBinding(value)
 
-      if (parents.has(value)) {
+      if (location == PARENT) {
         // If this value is referenced circularly, then we'll need a binding for
         // its parent so that we can mutate it later to attach the circular
         // reference.
@@ -239,10 +233,9 @@ const createBindingsAndCustomSources = (
       return
     }
 
-    seen.add(value)
-    parents.add(value)
+    seenLocation.set(value, PARENT)
     traverseObject(value)
-    parents.delete(value)
+    seenLocation.set(value, SOMEWHERE)
   }
 
   const traverseObject = (value: object) => {
@@ -263,11 +256,11 @@ const createBindingsAndCustomSources = (
           traverse(item, value)
 
           if (
-            parents.has(
+            seenLocation.get(
               // Not guaranteed to be an object, but that doesn't matter because
               // it's just a lookup, and this saves bytes.
               item as object,
-            ) &&
+            ) == PARENT &&
             isObject(key)
           ) {
             // If the item is circular and the key is an object, then the key
@@ -351,7 +344,12 @@ const createBindingsAndCustomSources = (
 
   traverse(value)
 
-  return { _bindings: bindings, _customSources: customSources }
+  return {
+    _bindings: bindings,
+    _customSources: customSources,
+    _currentParents: new Set(),
+    _mutations: [],
+  }
 }
 
 const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
@@ -434,23 +432,59 @@ const unevalNumber = (value: number): string => {
   }
 
   // Convert `0.123` to `.123` and  `-0.123` to `-.123`.
-  return source.replace(ZERO_POINT_REG_EXP, match => match.slice(0, -1))
+  if (source.startsWith(`0.`)) {
+    return source.slice(1)
+  } else if (source.startsWith(`-0.`)) {
+    return `-${source.slice(2)}`
+  }
+
+  return source
 }
 
-// eslint-disable-next-line require-unicode-regexp
-const ZERO_POINT_REG_EXP = /^-?0(?=\.)/
-
 // TODO(#29): Correctly handle lone surrogates.
-// TODO(#30): Stringify `\0` as `\0` instead of `\u0000`
-const unevalString = (value: string): string =>
-  JSON.stringify(value)
+const unevalString = (value: string): string => {
+  let source = ``
+
+  let lastIndex = 0
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i]!
+    const escaped = CHAR_ESCAPES[char]
+    if (escaped) {
+      source += value.slice(lastIndex, i) + escaped
+      lastIndex = i + 1
+      continue
+    }
+
     // Prevent XSS attack via closing an inline script tag.
-    // eslint-disable-next-line unicorn/prefer-string-replace-all
-    .replace(/<\/(?=script)/giu, `<\\u002f`)
-    // These whitespace characters are safe JSON, but not safe JS:
-    // https://stackoverflow.com/a/9168133
-    .replaceAll(`\u2028`, `\\u2028`)
-    .replaceAll(`\u2029`, `\\u2029`)
+    if (
+      char == `/` &&
+      i > 0 &&
+      value[i - 1] == `<` &&
+      value.slice(i + 1, i + 7).toLowerCase() == `script`
+    ) {
+      source += `${value.slice(lastIndex, i)}\\u002f`
+      lastIndex = i + 1
+    }
+  }
+
+  source += value.slice(lastIndex)
+  return `"${source}"`
+}
+
+const CHAR_ESCAPES: Readonly<Record<string, string>> = {
+  '"': `\\"`,
+  '\\': `\\\\`,
+  '\0': `\\0`,
+  '\n': `\\n`,
+  '\r': `\\r`,
+  '\t': `\\t`,
+  '\b': `\\b`,
+  '\f': `\\f`,
+  '\v': `\\v`,
+  // https://stackoverflow.com/a/9168133
+  '\u2028': `\\u2028`,
+  '\u2029': `\\u2029`,
+}
 
 const unevalSymbol = (value: symbol, state: State): string => {
   let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
@@ -884,51 +918,70 @@ const newInstance = (type: string, args: string | number = ``) =>
 
 const unevalObjectLike = (object: object, state: State): string => {
   // TODO(#9): Support all property types, including non-enumerable ones.
-  let source = `{${Reflect.ownKeys(object)
-    .flatMap(key => {
-      const symbolResult =
-        typeof key == `symbol` ? unevalInternal(key, state) : null
+  const propertySources: string[] = []
+  for (let key of Reflect.ownKeys(object)) {
+    const symbolResult =
+      typeof key == `symbol` ? unevalInternal(key, state) : null
 
-      const value = Reflect.get(object, key) as unknown
-      const valueResult = unevalInternal(value, state)
-      if (valueResult == null) {
-        state._mutations.push({
-          _target: object,
-          // `value` must be an object if it's circular.
-          _input: value as object,
-          ...(symbolResult
-            ? { _type: SET_OBJECT_SYMBOL_PROPERTY, _property: symbolResult }
-            : { _type: SET_OBJECT_STRING_PROPERTY, _property: key as string }),
-        })
-        return []
-      }
+    const value = (object as Record<PropertyKey, unknown>)[key]
+    const valueResult = unevalInternal(value, state)
+    if (valueResult == null) {
+      state._mutations.push({
+        _target: object,
+        // `value` must be an object if it's circular.
+        _input: value as object,
+        ...(symbolResult
+          ? { _type: SET_OBJECT_SYMBOL_PROPERTY, _property: symbolResult }
+          : { _type: SET_OBJECT_STRING_PROPERTY, _property: key as string }),
+      })
+      continue
+    }
 
-      if (symbolResult) {
-        return [`[${symbolResult}]:${valueResult}`]
-      }
+    if (symbolResult) {
+      propertySources.push(`[${symbolResult}]:${valueResult}`)
+      continue
+    }
 
-      if (key === __PROTO__) {
-        // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
-        // property rather than setting `Object.prototype`.
-        return [`[${unevalInternal(__PROTO__, state)}]:${valueResult}`]
-      }
+    if (key === __PROTO__) {
+      // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
+      // property rather than setting `Object.prototype`.
+      propertySources.push(
+        `[${unevalInternal(__PROTO__, state)}]:${valueResult}`,
+      )
+      continue
+    }
 
-      key = key as string
+    key = key as string
 
+    // The vast majority of keys are non-numeric so don't bother with the
+    // expensive numeric key check below if the key is definitely not numeric
+    // based on the first character.
+    const firstChar = key[0]!
+    if (firstChar >= `0` && firstChar <= `9`) {
       const number = +key
       const isNumericKey =
-        key == `${number}` && number >= 0 && Number.isSafeInteger(number)
-      if (isNumericKey) {
-        return [`${key}:${valueResult}`]
-      }
+        // Negative numbers must be quoted.
+        number >= 0 &&
+        // Numbers that can't be safely represented as integers (e.g. because
+        // they are too large) must be quoted.
+        Number.isSafeInteger(number) &&
+        // If the key doesn't roundtrip through numeric conversion, then it's
+        // padded (e.g. `01`) and must be quoted to retain that.
+        key == `${number}`
+      propertySources.push(
+        `${isNumericKey ? key : unevalInternal(key, state)}:${valueResult}`,
+      )
+      continue
+    }
 
-      if (!PROPERTY_REG_EXP.test(key)) {
-        return [`${unevalInternal(key, state)}:${valueResult}`]
-      }
+    if (!PROPERTY_REG_EXP.test(key)) {
+      propertySources.push(`${unevalInternal(key, state)}:${valueResult}`)
+      continue
+    }
 
-      return [key == valueResult ? key : `${key}:${valueResult}`]
-    })
-    .join(`,`)}}`
+    propertySources.push(key == valueResult ? key : `${key}:${valueResult}`)
+  }
+  let source = `{${propertySources.join(`,`)}}`
 
   const prototype = Object.getPrototypeOf(object) as unknown
   // TODO(#31): Check if an object is a plain object based on properties on the
