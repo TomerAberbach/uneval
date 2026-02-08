@@ -880,7 +880,7 @@ float64ScratchView.setFloat64(0, Number.NaN)
 const CANONICAL_NAN_BITS = float64ScratchView.getBigUint64(0)
 
 const newInstance = (type: string, args: string | number = ``) =>
-  `new ${type}(${args})`
+  `new ${type}${args === `` ? `` : `(${args})`}`
 
 const unevalObjectLike = (object: object, state: State): string => {
   // TODO(#9): Support all property types, including non-enumerable ones.
