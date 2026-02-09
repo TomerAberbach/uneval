@@ -8,7 +8,7 @@ export default defineConfig({
     testTimeout: 75_000,
     coverage: {
       include: [`src`],
-      exclude: [`*.bench.ts`, `arbs.ts`],
+      exclude: [`*.bench.ts`, `src/arbs.ts`, `src/package.ts`],
     },
     chaiConfig: {
       truncateThreshold: Infinity,
