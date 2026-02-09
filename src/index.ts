@@ -16,32 +16,17 @@ type Binding = {
   _dependencies: Set<object>
 }
 
-const SET_OBJECT_STRING_PROPERTY = 0
-const SET_OBJECT_SYMBOL_PROPERTY = 1
-const SET_ARRAY_INDEX = 2
-const SET_MAP_ENTRY = 3
-const ADD_TO_SET = 4
-const TRANSFER_ARRAY_BUFFER = 5
-const SET_ARRAY_BUFFER = 6
-
 /** An mutation of a binding. */
 type Mutation = {
-  /** The value being mutated. The value is assumed to have a binding. */
-  _target: object
+  /** The source of the mutation itself. */
+  _source: string
   /**
-   * The source or value with a binding that's the "input" to the mutation, or
-   * undefined if there is not input for the mutation.
+   * What the mutation statement evaluates to when used as an expression.
+   *
+   * Undefined if it doesn't evaluate to anything worth mentioning.
    */
-  _input?: string | object
-} & (
-  | { _type: typeof SET_OBJECT_STRING_PROPERTY; _property: string }
-  | { _type: typeof SET_OBJECT_SYMBOL_PROPERTY; _property: string }
-  | { _type: typeof SET_ARRAY_INDEX; _index: number }
-  | { _type: typeof SET_MAP_ENTRY; _key: string }
-  | { _type: typeof ADD_TO_SET }
-  | { _type: typeof TRANSFER_ARRAY_BUFFER }
-  | { _type: typeof SET_ARRAY_BUFFER }
-)
+  _evaluatesTo?: string
+}
 
 /** State maintained while converting a value to source. */
 type State = {
@@ -124,10 +109,7 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
     return result!
   }
 
-  const bodyResults = state._mutations.map(mutation =>
-    unevalMutation(mutation, state),
-  )
-  const bodySources = bodyResults.map(result => result._source)
+  const bodySources = state._mutations.map(result => result._source)
 
   const returnBinding = state._bindings.get(
     // The value must be an object if we ended up needing to create bindings for
@@ -142,7 +124,7 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
       // which it can't be if it has no binding.
       result!,
     )
-  } else if (bodyResults.at(-1)?._evaluatesTo != returnBinding._name) {
+  } else if (state._mutations.at(-1)?._evaluatesTo != returnBinding._name) {
     // The value the returned source evaluates to does have a binding, but the
     // last mutation in the body does not evaluate to it, so we have to add a
     // reference to the value's binding at the end of the body expression to
@@ -592,73 +574,6 @@ const unevalObject = (value: object, state: State): string | null => {
   return binding._name
 }
 
-const unevalMutation = (
-  mutation: Mutation,
-  state: State,
-): {
-  /** The source of the mutation itself. */
-  _source: string
-  /**
-   * What the mutation statement evaluates to when used as an expression.
-   *
-   * Undefined if it doesn't evaluate to anything worth mentioning.
-   */
-  _evaluatesTo?: string
-} => {
-  const bindingName = state._bindings.get(mutation._target)!._name
-  const valueSource = mutation._input
-    ? typeof mutation._input == `string`
-      ? mutation._input
-      : state._bindings.get(mutation._input)!._name
-    : ``
-  switch (mutation._type) {
-    case SET_OBJECT_STRING_PROPERTY:
-      return mutation._property == __PROTO__
-        ? {
-            _source: objectDefineProperty(bindingName, valueSource),
-            // `Object.defineProperty` always returns the input object.
-            _evaluatesTo: bindingName,
-          }
-        : {
-            _source: `${bindingName}${
-              PROPERTY_REG_EXP.test(mutation._property)
-                ? `.${mutation._property}`
-                : `[${unevalInternal(mutation._property, state)}]`
-            }=${valueSource}`,
-            // An assignment evaluates to the right-hand side.
-            _evaluatesTo: valueSource,
-          }
-    case SET_OBJECT_SYMBOL_PROPERTY:
-      return {
-        _source: `${bindingName}[${mutation._property}]=${valueSource}`,
-        // An assignment evaluates to the right-hand side.
-        _evaluatesTo: valueSource,
-      }
-    case SET_ARRAY_INDEX:
-      return {
-        _source: `${bindingName}[${mutation._index}]=${valueSource}`,
-        // An assignment evaluates to the right-hand side.
-        _evaluatesTo: valueSource,
-      }
-    case SET_MAP_ENTRY:
-      return {
-        _source: `${bindingName}.set(${mutation._key},${valueSource})`,
-        // `Map.set` always returns `this`.
-        _evaluatesTo: bindingName,
-      }
-    case ADD_TO_SET:
-      return {
-        _source: `${bindingName}.add(${valueSource})`,
-        // `Set.add` always returns `this`.
-        _evaluatesTo: bindingName,
-      }
-    case TRANSFER_ARRAY_BUFFER:
-      return { _source: `${bindingName}.transfer()` }
-    case SET_ARRAY_BUFFER:
-      return { _source: `new Uint8Array(${bindingName}).set(${valueSource})` }
-  }
-}
-
 const unevalObjectInternal = (value: object, state: State): string => {
   const customSource = state._customSources.get(value)
   if (customSource != null) {
@@ -681,14 +596,18 @@ const unevalObjectInternal = (value: object, state: State): string => {
           continue
         }
 
-        const result = unevalInternal(array[i], state)
+        const item = array[i]
+        const result = unevalInternal(item, state)
         if (result == null) {
+          const valueName = state._bindings.get(value)!._name
+          const itemName = state._bindings.get(
+            // `item` must be an object if it's circular.
+            item as object,
+          )!._name
           state._mutations.push({
-            _target: value,
-            _type: SET_ARRAY_INDEX,
-            _index: i,
-            // `array[i]` must be an object if it's circular.
-            _input: array[i] as object,
+            _source: `${valueName}[${i}]=${itemName}`,
+            // An assignment evaluates to the right-hand side.
+            _evaluatesTo: itemName,
           })
           itemSources.push(``)
         } else {
@@ -730,14 +649,21 @@ const unevalObjectInternal = (value: object, state: State): string => {
           if (keyResult == null) {
             // If the key is circular, then omit this entry for now and set it
             // later.
+            const valueName = state._bindings.get(value)!._name
+            const keyName = state._bindings.get(
+              // `key` must be an object if it's circular.
+              key as object,
+            )!._name
+            const itemSource =
+              itemResult ??
+              state._bindings.get(
+                // `item` must be an object if it's circular.
+                item as object,
+              )!._name
             state._mutations.push({
-              _target: value,
-              _type: SET_MAP_ENTRY,
-              _key: state._bindings.get(key as object)!._name,
-              _input:
-                itemResult ??
-                // `value` must be an object if it's circular.
-                (item as object),
+              _source: `${valueName}.set(${keyName},${itemSource})`,
+              // `Map.set` always returns `this`.
+              _evaluatesTo: valueName,
             })
             return []
           }
@@ -745,12 +671,15 @@ const unevalObjectInternal = (value: object, state: State): string => {
           if (itemResult == null) {
             // If the item is circular, then omit the item part of the entry
             // for now and set it later.
-            state._mutations.push({
-              _target: value,
-              _type: SET_MAP_ENTRY,
-              _key: keyResult,
+            const valueName = state._bindings.get(value)!._name
+            const itemName = state._bindings.get(
               // `item` must be an object if it's circular.
-              _input: item as object,
+              item as object,
+            )!._name
+            state._mutations.push({
+              _source: `${valueName}.set(${keyResult},${itemName})`,
+              // `Map.set` always returns `this`.
+              _evaluatesTo: valueName,
             })
             return [`[${keyResult}]`]
           }
@@ -765,11 +694,15 @@ const unevalObjectInternal = (value: object, state: State): string => {
         .flatMap(item => {
           const result = unevalInternal(item, state)
           if (result == null) {
-            state._mutations.push({
-              _target: value,
-              _type: ADD_TO_SET,
+            const valueName = state._bindings.get(value)!._name
+            const itemName = state._bindings.get(
               // `item` must be an object if it's circular.
-              _input: item as object,
+              item as object,
+            )!._name
+            state._mutations.push({
+              _source: `${valueName}.add(${itemName})`,
+              // `Set.add` always returns `this`.
+              _evaluatesTo: valueName,
             })
             return []
           }
@@ -814,7 +747,8 @@ const unevalObjectInternal = (value: object, state: State): string => {
       const { detached, resizable, byteLength, maxByteLength } = arrayBuffer
 
       if (detached) {
-        state._mutations.push({ _target: value, _type: TRANSFER_ARRAY_BUFFER })
+        const valueName = state._bindings.get(value)!._name
+        state._mutations.push({ _source: `${valueName}.transfer()` })
       }
 
       let uint8Array: Uint8Array
@@ -839,15 +773,13 @@ const unevalObjectInternal = (value: object, state: State): string => {
         return `${unevalInternal(uint8Array, state)!}.buffer`
       }
 
+      const valueName = state._bindings.get(value)!._name
       const lastNonZeroIndex = uint8Array.findLastIndex(value => value != 0)
-
       state._mutations.push({
-        _target: value,
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        _input: `[${uint8Array.slice(firstNonZeroIndex, lastNonZeroIndex + 1)}]${
-          firstNonZeroIndex > 0 ? `,${firstNonZeroIndex}` : ``
-        }`,
-        _type: SET_ARRAY_BUFFER,
+        _source: `new Uint8Array(${valueName}).set([${
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          uint8Array.slice(firstNonZeroIndex, lastNonZeroIndex + 1)
+        }]${firstNonZeroIndex > 0 ? `,${firstNonZeroIndex}` : ``})`,
       })
       return newInstance(type, `${byteLength},{maxByteLength:${maxByteLength}}`)
     }
@@ -987,14 +919,36 @@ const unevalObjectLike = (object: object, state: State): string => {
     const value = (object as Record<PropertyKey, unknown>)[key]
     const valueResult = unevalInternal(value, state)
     if (valueResult == null) {
-      state._mutations.push({
-        _target: object,
+      const objectName = state._bindings.get(object)!._name
+      const valueName = state._bindings.get(
         // `value` must be an object if it's circular.
-        _input: value as object,
-        ...(symbolResult
-          ? { _type: SET_OBJECT_SYMBOL_PROPERTY, _property: symbolResult }
-          : { _type: SET_OBJECT_STRING_PROPERTY, _property: key as string }),
-      })
+        value as object,
+      )!._name
+      state._mutations.push(
+        symbolResult
+          ? {
+              _source: `${objectName}[${symbolResult}]=${valueName}`,
+              // An assignment evaluates to the right-hand side.
+              _evaluatesTo: valueName,
+            }
+          : key == __PROTO__
+            ? {
+                _source: `Object.defineProperty(${objectName},"${__PROTO__}",{value:${
+                  valueName
+                },writable:true,enumerable:true,configurable:true})`,
+                // `Object.defineProperty` always returns the input object.
+                _evaluatesTo: objectName,
+              }
+            : {
+                _source: `${objectName}${
+                  PROPERTY_REG_EXP.test(key as string)
+                    ? `.${key as string}`
+                    : `[${unevalInternal(key, state)}]`
+                }=${valueName}`,
+                // An assignment evaluates to the right-hand side.
+                _evaluatesTo: valueName,
+              },
+      )
       continue
     }
 
@@ -1059,11 +1013,6 @@ const unevalObjectLike = (object: object, state: State): string => {
 
   return source
 }
-
-const objectDefineProperty = (objectSource: string, valueSource: string) =>
-  `Object.defineProperty(${objectSource},"${__PROTO__}",{value:${
-    valueSource
-  },writable:true,enumerable:true,configurable:true})`
 
 const __PROTO__ = `__proto__`
 const PROPERTY_REG_EXP = /^[$_\p{ID_Start}][$_\p{ID_Continue}]*$/u
