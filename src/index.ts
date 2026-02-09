@@ -1,4 +1,5 @@
 // For smaller bundle size.
+/* eslint-disable unicorn/require-array-join-separator */
 /* eslint-disable no-implicit-coercion */
 /* eslint-disable eqeqeq */
 
@@ -151,7 +152,7 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
     bodySources.push(returnBinding._name)
   }
 
-  let bodySource = bodySources.join(`,`)
+  let bodySource = bodySources.join()
   if (bodySources.length > 1 || bodySource.startsWith(`{`)) {
     // If the body is a comma expression, then it requires a parentheses to be a
     // syntactically correct expression return. If the body is an object, then
@@ -174,10 +175,10 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
     }
   }
 
-  const parametersSource = parameterSources.join(`,`)
+  const parametersSource = parameterSources.join()
   return `(${
     bindings.length > 1 ? `(${parametersSource})` : parametersSource
-  }=>${bodySource})(${argSources.join(`,`)})`
+  }=>${bodySource})(${argSources.join()})`
 }
 
 const createState = (
@@ -671,7 +672,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
         // no-op trailing comma.
         itemSources.push(``)
       }
-      return `[${itemSources.join(`,`)}]`
+      return `[${itemSources.join()}]`
     }
     case `Boolean`:
     case `Number`:
@@ -727,7 +728,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
 
           return [`[${keyResult},${itemResult}]`]
         })
-        .join(`,`)
+        .join()
       return newInstance(type, entries ? `[${entries}]` : ``)
     }
     case `Set`: {
@@ -746,7 +747,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
 
           return [result]
         })
-        .join(`,`)
+        .join()
       return newInstance(type, values ? `[${values}]` : ``)
     }
     case `URLSearchParams`: {
@@ -925,7 +926,7 @@ const unevalTypedArray = (
     return `${type}.of(${Array.from<number | bigint, string>(
       typedArray,
       value => unevalInternal(value, state),
-    ).join(`,`)})`
+    ).join()})`
   }
 
   return newInstance(type, typedArray.length || ``)
@@ -1012,7 +1013,7 @@ const unevalObjectLike = (object: object, state: State): string => {
 
     propertySources.push(key == valueResult ? key : `${key}:${valueResult}`)
   }
-  let source = `{${propertySources.join(`,`)}}`
+  let source = `{${propertySources.join()}}`
 
   const prototype = Object.getPrototypeOf(object) as unknown
   // TODO(#31): Check if an object is a plain object based on properties on the
