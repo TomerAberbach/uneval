@@ -52,7 +52,7 @@
   "devDependencies": {
     "@fast-check/vitest": "^0.2.4",
     "@rollup/plugin-terser": "^0.4.4",
-    "@tomer/eslint-config": "^4.4.1",
+    "@tomer/eslint-config": "^4.5.0",
     "@tomer/prettier-config": "^4.0.0",
     "@types/jsesc": "^3.0.3",
     "@types/serialize-javascript": "^5.0.4",

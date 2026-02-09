@@ -294,6 +294,66 @@ test.each<{
     value: new String(`</sCrIpT>`),
     source: `Object("<\\u002fsCrIpT>")`,
   },
+  {
+    name: `string with unpaired low surrogate`,
+    value: `\uDC00`,
+    source: `"\\udc00"`,
+  },
+  {
+    name: `boxed string with unpaired low surrogate`,
+    value: new String(`\uDC00`),
+    source: `Object("\\udc00")`,
+  },
+  {
+    name: `string with unpaired high surrogate`,
+    value: `\uD800`,
+    source: `"\\ud800"`,
+  },
+  {
+    name: `boxed string with unpaired high surrogate`,
+    value: new String(`\uD800`),
+    source: `Object("\\ud800")`,
+  },
+  {
+    name: `string with unpaired low surrogate in middle`,
+    value: `a\uDC00b`,
+    source: `"a\\udc00b"`,
+  },
+  {
+    name: `boxed string with unpaired low surrogate in middle`,
+    value: new String(`a\uDC00b`),
+    source: `Object("a\\udc00b")`,
+  },
+  {
+    name: `string with unpaired high surrogate in middle`,
+    value: `a\uD800b`,
+    source: `"a\\ud800b"`,
+  },
+  {
+    name: `boxed string with unpaired high surrogate in middle`,
+    value: new String(`a\uD800b`),
+    source: `Object("a\\ud800b")`,
+  },
+  {
+    name: `string with multiple unpaired surrogates`,
+    value: `\uD800\uDBFF`,
+    source: `"\\ud800\\udbff"`,
+  },
+  {
+    name: `boxed string with multiple unpaired surrogates`,
+    value: new String(`\uD800\uDBFF`),
+    source: `Object("\\ud800\\udbff")`,
+  },
+  {
+    name: `string with surrogate pair`,
+    value: `\uD83D\uDE00`,
+    source: `"😀"`,
+  },
+  {
+    name: `boxed string with surrogate pair`,
+    value: new String(`\uD83D\uDE00`),
+    source: `Object("😀")`,
+  },
 
   // Symbol
   {
