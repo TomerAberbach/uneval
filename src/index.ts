@@ -283,9 +283,18 @@ const createState = (
       case `Number`:
       case `String`:
       case `Date`:
+      case `Instant`:
+      case `PlainDate`:
+      case `PlainTime`:
+      case `PlainDateTime`:
+      case `PlainYearMonth`:
+      case `PlainMonthDay`:
+      case `ZonedDateTime`:
+      case `Duration`:
       case `URL`:
       case `RegExp`:
       case `URLSearchParams`:
+        // These are leaf values.
         break
       case `Buffer`:
       case `Int8Array`:
@@ -373,7 +382,6 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   return sortedBindings
 }
 
-// TODO(#19): Support `Temporal` objects.
 const unevalInternal = ((value: unknown, state: State): string | null => {
   const customSource = isObject(value)
     ? // Don't check the custom source now because we may need to create a
@@ -628,6 +636,19 @@ const unevalObjectInternal = (value: object, state: State): string => {
       return `Object(${unevalInternal(value.valueOf(), state)})`
     case `Date`:
       return newInstance(type, unevalInternal((value as Date).valueOf(), state))
+    case `Instant`:
+    case `PlainDate`:
+    case `PlainTime`:
+    case `PlainDateTime`:
+    case `PlainYearMonth`:
+    case `PlainMonthDay`:
+    case `ZonedDateTime`:
+    case `Duration`:
+      return `Temporal.${type}.from(${unevalInternal(
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+        `${value}`,
+        state,
+      )})`
     case `URL`:
       return newInstance(type, unevalInternal((value as URL).href, state))
     // TODO(#11): Serialize RegExp objects as literals.

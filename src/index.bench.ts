@@ -1,5 +1,3 @@
-/* eslint-disable no-eval */
-
 import { fc } from '@fast-check/vitest'
 import { bench } from 'vitest'
 import { unevals } from './package.ts'
