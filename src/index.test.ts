@@ -609,6 +609,69 @@ test.each<{
   { name: `valid Date`, value: new Date(42), source: `new Date(42)` },
   { name: `invalid Date`, value: new Date(`oh no!`), source: `new Date(NaN)` },
 
+  // Temporal
+  ...(typeof Temporal === `undefined`
+    ? []
+    : [
+        {
+          name: `Temporal.Instant`,
+          value: Temporal.Instant.from(`2024-12-25T00:00:00Z`),
+          source: `Temporal.Instant.from("2024-12-25T00:00:00Z")`,
+        },
+        {
+          name: `Temporal.Instant epoch`,
+          value: Temporal.Instant.from(`1970-01-01T00:00:00Z`),
+          source: `Temporal.Instant.from("1970-01-01T00:00:00Z")`,
+        },
+        {
+          name: `Temporal.PlainDate`,
+          value: Temporal.PlainDate.from(`2024-12-25`),
+          source: `Temporal.PlainDate.from("2024-12-25")`,
+        },
+        {
+          name: `Temporal.PlainTime`,
+          value: Temporal.PlainTime.from(`13:45:30`),
+          source: `Temporal.PlainTime.from("13:45:30")`,
+        },
+        {
+          name: `Temporal.PlainTime with nanoseconds`,
+          value: Temporal.PlainTime.from(`13:45:30.123456789`),
+          source: `Temporal.PlainTime.from("13:45:30.123456789")`,
+        },
+        {
+          name: `Temporal.PlainDateTime`,
+          value: Temporal.PlainDateTime.from(`2024-12-25T13:45:30`),
+          source: `Temporal.PlainDateTime.from("2024-12-25T13:45:30")`,
+        },
+        {
+          name: `Temporal.PlainYearMonth`,
+          value: Temporal.PlainYearMonth.from(`2024-12`),
+          source: `Temporal.PlainYearMonth.from("2024-12")`,
+        },
+        {
+          name: `Temporal.PlainMonthDay`,
+          value: Temporal.PlainMonthDay.from(`12-25`),
+          source: `Temporal.PlainMonthDay.from("12-25")`,
+        },
+        {
+          name: `Temporal.ZonedDateTime`,
+          value: Temporal.ZonedDateTime.from(
+            `2024-12-25T13:45:30-05:00[America/New_York]`,
+          ),
+          source: `Temporal.ZonedDateTime.from("2024-12-25T13:45:30-05:00[America/New_York]")`,
+        },
+        {
+          name: `Temporal.Duration`,
+          value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
+          source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
+        },
+        {
+          name: `Temporal.Duration zero`,
+          value: new Temporal.Duration(),
+          source: `Temporal.Duration.from("PT0S")`,
+        },
+      ]),
+
   // URL
   {
     name: `URL`,

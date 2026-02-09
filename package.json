@@ -51,6 +51,7 @@
   "prettier": "@tomer/prettier-config",
   "devDependencies": {
     "@fast-check/vitest": "^0.2.4",
+    "@js-temporal/polyfill": "^0.5.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@tomer/eslint-config": "^4.5.0",
     "@tomer/prettier-config": "^4.0.0",

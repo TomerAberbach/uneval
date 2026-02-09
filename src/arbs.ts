@@ -3,6 +3,134 @@ import { fc } from '@fast-check/vitest'
 const urlArb = fc.webUrl().map(url => new URL(url))
 const urlSearchParamsArb = urlArb.map(url => url.searchParams)
 
+const temporalInstantArb = fc
+  .bigInt({
+    min: -8_640_000_000_000_000_000_000n,
+    max: 8_640_000_000_000_000_000_000n,
+  })
+  .map(epochNs => new Temporal.Instant(epochNs))
+const temporalPlainDateArb = fc
+  .record({
+    year: fc.integer({ min: -271_820, max: 275_759 }),
+    month: fc.integer({ min: 1, max: 12 }),
+    day: fc.integer({ min: 1, max: 28 }),
+  })
+  .map(({ year, month, day }) => new Temporal.PlainDate(year, month, day))
+const temporalPlainTimeArb = fc
+  .record({
+    hour: fc.integer({ min: 0, max: 23 }),
+    minute: fc.integer({ min: 0, max: 59 }),
+    second: fc.integer({ min: 0, max: 59 }),
+    millisecond: fc.integer({ min: 0, max: 999 }),
+    microsecond: fc.integer({ min: 0, max: 999 }),
+    nanosecond: fc.integer({ min: 0, max: 999 }),
+  })
+  .map(
+    ({ hour, minute, second, millisecond, microsecond, nanosecond }) =>
+      new Temporal.PlainTime(
+        hour,
+        minute,
+        second,
+        millisecond,
+        microsecond,
+        nanosecond,
+      ),
+  )
+const temporalPlainDateTimeArb = fc
+  .record({ date: temporalPlainDateArb, time: temporalPlainTimeArb })
+  .map(
+    ({ date, time }) =>
+      new Temporal.PlainDateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+        time.second,
+        time.millisecond,
+        time.microsecond,
+        time.nanosecond,
+      ),
+  )
+const temporalPlainYearMonthArb = fc
+  .record({
+    year: fc.integer({ min: -271_820, max: 275_759 }),
+    month: fc.integer({ min: 1, max: 12 }),
+  })
+  .map(({ year, month }) => new Temporal.PlainYearMonth(year, month))
+const temporalPlainMonthDayArb = fc
+  .record({
+    month: fc.integer({ min: 1, max: 12 }),
+    day: fc.integer({ min: 1, max: 28 }),
+  })
+  .map(({ month, day }) => new Temporal.PlainMonthDay(month, day))
+const temporalZonedDateTimeArb = fc
+  .record({
+    epochNs: fc.bigInt({
+      min: -8_640_000_000_000_000_000_000n,
+      max: 8_640_000_000_000_000_000_000n,
+    }),
+    timeZone: fc.constantFrom(
+      `UTC`,
+      `America/New_York`,
+      `America/Los_Angeles`,
+      `Europe/London`,
+      `Europe/Paris`,
+      `Asia/Tokyo`,
+      `Australia/Sydney`,
+    ),
+  })
+  .map(({ epochNs, timeZone }) => new Temporal.ZonedDateTime(epochNs, timeZone))
+const temporalDurationArb = fc
+  .record({
+    years: fc.integer({ min: 0, max: 100 }),
+    months: fc.integer({ min: 0, max: 100 }),
+    weeks: fc.integer({ min: 0, max: 100 }),
+    days: fc.integer({ min: 0, max: 100 }),
+    hours: fc.integer({ min: 0, max: 100 }),
+    minutes: fc.integer({ min: 0, max: 100 }),
+    seconds: fc.integer({ min: 0, max: 100 }),
+    milliseconds: fc.integer({ min: 0, max: 999 }),
+    microseconds: fc.integer({ min: 0, max: 999 }),
+    nanoseconds: fc.integer({ min: 0, max: 999 }),
+  })
+  .map(
+    ({
+      years,
+      months,
+      weeks,
+      days,
+      hours,
+      minutes,
+      seconds,
+      milliseconds,
+      microseconds,
+      nanoseconds,
+    }) =>
+      new Temporal.Duration(
+        years,
+        months,
+        weeks,
+        days,
+        hours,
+        minutes,
+        seconds,
+        milliseconds,
+        microseconds,
+        nanoseconds,
+      ),
+  )
+const temporalArb = fc.oneof(
+  temporalInstantArb,
+  temporalPlainDateArb,
+  temporalPlainTimeArb,
+  temporalPlainDateTimeArb,
+  temporalPlainYearMonthArb,
+  temporalPlainMonthDayArb,
+  temporalZonedDateTimeArb,
+  temporalDurationArb,
+)
+
 const nonDetachedArrayBufferArb = fc
   .record({ array: fc.int8Array(), maxByteLength: fc.nat({ max: 50 }) })
   .map(({ array, maxByteLength }) => {
@@ -104,6 +232,7 @@ export const anythingArb = fc
         fc.double(),
         fc.bigInt(),
         fc.date(),
+        ...(typeof Temporal === `undefined` ? [] : [temporalArb]),
         fc.string({ unit: `binary` }),
         urlArb,
         urlSearchParamsArb,
