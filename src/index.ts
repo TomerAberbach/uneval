@@ -1,6 +1,4 @@
 // For smaller bundle size.
-/* eslint-disable unicorn/require-array-join-separator */
-/* eslint-disable no-implicit-coercion */
 /* eslint-disable eqeqeq */
 
 import { generateIdentifier } from './identifier.ts'
@@ -207,8 +205,8 @@ const createState = (
     ? (value: unknown): boolean => {
         if (customSources.has(value)) {
           if (isObject(value)) {
-            // If the value is an object and it has been seen before, then we want
-            // to create a binding for it to share its custom source.
+            // If the value is an object and it has been seen before, then we
+            // want to create a binding for it to share its custom source.
             ensureBinding(value)
           }
           return true
@@ -456,23 +454,53 @@ const unevalNumber = (value: number): string => {
   return source
 }
 
-// TODO(#29): Correctly handle lone surrogates.
+// `charCodeAt` is more performant for our use-case because we're dealing with
+// strings known to be single code units.
+/* eslint-disable unicorn/prefer-code-point */
 const unevalString = (value: string): string => {
   let source = ``
 
   let lastIndex = 0
   for (let i = 0; i < value.length; i += 1) {
-    const char = value[i]!
-    const escaped = CHAR_ESCAPES[char]
+    const codeUnit = value[i]!
+    const escaped = CODE_UNIT_ESCAPES[codeUnit]
     if (escaped) {
       source += value.slice(lastIndex, i) + escaped
       lastIndex = i + 1
       continue
     }
 
+    const code = codeUnit.charCodeAt(0)
+
+    // https://en.wikipedia.org/wiki/UTF-16#U+D800_to_U+DFFF_(surrogates)
+    let isUnpairedSurrogate: boolean
+    const isLowSurrogate = code >= 0xd800 && code <= 0xdbff
+    if (isLowSurrogate) {
+      const next = value.charCodeAt(i + 1)
+      const isHighSurrogate = next >= 0xdc00 && next <= 0xdfff
+      if (isHighSurrogate) {
+        i++
+        isUnpairedSurrogate = false
+      } else {
+        isUnpairedSurrogate = true
+      }
+    } else {
+      const isHighSurrogate = code >= 0xdc00 && code <= 0xdfff
+      // If this is a high surrogate, then it's unpaired. If it were paired,
+      // then we would have skipped it in the previous iteration of the loop.
+      isUnpairedSurrogate = isHighSurrogate
+    }
+
+    if (isUnpairedSurrogate) {
+      // Escape unpaired surrogates in the source.
+      source += `${value.slice(lastIndex, i)}\\u${code.toString(16)}`
+      lastIndex = i + 1
+      continue
+    }
+
     // Prevent XSS attack via closing an inline script tag.
     if (
-      char == `/` &&
+      codeUnit == `/` &&
       i > 0 &&
       value[i - 1] == `<` &&
       value.slice(i + 1, i + 7).toLowerCase() == `script`
@@ -485,8 +513,9 @@ const unevalString = (value: string): string => {
   source += value.slice(lastIndex)
   return `"${source}"`
 }
+/* eslint-enable unicorn/prefer-code-point */
 
-const CHAR_ESCAPES: Readonly<Record<string, string>> = {
+const CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '"': `\\"`,
   '\\': `\\\\`,
   '\0': `\\0`,
