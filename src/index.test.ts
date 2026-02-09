@@ -1933,6 +1933,31 @@ test.each<{
     source: `Symbol("HI")`,
     roundtrips: false,
   },
+
+  (() => {
+    let callCount = 0
+    const shared = {}
+    return {
+      name: `custom option with repeated object`,
+      value: [shared, {}, shared],
+      options: {
+        custom: (value, uneval) => {
+          if (
+            !Array.isArray(value) &&
+            value !== null &&
+            typeof value === `object`
+          ) {
+            callCount++
+            return uneval(`OBJECT ${callCount}!`)
+          }
+
+          return undefined
+        },
+      },
+      source: `(a=>[a,"OBJECT 2!",a])("OBJECT 1!")`,
+      roundtrips: false,
+    }
+  })(),
   (() => {
     let callCount = 0
     return {

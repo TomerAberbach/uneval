@@ -186,11 +186,6 @@ const createState = (
   const computeCustomSource = custom
     ? (value: unknown): boolean => {
         if (customSources.has(value)) {
-          if (isObject(value)) {
-            // If the value is an object and it has been seen before, then we
-            // want to create a binding for it to share its custom source.
-            ensureBinding(value)
-          }
           return true
         }
 
