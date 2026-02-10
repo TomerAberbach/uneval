@@ -325,9 +325,13 @@ const createState = (
         )
         break
       default: {
-        // TODO(#9): Support all property types, including non-enumerable ones.
         for (const key of Reflect.ownKeys(value)) {
-          traverse(Reflect.get(value, key), value)
+          const descriptor = Object.getOwnPropertyDescriptor(value, key)!
+          traverse(descriptor.value as unknown, value)
+          // eslint-disable-next-line @typescript-eslint/unbound-method
+          traverse(descriptor.get, value)
+          // eslint-disable-next-line @typescript-eslint/unbound-method
+          traverse(descriptor.set, value)
         }
 
         const prototype = Object.getPrototypeOf(value) as unknown
@@ -926,13 +930,20 @@ const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}${args === `` ? `` : `(${args})`}`
 
 const unevalObjectLike = (object: object, state: State): string => {
-  // TODO(#9): Support all property types, including non-enumerable ones.
   const propertySources: string[] = []
-  for (let key of Reflect.ownKeys(object)) {
-    const symbolResult =
-      typeof key == `symbol` ? unevalInternal(key, state) : null
 
-    const value = (object as Record<PropertyKey, unknown>)[key]
+  const keys = Reflect.ownKeys(object)
+  let keyIndex: number
+  for (keyIndex = 0; keyIndex < keys.length; keyIndex++) {
+    const key = keys[keyIndex]!
+    const descriptor = Object.getOwnPropertyDescriptor(object, key)!
+    if (!isRegularDataDescriptor(descriptor)) {
+      // All properties from this index onward will be rendered via
+      // `Object.defineProperties` to preserve property order.
+      break
+    }
+
+    const value = descriptor.value as unknown
     const valueResult = unevalInternal(value, state)
     if (valueResult == null) {
       const objectName = state._bindings.get(object)!._name
@@ -941,9 +952,9 @@ const unevalObjectLike = (object: object, state: State): string => {
         value as object,
       )!._name
       state._mutations.push(
-        symbolResult
+        typeof key == `symbol`
           ? {
-              _source: `${objectName}[${symbolResult}]=${valueName}`,
+              _source: `${objectName}[${unevalInternal(key, state)}]=${valueName}`,
               // An assignment evaluates to the right-hand side.
               _evaluatesTo: valueName,
             }
@@ -951,14 +962,14 @@ const unevalObjectLike = (object: object, state: State): string => {
             ? {
                 _source: `Object.defineProperty(${objectName},"${__PROTO__}",{value:${
                   valueName
-                },writable:true,enumerable:true,configurable:true})`,
+                },writable:!0,enumerable:!0,configurable:!0})`,
                 // `Object.defineProperty` always returns the input object.
                 _evaluatesTo: objectName,
               }
             : {
                 _source: `${objectName}${
-                  PROPERTY_REG_EXP.test(key as string)
-                    ? `.${key as string}`
+                  PROPERTY_REG_EXP.test(key)
+                    ? `.${key}`
                     : `[${unevalInternal(key, state)}]`
                 }=${valueName}`,
                 // An assignment evaluates to the right-hand side.
@@ -968,51 +979,30 @@ const unevalObjectLike = (object: object, state: State): string => {
       continue
     }
 
-    if (symbolResult) {
-      propertySources.push(`[${symbolResult}]:${valueResult}`)
-      continue
-    }
-
-    if (key == __PROTO__) {
-      // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
-      // property rather than setting `Object.prototype`.
-      propertySources.push(
-        `[${unevalInternal(__PROTO__, state)}]:${valueResult}`,
-      )
-      continue
-    }
-
-    key = key as string
-
-    // The vast majority of keys are non-numeric so don't bother with the
-    // expensive numeric key check below if the key is definitely not numeric
-    // based on the first character.
-    const firstChar = key[0]!
-    if (firstChar >= `0` && firstChar <= `9`) {
-      const number = +key
-      const isNumericKey =
-        // Negative numbers must be quoted.
-        number >= 0 &&
-        // Numbers that can't be safely represented as integers (e.g. because
-        // they are too large) must be quoted.
-        Number.isSafeInteger(number) &&
-        // If the key doesn't roundtrip through numeric conversion, then it's
-        // padded (e.g. `01`) and must be quoted to retain that.
-        key == `${number}`
-      propertySources.push(
-        `${isNumericKey ? key : unevalInternal(key, state)}:${valueResult}`,
-      )
-      continue
-    }
-
-    if (!PROPERTY_REG_EXP.test(key)) {
-      propertySources.push(`${unevalInternal(key, state)}:${valueResult}`)
-      continue
-    }
-
-    propertySources.push(key == valueResult ? key : `${key}:${valueResult}`)
+    const { _source: keySource, _isIdentifier: isIdentifier } =
+      unevalObjectLiteralKey(key, state)
+    propertySources.push(
+      isIdentifier && keySource == valueResult
+        ? keySource
+        : `${keySource}:${valueResult}`,
+    )
   }
   let source = `{${propertySources.join()}}`
+
+  if (keyIndex < keys.length) {
+    const entrySources: string[] = []
+    for (; keyIndex < keys.length; keyIndex++) {
+      const key = keys[keyIndex]!
+      const descriptor = Object.getOwnPropertyDescriptor(object, key)!
+      const entrySource = unevalDescriptorEntry(key, descriptor, object, state)
+      if (entrySource != null) {
+        entrySources.push(entrySource)
+      }
+    }
+    if (entrySources.length) {
+      source = `Object.defineProperties(${source},{${entrySources.join()}})`
+    }
+  }
 
   const prototype = Object.getPrototypeOf(object) as unknown
   // TODO(#31): Check if an object is a plain object based on properties on the
@@ -1028,6 +1018,127 @@ const unevalObjectLike = (object: object, state: State): string => {
   }
 
   return source
+}
+
+const isRegularDataDescriptor = (descriptor: PropertyDescriptor): boolean =>
+  `value` in descriptor &&
+  descriptor.enumerable! &&
+  descriptor.configurable! &&
+  descriptor.writable!
+
+const unevalDescriptorEntry = (
+  key: PropertyKey,
+  descriptor: PropertyDescriptor,
+  object: object,
+  state: State,
+): string | null => {
+  const descriptorEntrySources: string[] = []
+
+  for (const key of BOOLEAN_DESCRIPTOR_KEYS) {
+    if (descriptor[key]) {
+      descriptorEntrySources.push(`${key}:!0`)
+    }
+  }
+
+  let isCircular = false
+  let isGetSet = false
+  for (const key of UNKNOWN_DESCRIPTOR_KEYS) {
+    if (!(key in descriptor)) {
+      continue
+    }
+
+    const value = descriptor[key] as unknown
+    if (
+      GET_SET_DESCRIPTOR_KEYS.includes(
+        key as (typeof GET_SET_DESCRIPTOR_KEYS)[number],
+      )
+    ) {
+      if (value == null && isGetSet) {
+        // We only need one of `get` and `set` to be set in order for the
+        // descriptor to not be a data descriptor. If `get` or `set` is already
+        // set, and this other one is `undefined`, then setting it wouldn't do
+        // anything.
+        continue
+      }
+      isGetSet = true
+    }
+
+    let result = unevalInternal(value, state)
+    if (result == null) {
+      isCircular = true
+      result = state._bindings.get(value as object)!._name
+    }
+
+    descriptorEntrySources.push(`${key}:${result}`)
+  }
+
+  const descriptorSource = `{${descriptorEntrySources.join()}}`
+  if (!isCircular) {
+    return `${unevalObjectLiteralKey(key, state)._source}:${descriptorSource}`
+  }
+
+  const objectName = state._bindings.get(object)!._name
+  state._mutations.push({
+    _source: `Object.defineProperty(${objectName},${unevalInternal(key, state)},${descriptorSource})`,
+    // `Object.defineProperty` always returns the input object.
+    _evaluatesTo: objectName,
+  })
+  return null
+}
+
+const BOOLEAN_DESCRIPTOR_KEYS = [
+  `configurable`,
+  `enumerable`,
+  `writable`,
+] as const
+const GET_SET_DESCRIPTOR_KEYS = [`get`, `set`] as const
+const UNKNOWN_DESCRIPTOR_KEYS = [`value`, ...GET_SET_DESCRIPTOR_KEYS] as const
+
+const unevalObjectLiteralKey = (
+  key: PropertyKey,
+  state: State,
+): { _source: string; _isIdentifier: boolean } => {
+  if (typeof key == `symbol`) {
+    return { _source: `[${unevalInternal(key, state)}]`, _isIdentifier: false }
+  }
+
+  if (key == __PROTO__) {
+    // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
+    // property rather than setting `Object.prototype`.
+    return {
+      _source: `[${unevalInternal(__PROTO__, state)}]`,
+      _isIdentifier: false,
+    }
+  }
+
+  key = key as string
+
+  // The vast majority of keys are non-numeric so don't bother with the
+  // expensive numeric key check below if the key is definitely not numeric
+  // based on the first character.
+  const firstChar = key[0]!
+  if (firstChar >= `0` && firstChar <= `9`) {
+    const number = +key
+    const isNumericKey =
+      // Negative numbers must be quoted.
+      number >= 0 &&
+      // Numbers that can't be safely represented as integers (e.g. because
+      // they are too large) must be quoted.
+      Number.isSafeInteger(number) &&
+      // If the key doesn't roundtrip through numeric conversion, then it's
+      // padded (e.g. `01`) and must be quoted to retain that.
+      key == `${number}`
+    return {
+      _source: isNumericKey ? key : unevalInternal(key, state),
+      _isIdentifier: false,
+    }
+  }
+
+  if (PROPERTY_REG_EXP.test(key)) {
+    return { _source: key, _isIdentifier: true }
+  }
+
+  return { _source: unevalInternal(key, state), _isIdentifier: false }
 }
 
 const __PROTO__ = `__proto__`
