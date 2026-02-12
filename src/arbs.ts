@@ -207,10 +207,31 @@ const depthIdentifier = fc.createDepthIdentifier()
 export const anythingArb = fc
   .array(
     fc.letrec(tie => ({
-      object: fc.dictionary(fc.string(), tie(`innerValue`), {
-        depthIdentifier,
-        maxKeys: 5,
-      }),
+      object: fc
+        .dictionary(
+          fc.string(),
+          fc.record(
+            {
+              configurable: fc.boolean(),
+              enumerable: fc.boolean(),
+              writable: fc.boolean(),
+              value: tie(`innerValue`),
+            },
+            { requiredKeys: [] },
+          ),
+          { depthIdentifier, maxKeys: 5 },
+        )
+        .map((descriptors: PropertyDescriptorMap) =>
+          Object.defineProperties(
+            Object.setPrototypeOf(
+              {},
+              // Take the prototype from `descriptors` to allow the possibility
+              // of `null` prototype from the arbitrary.
+              Object.getPrototypeOf(descriptors) as object | null,
+            ) as unknown,
+            descriptors,
+          ),
+        ),
       array: fc.sparseArray(tie(`innerValue`), {
         depthIdentifier,
         maxLength: 5,
@@ -293,7 +314,9 @@ export const anythingArb = fc
         }
         return false
       } else if (isPlainObject(value)) {
-        return Object.values(value).some(hasCircularSymbolLoop)
+        return Reflect.ownKeys(value).some(key =>
+          hasCircularSymbolLoop((value as Record<PropertyKey, unknown>)[key]),
+        )
       } else {
         return false
       }
@@ -340,10 +363,14 @@ export const anythingArb = fc
         }
         return newValue
       } else if (isPlainObject(value)) {
-        const newValue = { ...value }
+        const newValue: object = {}
         replaced.set(value, newValue)
-        for (const [key, item] of Object.entries(newValue)) {
-          ;(newValue as Record<PropertyKey, unknown>)[key] = replace(item)
+        for (const key of Reflect.ownKeys(value)) {
+          const descriptor = Object.getOwnPropertyDescriptor(value, key)!
+          if (`value` in descriptor) {
+            descriptor.value = replace(descriptor.value)
+          }
+          Object.defineProperty(newValue, key, descriptor)
         }
         return newValue
       } else {

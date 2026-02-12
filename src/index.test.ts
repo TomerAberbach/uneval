@@ -567,6 +567,120 @@ test.each<{
     ),
     source: `Object.setPrototypeOf({},{__defineGetter__:"function",__defineSetter__:"function",hasOwnProperty:"function",__lookupGetter__:"function",__lookupSetter__:"function",isPrototypeOf:"function",propertyIsEnumerable:"function",toString:"function",valueOf:"function",["__proto__"]:null,toLocaleString:"function"})`,
   },
+  {
+    name: `non-enumerable non-configurable non-writable property`,
+    value: Object.defineProperty({}, `a`, { value: 1 }),
+    source: `Object.defineProperties({},{a:{value:1}})`,
+  },
+  {
+    name: `enumerable non-configurable non-writable property`,
+    value: Object.defineProperty({}, `a`, { value: 1, enumerable: true }),
+    source: `Object.defineProperties({},{a:{enumerable:!0,value:1}})`,
+  },
+  {
+    name: `non-enumerable configurable non-writable property`,
+    value: Object.defineProperty({}, `a`, { value: 1, configurable: true }),
+    source: `Object.defineProperties({},{a:{configurable:!0,value:1}})`,
+  },
+  {
+    name: `non-enumerable non-configurable writable property`,
+    value: Object.defineProperty({}, `a`, { value: 1, writable: true }),
+    source: `Object.defineProperties({},{a:{writable:!0,value:1}})`,
+  },
+  {
+    name: `enumerable configurable non-writable property`,
+    value: Object.defineProperty({}, `a`, {
+      value: 1,
+      enumerable: true,
+      configurable: true,
+    }),
+    source: `Object.defineProperties({},{a:{configurable:!0,enumerable:!0,value:1}})`,
+  },
+  {
+    name: `enumerable non-configurable writable property`,
+    value: Object.defineProperty({}, `a`, {
+      value: 1,
+      enumerable: true,
+      writable: true,
+    }),
+    source: `Object.defineProperties({},{a:{enumerable:!0,writable:!0,value:1}})`,
+  },
+  {
+    name: `enumerable configurable non-writable property`,
+    value: Object.defineProperty({}, `a`, {
+      value: 1,
+      enumerable: true,
+      configurable: true,
+    }),
+    source: `Object.defineProperties({},{a:{configurable:!0,enumerable:!0,value:1}})`,
+  },
+  {
+    name: `enumerable configurable writable property`,
+    value: Object.defineProperty({}, `a`, {
+      value: 1,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    }),
+    source: `{a:1}`,
+  },
+  {
+    name: `regular then non-regular property`,
+    value: Object.defineProperty({ a: 1 }, `b`, { value: 2 }),
+    source: `Object.defineProperties({a:1},{b:{value:2}})`,
+  },
+  {
+    name: `non-regular then regular property`,
+    value: Object.defineProperties(
+      {},
+      {
+        a: { value: 1 },
+        b: { value: 2, enumerable: true, configurable: true, writable: true },
+      },
+    ),
+    source: `Object.defineProperties({},{a:{value:1},b:{configurable:!0,enumerable:!0,writable:!0,value:2}})`,
+  },
+  {
+    name: `non-enumerable symbol property`,
+    value: Object.defineProperty({}, Symbol.toStringTag, { value: `hi` }),
+    source: `Object.defineProperties({},{[Symbol.toStringTag]:{value:"hi"}})`,
+  },
+  {
+    name: `non-enumerable __proto__ property`,
+    value: Object.defineProperty({}, `__proto__`, { value: null }),
+    source: `Object.defineProperties({},{["__proto__"]:{value:null}})`,
+  },
+  {
+    name: `accessor property with undefined getter`,
+    value: Object.defineProperty({}, `a`, { get: undefined }),
+    source: `Object.defineProperties({},{a:{get:void 0}})`,
+  },
+  {
+    name: `accessor property with undefined setter`,
+    value: Object.defineProperty({}, `a`, { set: undefined }),
+    source: `Object.defineProperties({},{a:{get:void 0}})`,
+  },
+  {
+    name: `accessor property with undefined getter and setter`,
+    value: Object.defineProperty({}, `a`, { get: undefined, set: undefined }),
+    source: `Object.defineProperties({},{a:{get:void 0}})`,
+  },
+  {
+    name: `only non-regular properties`,
+    value: Object.defineProperties(
+      {},
+      { a: { value: 1, writable: true }, b: { value: 2, enumerable: true } },
+    ),
+    source: `Object.defineProperties({},{a:{writable:!0,value:1},b:{enumerable:!0,value:2}})`,
+  },
+  {
+    name: `non-regular property with null prototype`,
+    value: Object.setPrototypeOf(
+      Object.defineProperty({}, `a`, { value: 1 }),
+      null,
+    ),
+    source: `Object.setPrototypeOf(Object.defineProperties({},{a:{value:1}}),null)`,
+  },
 
   // Set
   { name: `empty Set`, value: new Set(), source: `new Set` },
@@ -1750,7 +1864,7 @@ test.each<{
         writable: true,
       })
     })(),
-    source: `(a=>Object.defineProperty(a,"__proto__",{value:a,writable:true,enumerable:true,configurable:true}))({})`,
+    source: `(a=>Object.defineProperty(a,"__proto__",{value:a,writable:!0,enumerable:!0,configurable:!0}))({})`,
   },
   {
     name: `prototype containing circular reference`,

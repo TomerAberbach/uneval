@@ -1,7 +1,65 @@
+import type { Tester } from '@vitest/expect'
 import * as matchers from 'jest-extended'
 import { expect } from 'vitest'
 
 expect.extend(matchers)
+
+function strictPlainObjectEqualityTester(
+  this: ThisParameterType<Tester>,
+  a: unknown,
+  b: unknown,
+): boolean | undefined {
+  if (!isPlainObject(a) || !isPlainObject(b)) {
+    return undefined
+  }
+
+  if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) {
+    return false
+  }
+
+  const keysA = Reflect.ownKeys(a)
+  const keysB = Reflect.ownKeys(b)
+  if (keysA.length !== keysB.length) {
+    return false
+  }
+
+  for (const key of keysA) {
+    const descriptorA = Object.getOwnPropertyDescriptor(a, key)!
+    const descriptorB = Object.getOwnPropertyDescriptor(b, key)
+    if (!descriptorB) {
+      return false
+    }
+
+    for (const key of DESCRIPTOR_KEYS) {
+      if (key in descriptorA !== key in descriptorB) {
+        return false
+      }
+
+      if (!this.equals(descriptorA[key], descriptorB[key])) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+const isPlainObject = (value: unknown): value is object => {
+  if (typeof value !== `object` || value === null) {
+    return false
+  }
+  const prototype = Object.getPrototypeOf(value) as unknown
+  return prototype === Object.prototype || prototype === null
+}
+
+const DESCRIPTOR_KEYS = [
+  `configurable`,
+  `enumerable`,
+  `writable`,
+  `value`,
+  `get`,
+  `set`,
+] as const
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer
 const strictArrayBufferEqualityTester = (
@@ -105,6 +163,7 @@ const TypedArray = Object.getPrototypeOf(Int8Array) as
   | typeof BigUint64Array
 
 expect.addEqualityTesters([
+  strictPlainObjectEqualityTester,
   strictArrayBufferEqualityTester,
   strictTypedArrayEqualityTester,
   strictBufferEqualityTester,
