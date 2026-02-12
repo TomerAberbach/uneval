@@ -23,12 +23,13 @@ function strictPlainObjectEqualityTester(
     return false
   }
 
-  for (const key of keysA) {
-    const descriptorA = Object.getOwnPropertyDescriptor(a, key)!
-    const descriptorB = Object.getOwnPropertyDescriptor(b, key)
-    if (!descriptorB) {
+  for (let i = 0; i < keysA.length; i++) {
+    if (keysA[i] !== keysB[i]) {
       return false
     }
+
+    const descriptorA = Object.getOwnPropertyDescriptor(a, keysA[i]!)!
+    const descriptorB = Object.getOwnPropertyDescriptor(b, keysB[i]!)!
 
     for (const key of DESCRIPTOR_KEYS) {
       if (key in descriptorA !== key in descriptorB) {

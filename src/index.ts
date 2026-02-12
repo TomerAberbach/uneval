@@ -110,7 +110,6 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   }
 
   const bodySources = state._mutations.map(result => result._source)
-
   const returnBinding = state._bindings.get(
     // The value must be an object if we ended up needing to create bindings for
     // it. A primitive value would always result in fully inline source above.
@@ -142,6 +141,11 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
 
   const bindings = [...topologicallySortBindings(state._bindings)]
 
+  // We use an IIFE's lambda parameters to declare bindings because it's fewer
+  // bytes than using `var` or `let`. We place the binding values in the call
+  // arguments for the leading bindings that don't have dependencies and place
+  // in the default parameter values for the rest. This is because default
+  // parameter values require more bytes than call arguments (due to the `=`).
   const parameterSources: string[] = []
   const argSources: string[] = []
   let hasDependency = false
@@ -183,6 +187,10 @@ const createState = (
   const PARENT = 2
   const seenLocation = new Map<object, typeof SOMEWHERE | typeof PARENT>()
 
+  /**
+   * Computes the custom source for the given {@link value} and returns whether
+   * it has any custom source.
+   */
   const computeCustomSource = custom
     ? (value: unknown): boolean => {
         if (customSources.has(value)) {
@@ -355,6 +363,10 @@ const createState = (
   }
 }
 
+/**
+ * Topologically sorts the bindings so that binding dependencies appear before
+ * dependent bindings.
+ */
 const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   const visited = new Set<object>()
   const sortedBindings: Binding[] = []
@@ -930,7 +942,7 @@ const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}${args === `` ? `` : `(${args})`}`
 
 const unevalObjectLike = (object: object, state: State): string => {
-  const propertySources: string[] = []
+  const entries: ObjectEntry[] = []
 
   const keys = Reflect.ownKeys(object)
   let keyIndex: number
@@ -945,63 +957,99 @@ const unevalObjectLike = (object: object, state: State): string => {
 
     const value = descriptor.value as unknown
     const valueResult = unevalInternal(value, state)
-    if (valueResult == null) {
-      const objectName = state._bindings.get(object)!._name
-      const valueName = state._bindings.get(
-        // `value` must be an object if it's circular.
-        value as object,
-      )!._name
-      state._mutations.push(
-        typeof key == `symbol`
-          ? {
-              _source: `${objectName}[${unevalInternal(key, state)}]=${valueName}`,
-              // An assignment evaluates to the right-hand side.
-              _evaluatesTo: valueName,
-            }
-          : key == __PROTO__
-            ? {
-                _source: `Object.defineProperty(${objectName},"${__PROTO__}",{value:${
-                  valueName
-                },writable:!0,enumerable:!0,configurable:!0})`,
-                // `Object.defineProperty` always returns the input object.
-                _evaluatesTo: objectName,
-              }
-            : {
-                _source: `${objectName}${
-                  PROPERTY_REG_EXP.test(key)
-                    ? `.${key}`
-                    : `[${unevalInternal(key, state)}]`
-                }=${valueName}`,
-                // An assignment evaluates to the right-hand side.
-                _evaluatesTo: valueName,
-              },
-      )
+    if (valueResult != null) {
+      const { _source: keySource, _isIdentifier: isIdentifier } =
+        unevalObjectLiteralKey(key, state)
+      entries.push({
+        _isCircular: false,
+        _source:
+          isIdentifier && keySource == valueResult
+            ? keySource
+            : `${keySource}:${valueResult}`,
+      })
       continue
     }
 
-    const { _source: keySource, _isIdentifier: isIdentifier } =
-      unevalObjectLiteralKey(key, state)
-    propertySources.push(
-      isIdentifier && keySource == valueResult
-        ? keySource
-        : `${keySource}:${valueResult}`,
-    )
+    const objectName = state._bindings.get(object)!._name
+    const valueName = state._bindings.get(
+      // `value` must be an object if it's circular.
+      value as object,
+    )!._name
+    const mutation: Mutation =
+      typeof key == `symbol`
+        ? {
+            _source: `${objectName}[${unevalInternal(key, state)}]=${valueName}`,
+            // An assignment evaluates to the right-hand side.
+            _evaluatesTo: valueName,
+          }
+        : key == __PROTO__
+          ? {
+              _source: `Object.defineProperty(${objectName},"${__PROTO__}",{value:${
+                valueName
+              },writable:!0,enumerable:!0,configurable:!0})`,
+              // `Object.defineProperty` always returns the input object.
+              _evaluatesTo: objectName,
+            }
+          : {
+              _source: `${objectName}${
+                PROPERTY_REG_EXP.test(key)
+                  ? `.${key}`
+                  : `[${unevalInternal(key, state)}]`
+              }=${valueName}`,
+              // An assignment evaluates to the right-hand side.
+              _evaluatesTo: valueName,
+            }
+    entries.push({
+      _isCircular: true,
+      // This is a placeholder property for preserving property order. We'll set
+      // the property's actual value later with the mutation below.
+      _source: `${unevalObjectLiteralKey(key, state)._source}:null`,
+      _mutation: () => mutation,
+    })
   }
-  let source = `{${propertySources.join()}}`
 
-  if (keyIndex < keys.length) {
-    const entrySources: string[] = []
+  const firstDescriptorIndex = keyIndex
+  if (firstDescriptorIndex < keys.length) {
     for (; keyIndex < keys.length; keyIndex++) {
       const key = keys[keyIndex]!
       const descriptor = Object.getOwnPropertyDescriptor(object, key)!
-      const entrySource = unevalDescriptorEntry(key, descriptor, object, state)
-      if (entrySource != null) {
-        entrySources.push(entrySource)
-      }
+      entries.push(unevalDescriptorEntry(key, descriptor, object, state))
     }
-    if (entrySources.length) {
-      source = `Object.defineProperties(${source},{${entrySources.join()}})`
+  }
+
+  // We use this to trim trailing circular placeholders because they're not
+  // necessary for preserving property order. The mutations of trailing circular
+  // properties will end up placing them in the right order.
+  let trailingCircularEntriesStartIndex = entries.length
+  while (
+    trailingCircularEntriesStartIndex > 0 &&
+    entries[trailingCircularEntriesStartIndex - 1]!._isCircular
+  ) {
+    trailingCircularEntriesStartIndex--
+  }
+
+  // Push all circular mutations now that we know which entries have
+  // placeholders (non-trailing) vs which don't (trailing).
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!
+    if (entry._isCircular) {
+      const hasPlaceholder = i < trailingCircularEntriesStartIndex
+      state._mutations.push(entry._mutation(hasPlaceholder))
     }
+  }
+
+  // Create the initial object literal source.
+  const leadingEntries = entries.slice(0, trailingCircularEntriesStartIndex)
+  let source = `{${leadingEntries
+    .slice(0, firstDescriptorIndex)
+    .map(entry => entry._source)
+    .join()}}`
+  // Then set the trailing object descriptors if they are any.
+  const descriptorEntrySources = leadingEntries
+    .slice(firstDescriptorIndex)
+    .map(entry => entry._source)
+  if (descriptorEntrySources.length) {
+    source = `Object.defineProperties(${source},{${descriptorEntrySources.join()}})`
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
@@ -1020,6 +1068,11 @@ const unevalObjectLike = (object: object, state: State): string => {
   return source
 }
 
+/**
+ * Whether the {@link descriptor} is for a regular property, meaning its
+ * descriptor attributes are the ones you'd get from a regular object literal
+ * property (not through `Object.defineProperty`).
+ */
 const isRegularDataDescriptor = (descriptor: PropertyDescriptor): boolean =>
   `value` in descriptor &&
   descriptor.enumerable! &&
@@ -1031,14 +1084,8 @@ const unevalDescriptorEntry = (
   descriptor: PropertyDescriptor,
   object: object,
   state: State,
-): string | null => {
+): ObjectEntry => {
   const descriptorEntrySources: string[] = []
-
-  for (const key of BOOLEAN_DESCRIPTOR_KEYS) {
-    if (descriptor[key]) {
-      descriptorEntrySources.push(`${key}:!0`)
-    }
-  }
 
   let isCircular = false
   let isGetSet = false
@@ -1072,19 +1119,57 @@ const unevalDescriptorEntry = (
     descriptorEntrySources.push(`${key}:${result}`)
   }
 
+  // Set any non-`false` (the default) descriptor values.
+  for (const key of BOOLEAN_DESCRIPTOR_KEYS) {
+    if (descriptor[key]) {
+      descriptorEntrySources.push(`${key}:!0`)
+    }
+  }
   const descriptorSource = `{${descriptorEntrySources.join()}}`
+
   if (!isCircular) {
-    return `${unevalObjectLiteralKey(key, state)._source}:${descriptorSource}`
+    return {
+      _isCircular: false,
+      _source: `${unevalObjectLiteralKey(key, state)._source}:${descriptorSource}`,
+    }
   }
 
-  const objectName = state._bindings.get(object)!._name
-  state._mutations.push({
-    _source: `Object.defineProperty(${objectName},${unevalInternal(key, state)},${descriptorSource})`,
-    // `Object.defineProperty` always returns the input object.
-    _evaluatesTo: objectName,
-  })
-  return null
+  return {
+    _isCircular: true,
+    // This is a placeholder property for preserving property order. We'll set
+    // the property's actual value later with the mutation.
+    //
+    // We leave all descriptor properties defaulting to `false` and `undefined`
+    // so we only need to explicitly list the `true` and non-`undefined`
+    // descriptor properties in the mutation. However, we must set
+    // `configurable: true` because otherwise we can't modify the property
+    // later at all.
+    _source: `${unevalObjectLiteralKey(key, state)._source}:{configurable:!0}`,
+    _mutation: hasPlaceholder => {
+      const objectName = state._bindings.get(object)!._name
+
+      // When a placeholder with `configurable: true` was emitted, the
+      // mutation must explicitly set `configurable: false` to overwrite it.
+      const mutationDescriptorSource =
+        hasPlaceholder && !descriptor.configurable
+          ? `{${[...descriptorEntrySources, `configurable:!1`].join()}}`
+          : descriptorSource
+
+      return {
+        _source: `Object.defineProperty(${
+          objectName
+        },${unevalInternal(key, state)},${mutationDescriptorSource})`,
+        // `Object.defineProperty` always returns the input object.
+        _evaluatesTo: objectName,
+      }
+    },
+  }
 }
+
+type ObjectEntry = { _source: string } & (
+  | { _isCircular: false }
+  | { _isCircular: true; _mutation: (hasPlaceholder: boolean) => Mutation }
+)
 
 const BOOLEAN_DESCRIPTOR_KEYS = [
   `configurable`,

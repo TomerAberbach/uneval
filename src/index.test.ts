@@ -575,17 +575,17 @@ test.each<{
   {
     name: `enumerable non-configurable non-writable property`,
     value: Object.defineProperty({}, `a`, { value: 1, enumerable: true }),
-    source: `Object.defineProperties({},{a:{enumerable:!0,value:1}})`,
+    source: `Object.defineProperties({},{a:{value:1,enumerable:!0}})`,
   },
   {
     name: `non-enumerable configurable non-writable property`,
     value: Object.defineProperty({}, `a`, { value: 1, configurable: true }),
-    source: `Object.defineProperties({},{a:{configurable:!0,value:1}})`,
+    source: `Object.defineProperties({},{a:{value:1,configurable:!0}})`,
   },
   {
     name: `non-enumerable non-configurable writable property`,
     value: Object.defineProperty({}, `a`, { value: 1, writable: true }),
-    source: `Object.defineProperties({},{a:{writable:!0,value:1}})`,
+    source: `Object.defineProperties({},{a:{value:1,writable:!0}})`,
   },
   {
     name: `enumerable configurable non-writable property`,
@@ -594,7 +594,7 @@ test.each<{
       enumerable: true,
       configurable: true,
     }),
-    source: `Object.defineProperties({},{a:{configurable:!0,enumerable:!0,value:1}})`,
+    source: `Object.defineProperties({},{a:{value:1,configurable:!0,enumerable:!0}})`,
   },
   {
     name: `enumerable non-configurable writable property`,
@@ -603,7 +603,7 @@ test.each<{
       enumerable: true,
       writable: true,
     }),
-    source: `Object.defineProperties({},{a:{enumerable:!0,writable:!0,value:1}})`,
+    source: `Object.defineProperties({},{a:{value:1,enumerable:!0,writable:!0}})`,
   },
   {
     name: `enumerable configurable non-writable property`,
@@ -612,7 +612,7 @@ test.each<{
       enumerable: true,
       configurable: true,
     }),
-    source: `Object.defineProperties({},{a:{configurable:!0,enumerable:!0,value:1}})`,
+    source: `Object.defineProperties({},{a:{value:1,configurable:!0,enumerable:!0}})`,
   },
   {
     name: `enumerable configurable writable property`,
@@ -638,7 +638,7 @@ test.each<{
         b: { value: 2, enumerable: true, configurable: true, writable: true },
       },
     ),
-    source: `Object.defineProperties({},{a:{value:1},b:{configurable:!0,enumerable:!0,writable:!0,value:2}})`,
+    source: `Object.defineProperties({},{a:{value:1},b:{value:2,configurable:!0,enumerable:!0,writable:!0}})`,
   },
   {
     name: `non-enumerable symbol property`,
@@ -671,7 +671,7 @@ test.each<{
       {},
       { a: { value: 1, writable: true }, b: { value: 2, enumerable: true } },
     ),
-    source: `Object.defineProperties({},{a:{writable:!0,value:1},b:{enumerable:!0,value:2}})`,
+    source: `Object.defineProperties({},{a:{value:1,writable:!0},b:{value:2,enumerable:!0}})`,
   },
   {
     name: `non-regular property with null prototype`,
@@ -1865,6 +1865,97 @@ test.each<{
       })
     })(),
     source: `(a=>Object.defineProperty(a,"__proto__",{value:a,writable:!0,enumerable:!0,configurable:!0}))({})`,
+  },
+  {
+    name: `circular property preserves order with non-circular properties after`,
+    value: (() => {
+      const obj: Record<string, unknown> = { a: 1 }
+      obj.self = obj
+      obj.b = 2
+      return obj
+    })(),
+    source: `(a=>a.self=a)({a:1,self:null,b:2})`,
+  },
+  {
+    name: `multiple circular properties with non-circular properties between`,
+    value: (() => {
+      const obj: Record<string, unknown> = {}
+      obj.ref1 = obj
+      obj.middle = 42
+      obj.ref2 = obj
+      obj.end = 99
+      return obj
+    })(),
+    source: `(a=>(a.ref1=a,a.ref2=a))({ref1:null,middle:42,ref2:null,end:99})`,
+  },
+  {
+    name: `trailing circular property does not get placeholder`,
+    value: (() => {
+      const obj: Record<string, unknown> = { a: 1 }
+      obj.self = obj
+      return obj
+    })(),
+    source: `(a=>a.self=a)({a:1})`,
+  },
+  {
+    name: `non-regular circular descriptor preserves order before non-circular descriptor`,
+    value: (() => {
+      const obj = {}
+      Object.defineProperty(obj, `circ`, { value: obj })
+      Object.defineProperty(obj, `other`, { value: 42 })
+      return obj
+    })(),
+    source: `(a=>Object.defineProperty(a,"circ",{value:a,configurable:!1}))(Object.defineProperties({},{circ:{configurable:!0},other:{value:42}}))`,
+  },
+  {
+    name: `trailing non-regular circular descriptor does not get placeholder`,
+    value: (() => {
+      const obj = {}
+      Object.defineProperty(obj, `other`, { value: 42 })
+      Object.defineProperty(obj, `circ`, { value: obj })
+      return obj
+    })(),
+    source: `(a=>Object.defineProperty(a,"circ",{value:a}))(Object.defineProperties({},{other:{value:42}}))`,
+  },
+  {
+    name: `regular circular property preserves order before non-regular non-circular`,
+    value: (() => {
+      const obj: Record<string, unknown> = {}
+      obj.circ = obj
+      Object.defineProperty(obj, `other`, { value: 42 })
+      return obj
+    })(),
+    source: `(a=>a.circ=a)(Object.defineProperties({circ:null},{other:{value:42}}))`,
+  },
+  {
+    name: `non-regular non-circular then trailing regular circular`,
+    value: (() => {
+      const obj: Record<string, unknown> = {}
+      Object.defineProperty(obj, `other`, { value: 42 })
+      obj.circ = obj
+      return obj
+    })(),
+    source: `(a=>Object.defineProperty(a,"circ",{value:a,configurable:!0,enumerable:!0,writable:!0}))(Object.defineProperties({},{other:{value:42}}))`,
+  },
+  {
+    name: `configurable circular descriptor preserves order before non-circular descriptor`,
+    value: (() => {
+      const obj = {}
+      Object.defineProperty(obj, `circ`, { value: obj, configurable: true })
+      Object.defineProperty(obj, `other`, { value: 42 })
+      return obj
+    })(),
+    source: `(a=>Object.defineProperty(a,"circ",{value:a,configurable:!0}))(Object.defineProperties({},{circ:{configurable:!0},other:{value:42}}))`,
+  },
+  {
+    name: `writable circular descriptor preserves order before non-circular descriptor`,
+    value: (() => {
+      const obj = {}
+      Object.defineProperty(obj, `circ`, { value: obj, writable: true })
+      Object.defineProperty(obj, `other`, { value: 42 })
+      return obj
+    })(),
+    source: `(a=>Object.defineProperty(a,"circ",{value:a,writable:!0,configurable:!1}))(Object.defineProperties({},{circ:{configurable:!0},other:{value:42}}))`,
   },
   {
     name: `prototype containing circular reference`,
