@@ -2077,6 +2077,32 @@ test.each<{
     source: `((d,c={"":d},b=new Map([[c]]),a=[b,[d]])=>(b.set(c,a),a))({})`,
   },
   {
+    name: `map with entries before and after circular key preserves iteration order`,
+    value: (() => {
+      const map = new Map<unknown, unknown>()
+      map.set(`a`, 1)
+      map.set(map, `self`)
+      map.set(`b`, 2)
+      return map
+    })(),
+    source: `(a=>(a.set(a,"self"),a.set("b",2)))(new Map([["a",1]]))`,
+  },
+  {
+    name: `map with multiple circular keys and non-circular entries between them`,
+    value: (() => {
+      const obj = {} as Record<string, unknown>
+      const map = new Map<unknown, unknown>()
+      map.set(`first`, 1)
+      map.set(map, `self`)
+      map.set(`middle`, 2)
+      map.set(obj, `obj`)
+      map.set(`last`, 3)
+      obj.map = map
+      return map
+    })(),
+    source: `((b,a=new Map([["first",1]]))=>(a.set(a,"self"),a.set("middle",2),b.map=a,a.set(b,"obj"),a.set("last",3)))({})`,
+  },
+  {
     name: `absurd circular set and object`,
     value: (() => {
       const c: Record<string, unknown> = {}

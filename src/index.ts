@@ -673,53 +673,59 @@ const unevalObjectInternal = (value: object, state: State): string => {
       )
     }
     case `Map`: {
-      const entries = [...(value as Iterable<[unknown, unknown]>)]
-        .flatMap(([key, item]) => {
-          const keyResult = unevalInternal(key, state)
-          const itemResult = unevalInternal(item, state)
+      let foundCircularKey = false
+      const argSources: string[] = []
+      for (const [key, item] of value as Iterable<[unknown, unknown]>) {
+        const keyResult = unevalInternal(key, state)
+        const itemResult = unevalInternal(item, state)
 
-          if (keyResult == null) {
-            // If the key is circular, then omit this entry for now and set it
-            // later.
-            const valueName = state._bindings.get(value)!._name
-            const keyName = state._bindings.get(
-              // `key` must be an object if it's circular.
-              key as object,
-            )!._name
-            const itemSource =
-              itemResult ??
-              state._bindings.get(
-                // `item` must be an object if it's circular.
-                item as object,
-              )!._name
-            state._mutations.push({
-              _source: `${valueName}.set(${keyName},${itemSource})`,
-              // `Map.set` always returns `this`.
-              _evaluatesTo: valueName,
-            })
-            return []
-          }
+        if (keyResult == null) {
+          foundCircularKey = true
+        }
 
-          if (itemResult == null) {
-            // If the item is circular, then omit the item part of the entry
-            // for now and set it later.
-            const valueName = state._bindings.get(value)!._name
-            const itemName = state._bindings.get(
-              // `item` must be an object if it's circular.
-              item as object,
-            )!._name
-            state._mutations.push({
-              _source: `${valueName}.set(${keyResult},${itemName})`,
-              // `Map.set` always returns `this`.
-              _evaluatesTo: valueName,
-            })
-            return [`[${keyResult}]`]
-          }
+        const keySource =
+          keyResult ??
+          state._bindings.get(
+            // `key` must be an object if it's circular.
+            key as object,
+          )!._name
+        const itemSource =
+          itemResult ??
+          state._bindings.get(
+            // `item` must be an object if it's circular.
+            item as object,
+          )!._name
 
-          return [`[${keyResult},${itemResult}]`]
+        if (foundCircularKey) {
+          // After and including the first circular key, we add entries via
+          // mutation to preserve iteration order.
+          const valueName = state._bindings.get(value)!._name
+          state._mutations.push({
+            _source: `${valueName}.set(${keySource},${itemSource})`,
+            // `Map.set` always returns `this`.
+            _evaluatesTo: valueName,
+          })
+          continue
+        }
+
+        if (itemResult != null) {
+          argSources.push(`[${keySource},${itemSource}]`)
+          continue
+        }
+
+        // If the item is circular, include the key in the constructor, but set
+        // the value later via mutation.
+        const valueName = state._bindings.get(value)!._name
+        state._mutations.push({
+          _source: `${valueName}.set(${keySource},${itemSource})`,
+          // `Map.set` always returns `this`.
+          _evaluatesTo: valueName,
         })
-        .join()
-      return newInstance(type, entries ? `[${entries}]` : ``)
+        argSources.push(`[${keySource}]`)
+      }
+
+      const argsSource = argSources.join()
+      return newInstance(type, argsSource ? `[${argsSource}]` : ``)
     }
     case `Set`: {
       let foundCircular = false
