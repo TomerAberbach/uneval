@@ -1985,6 +1985,30 @@ test.each<{
     source: `((b,a=new Set([b]))=>b[""]=a)({})`,
   },
   {
+    name: `set with non-circular before and after circular`,
+    value: (() => {
+      const circular = new Set<unknown>()
+      circular.add(1)
+      circular.add(circular)
+      circular.add(2)
+      return circular
+    })(),
+    source: `(a=>(a.add(a),a.add(2)))(new Set([1]))`,
+  },
+  {
+    name: `set with multiple circular values with non-circular between`,
+    value: (() => {
+      const obj: Record<string, unknown> = {}
+      const circular = new Set<unknown>()
+      circular.add(circular)
+      circular.add(1)
+      circular.add(obj)
+      obj.ref = circular
+      return circular
+    })(),
+    source: `((b,a=new Set)=>(a.add(a),a.add(1),b.ref=a,a.add(b)))({})`,
+  },
+  {
     name: `directly circular map entry value`,
     value: (() => {
       const circular = new Map()
