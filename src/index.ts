@@ -722,27 +722,35 @@ const unevalObjectInternal = (value: object, state: State): string => {
       return newInstance(type, entries ? `[${entries}]` : ``)
     }
     case `Set`: {
-      const values = [...(value as Iterable<unknown>)]
-        .flatMap(item => {
-          const result = unevalInternal(item, state)
-          if (result == null) {
-            const valueName = state._bindings.get(value)!._name
-            const itemName = state._bindings.get(
-              // `item` must be an object if it's circular.
-              item as object,
-            )!._name
-            state._mutations.push({
-              _source: `${valueName}.add(${itemName})`,
-              // `Set.add` always returns `this`.
-              _evaluatesTo: valueName,
-            })
-            return []
-          }
+      let foundCircular = false
+      const argSources: string[] = []
+      for (const item of value as Iterable<unknown>) {
+        let result = unevalInternal(item, state)
+        if (result == null) {
+          foundCircular = true
+          result = state._bindings.get(
+            // `item` must be an object if it's circular.
+            item as object,
+          )!._name
+        }
 
-          return [result]
+        if (!foundCircular) {
+          argSources.push(result)
+          continue
+        }
+
+        // After and including the first circular value, we add set values
+        // via mutation to preserve iteration order.
+        const valueName = state._bindings.get(value)!._name
+        state._mutations.push({
+          _source: `${valueName}.add(${result})`,
+          // `Set.add` always returns `this`.
+          _evaluatesTo: valueName,
         })
-        .join()
-      return newInstance(type, values ? `[${values}]` : ``)
+      }
+
+      const argsSource = argSources.join()
+      return newInstance(type, argsSource ? `[${argsSource}]` : ``)
     }
     case `URLSearchParams`: {
       const values = [...(value as Iterable<[string, string]>)]

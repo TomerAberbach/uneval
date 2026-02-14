@@ -45,6 +45,18 @@ function strictPlainObjectEqualityTester(
   return true
 }
 
+function strictSetEqualityTester(
+  this: ThisParameterType<Tester>,
+  a: unknown,
+  b: unknown,
+): boolean | undefined {
+  if (!(a instanceof Set) || !(b instanceof Set)) {
+    return undefined
+  }
+
+  return this.equals([...a], [...b])
+}
+
 const isPlainObject = (value: unknown): value is object => {
   if (typeof value !== `object` || value === null) {
     return false
@@ -165,6 +177,7 @@ const TypedArray = Object.getPrototypeOf(Int8Array) as
 
 expect.addEqualityTesters([
   strictPlainObjectEqualityTester,
+  strictSetEqualityTester,
   strictArrayBufferEqualityTester,
   strictTypedArrayEqualityTester,
   strictBufferEqualityTester,
