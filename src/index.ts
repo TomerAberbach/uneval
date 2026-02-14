@@ -676,12 +676,18 @@ const unevalObjectInternal = (value: object, state: State): string => {
       let foundCircularKey = false
       const argSources: string[] = []
       for (const [key, item] of value as Iterable<[unknown, unknown]>) {
-        const keyResult = unevalInternal(key, state)
-        const itemResult = unevalInternal(item, state)
-
+        // If we've seen a circular key, then all remaining entries will end
+        // up in mutations so we uneval them without the current binding to
+        // not add unnecessary dependencies to the current binding.
+        const keyResult = (
+          foundCircularKey ? unevalWithoutCurrentBinding : unevalInternal
+        )(key, state)
         if (keyResult == null) {
           foundCircularKey = true
         }
+        const itemResult = (
+          foundCircularKey ? unevalWithoutCurrentBinding : unevalInternal
+        )(item, state)
 
         const keySource =
           keyResult ??
@@ -731,7 +737,12 @@ const unevalObjectInternal = (value: object, state: State): string => {
       let foundCircular = false
       const argSources: string[] = []
       for (const item of value as Iterable<unknown>) {
-        let result = unevalInternal(item, state)
+        // If we've seen a circular value, then all remaining values will end
+        // up in mutations so we uneval them without the current binding to not
+        // add unnecessary dependencies to the current binding.
+        let result = (
+          foundCircular ? unevalWithoutCurrentBinding : unevalInternal
+        )(item, state)
         if (result == null) {
           foundCircular = true
           result = state._bindings.get(
@@ -1238,6 +1249,17 @@ const unevalObjectLiteralKey = (
   }
 
   return { _source: unevalInternal(key, state), _isIdentifier: false }
+}
+
+const unevalWithoutCurrentBinding = (
+  value: unknown,
+  state: State,
+): string | null => {
+  const previousBinding = state._currentBinding
+  state._currentBinding = undefined
+  const result = unevalInternal(value, state)
+  state._currentBinding = previousBinding
+  return result
 }
 
 const __PROTO__ = `__proto__`
