@@ -82,6 +82,7 @@ export type UnevalOptions = {
 }
 
 // TODO(#17): Support ignoring unsupported things (like functions and symbols).
+// TODO(#51): Support arbitrary properties on random types (e.g. Arrays, etc.)
 /**
  * Converts the given {@link value} to JavaScript source code.
  *
@@ -266,6 +267,7 @@ const createState = (
           }
         }
         break
+      // TODO(#42): Support TypedArrays and Buffers containing detached ArrayBuffers.
       case `ArrayBuffer`: {
         const arrayBuffer = value as ArrayBuffer
         if (
@@ -1102,8 +1104,6 @@ const unevalObjectLike = (object: object, state: State): string => {
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
-  // TODO(#31): Check if an object is a plain object based on properties on the
-  // prototype.
   if (!isDefaultObjectPrototype(prototype)) {
     // We only render the prototype if it's not equal the default one in this
     // realm.
