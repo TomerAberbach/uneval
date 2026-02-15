@@ -413,7 +413,7 @@ const unevalInternal = ((value: unknown, state: State): string | null => {
     case `bigint`:
       return `${value}n`
     case `string`:
-      return unevalString(value)
+      return `"${unevalString(value, STRING_CODE_UNIT_ESCAPES)}"`
     case `symbol`:
       return unevalSymbol(value, state)
     case `object`:
@@ -458,13 +458,16 @@ const unevalNumber = (value: number): string => {
 // `charCodeAt` is more performant for our use-case because we're dealing with
 // strings known to be single code units.
 /* eslint-disable unicorn/prefer-code-point */
-const unevalString = (value: string): string => {
+const unevalString = (
+  value: string,
+  codeUnitEscapes: Readonly<Record<string, string>>,
+): string => {
   let source = ``
 
   let lastIndex = 0
   for (let i = 0; i < value.length; i += 1) {
     const codeUnit = value[i]!
-    const escaped = CODE_UNIT_ESCAPES[codeUnit]
+    const escaped = codeUnitEscapes[codeUnit]
     if (escaped) {
       source += value.slice(lastIndex, i) + escaped
       lastIndex = i + 1
@@ -512,13 +515,15 @@ const unevalString = (value: string): string => {
   }
 
   source += value.slice(lastIndex)
-  return `"${source}"`
+  return source
 }
 /* eslint-enable unicorn/prefer-code-point */
 
-const CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
-  '"': `\\"`,
-  '\\': `\\\\`,
+/**
+ * Code unit escapes for code units that are not safe to include in JS source
+ * code for a literal (like a `string` or `RegExp`).
+ */
+const LITERAL_UNSAFE_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '\0': `\\0`,
   '\n': `\\n`,
   '\r': `\\r`,
@@ -529,6 +534,12 @@ const CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   // https://stackoverflow.com/a/9168133
   '\u2028': `\\u2028`,
   '\u2029': `\\u2029`,
+}
+
+const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
+  '"': `\\"`,
+  '\\': `\\\\`,
+  ...LITERAL_UNSAFE_CODE_UNIT_ESCAPES,
 }
 
 const unevalSymbol = (value: symbol, state: State): string => {
@@ -662,15 +673,27 @@ const unevalObjectInternal = (value: object, state: State): string => {
       )})`
     case `URL`:
       return newInstance(type, unevalInternal((value as URL).href, state))
-    // TODO(#11): Serialize RegExp objects as literals.
     case `RegExp`: {
       const { source, flags } = value as RegExp
-      return newInstance(
-        type,
-        `${unevalInternal(source, state)}${
-          flags && `,${unevalInternal(flags, state)}`
-        }`,
+      const escapedSource = unevalString(
+        source,
+        LITERAL_UNSAFE_CODE_UNIT_ESCAPES,
       )
+      return source === escapedSource
+        ? // `RegExp.prototype.source` will return the escaped version of the
+          // source between the forward slashes for a literal. We can use it
+          // directly in the `RegExp` literal, but only if the `source` is safe
+          // for JS (e.g. no unescaped `\0` inline). We can't simply use
+          // `escapedSource` here because that doesn't roundtrip.
+          // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
+          // The former is `'\\0'` while the later is `'\0'`.
+          `/${source}/${flags}`
+        : newInstance(
+            type,
+            `"${unevalString(source, STRING_CODE_UNIT_ESCAPES)}"${
+              flags && `,"${unevalString(flags, STRING_CODE_UNIT_ESCAPES)}"`
+            }`,
+          )
     }
     case `Map`: {
       let foundCircularKey = false

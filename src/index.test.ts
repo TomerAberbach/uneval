@@ -1,3 +1,4 @@
+/* eslint-disable prefer-regex-literals */
 /* eslint-disable require-unicode-regexp */
 /* eslint-disable no-sparse-arrays */
 /* eslint-disable unicorn/new-for-builtins */
@@ -234,12 +235,12 @@ test.each<{
     source: `Object("\\u2028")`,
   },
   {
-    name: `multiple line separator string`,
+    name: `multiple line separators string`,
     value: `\u2028\u2028`,
     source: `"\\u2028\\u2028"`,
   },
   {
-    name: `boxed multiple line separator string`,
+    name: `boxed multiple line separators string`,
     value: new String(`\u2028\u2028`),
     source: `Object("\\u2028\\u2028")`,
   },
@@ -250,12 +251,12 @@ test.each<{
     source: `Object("\\u2029")`,
   },
   {
-    name: `multiple paragraph separator string`,
+    name: `multiple paragraph separators string`,
     value: `\u2029\u2029`,
     source: `"\\u2029\\u2029"`,
   },
   {
-    name: `boxed multiple paragraph separator string`,
+    name: `boxed multiple paragraph separators string`,
     value: new String(`\u2029\u2029`),
     source: `Object("\\u2029\\u2029")`,
   },
@@ -712,11 +713,204 @@ test.each<{
   },
 
   // RegExp
-  { name: `RegExp without flags`, value: /abc/, source: `new RegExp("abc")` },
+  { name: `RegExp literal without flags`, value: /abc/, source: `/abc/` },
   {
-    name: `RegExp with flags`,
-    value: /abc/iu,
-    source: `new RegExp("abc","iu")`,
+    name: `RegExp constructor without flags`,
+    value: new RegExp(`abc`),
+    source: `/abc/`,
+  },
+  { name: `RegExp literal with flags`, value: /abc/iu, source: `/abc/iu` },
+  {
+    name: `RegExp constructor with flags`,
+    value: new RegExp(`abc`, `iu`),
+    source: `/abc/iu`,
+  },
+  { name: `RegExp with empty string`, value: new RegExp(``), source: `/(?:)/` },
+  { name: `RegExp literal with spaces`, value: /a b c/, source: `/a b c/` },
+  {
+    name: `RegExp constructor with spaces`,
+    value: new RegExp(`a b c`),
+    source: `/a b c/`,
+  },
+  { name: `RegExp literal with forward slash`, value: /\//, source: `/\\//` },
+  {
+    name: `RegExp constructor with forward slash`,
+    value: new RegExp(`/`),
+    source: `/\\//`,
+  },
+  { name: `RegExp literal with backlash slash`, value: /\\/, source: `/\\\\/` },
+  {
+    name: `RegExp constructor with backlash slash`,
+    value: new RegExp(`\\\\`),
+    source: `/\\\\/`,
+  },
+  { name: `RegExp literal with null terminator`, value: /\0/, source: `/\\0/` },
+  {
+    name: `RegExp constructor with null terminator`,
+    value: new RegExp(`\0`),
+    source: `new RegExp("\\0")`,
+  },
+  { name: `RegExp literal with newline`, value: /\n/, source: `/\\n/` },
+  {
+    name: `RegExp constructor with newline`,
+    value: new RegExp(`\n`),
+    source: `/\\n/`,
+  },
+  { name: `RegExp literal with carriage return`, value: /\r/, source: `/\\r/` },
+  {
+    name: `RegExp constructor with carriage return`,
+    value: new RegExp(`\r`),
+    source: `/\\r/`,
+  },
+  { name: `RegExp literal with tab`, value: /\t/, source: `/\\t/` },
+  {
+    name: `RegExp constructor with tab`,
+    value: new RegExp(`\t`),
+    source: `new RegExp("\\t")`,
+  },
+  { name: `RegExp literal with backspace`, value: /\b/, source: `/\\b/` },
+  {
+    name: `RegExp constructor with backspace`,
+    value: new RegExp(`\b`),
+    source: `new RegExp("\\b")`,
+  },
+  { name: `RegExp literal with form feed`, value: /\f/, source: `/\\f/` },
+  {
+    name: `RegExp constructor with form feed`,
+    value: new RegExp(`\f`),
+    source: `new RegExp("\\f")`,
+  },
+  {
+    name: `RegExp literal with vertical tabulator`,
+    value: /\v/,
+    source: `/\\v/`,
+  },
+  {
+    name: `RegExp constructor with vertical tabulator`,
+    value: new RegExp(`\v`),
+    source: `new RegExp("\\v")`,
+  },
+  {
+    name: `RegExp literal with line separator`,
+    value: /\u2028/,
+    source: `/\\u2028/`,
+  },
+  {
+    name: `RegExp constructor with line separator`,
+    value: new RegExp(`\u2028`),
+    source: `/\\u2028/`,
+  },
+  {
+    name: `RegExp literal with multiple line separators`,
+    // eslint-disable-next-line unicorn/better-regex
+    value: /\u2028\u2028/,
+    source: `/\\u2028\\u2028/`,
+  },
+  {
+    name: `RegExp constructor with multiple line separators`,
+    value: new RegExp(`\u2028\u2028`),
+    source: `/\\u2028\\u2028/`,
+  },
+  {
+    name: `RegExp literal with paragraph separator`,
+    value: /\u2029/,
+    source: `/\\u2029/`,
+  },
+  {
+    name: `RegExp constructor with paragraph separator`,
+    value: new RegExp(`\u2029`),
+    source: `/\\u2029/`,
+  },
+  {
+    name: `RegExp literal with multiple paragraph separators`,
+    // eslint-disable-next-line unicorn/better-regex
+    value: /\u2029\u2029/,
+    source: `/\\u2029\\u2029/`,
+  },
+  {
+    name: `RegExp constructor with multiple paragraph separators`,
+    value: new RegExp(`\u2029\u2029`),
+    source: `/\\u2029\\u2029/`,
+  },
+  {
+    name: `RegExp literal with closing script tag`,
+    value: /<\/script>/,
+    source: `/<\\/script>/`,
+  },
+  {
+    name: `RegExp constructor with closing script tag`,
+    value: new RegExp(`</script>`),
+    source: `/<\\/script>/`,
+  },
+  {
+    name: `RegExp literal with unpaired low surrogate`,
+    value: /\uDC00/,
+    source: `/\\uDC00/`,
+  },
+  {
+    name: `RegExp constructor with unpaired low surrogate`,
+    value: new RegExp(`\uDC00`),
+    source: `new RegExp("\\udc00")`,
+  },
+  {
+    name: `RegExp literal with unpaired high surrogate`,
+    value: /\uD800/,
+    source: `/\\uD800/`,
+  },
+  {
+    name: `RegExp constructor with unpaired high surrogate`,
+    value: new RegExp(`\uD800`),
+    source: `new RegExp("\\ud800")`,
+  },
+  {
+    name: `RegExp literal with unpaired low surrogate in middle`,
+    value: /a\uDC00b/,
+    source: `/a\\uDC00b/`,
+  },
+  {
+    name: `RegExp constructor with unpaired low surrogate in middle`,
+    value: new RegExp(`a\uDC00b`),
+    source: `new RegExp("a\\udc00b")`,
+  },
+  {
+    name: `RegExp literal with unpaired high surrogate in middle`,
+    value: /a\uD800b/,
+    source: `/a\\uD800b/`,
+  },
+  {
+    name: `RegExp constructor with unpaired high surrogate in middle`,
+    value: new RegExp(`a\uD800b`),
+    source: `new RegExp("a\\ud800b")`,
+  },
+  {
+    name: `RegExp literal with multiple unpaired surrogates`,
+    value: /\uD800\uDBFF/,
+    source: `/\\uD800\\uDBFF/`,
+  },
+  {
+    name: `RegExp constructor with multiple unpaired surrogates`,
+    value: new RegExp(`\uD800\uDBFF`),
+    source: `new RegExp("\\ud800\\udbff")`,
+  },
+  {
+    name: `RegExp literal with surrogate pair`,
+    value: /\uD83D\uDE00/,
+    source: `/\\uD83D\\uDE00/`,
+  },
+  {
+    name: `RegExp constructor with surrogate pair`,
+    value: new RegExp(`\uD83D\uDE00`),
+    source: `/😀/`,
+  },
+  {
+    name: `RegExp literal with emoji`,
+    value: /😀/,
+    source: `/😀/`,
+  },
+  {
+    name: `RegExp constructor with emoji`,
+    value: new RegExp(`😀`),
+    source: `/😀/`,
   },
 
   // Date
