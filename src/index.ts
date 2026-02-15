@@ -413,7 +413,7 @@ const unevalInternal = ((value: unknown, state: State): string | null => {
     case `bigint`:
       return `${value}n`
     case `string`:
-      return `"${unevalString(value, STRING_CODE_UNIT_ESCAPES)}"`
+      return unevalString(value)
     case `symbol`:
       return unevalSymbol(value, state)
     case `object`:
@@ -455,10 +455,13 @@ const unevalNumber = (value: number): string => {
   return source
 }
 
+const unevalString = (value: string) =>
+  `"${unevalLiteral(value, STRING_CODE_UNIT_ESCAPES)}"`
+
 // `charCodeAt` is more performant for our use-case because we're dealing with
 // strings known to be single code units.
 /* eslint-disable unicorn/prefer-code-point */
-const unevalString = (
+const unevalLiteral = (
   value: string,
   codeUnitEscapes: Readonly<Record<string, string>>,
 ): string => {
@@ -675,7 +678,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
       return newInstance(type, unevalInternal((value as URL).href, state))
     case `RegExp`: {
       const { source, flags } = value as RegExp
-      const escapedSource = unevalString(
+      const escapedSource = unevalLiteral(
         source,
         LITERAL_UNSAFE_CODE_UNIT_ESCAPES,
       )
@@ -690,9 +693,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
           `/${source}/${flags}`
         : newInstance(
             type,
-            `"${unevalString(source, STRING_CODE_UNIT_ESCAPES)}"${
-              flags && `,"${unevalString(flags, STRING_CODE_UNIT_ESCAPES)}"`
-            }`,
+            `${unevalString(source)}${flags && `,${unevalString(flags)}`}`,
           )
     }
     case `Map`: {
