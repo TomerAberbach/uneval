@@ -994,9 +994,25 @@ test.each<{
     source: `new URLSearchParams`,
   },
   {
-    name: `non-empty URLSearchParams`,
+    name: `URLSearchParams with one entry`,
     value: new URLSearchParams([[`a`, `b`]]),
-    source: `new URLSearchParams([["a","b"]])`,
+    source: `new URLSearchParams("a=b")`,
+  },
+  {
+    name: `URLSearchParams with two entries`,
+    value: new URLSearchParams([
+      [`a`, `b`],
+      [`c`, `d`],
+    ]),
+    source: `new URLSearchParams("a=b&c=d")`,
+  },
+  {
+    name: `URLSearchParams with repeated key`,
+    value: new URLSearchParams([
+      [`a`, `b`],
+      [`a`, `c`],
+    ]),
+    source: `new URLSearchParams("a=b&a=c")`,
   },
 
   // ArrayBuffer

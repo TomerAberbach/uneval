@@ -796,14 +796,9 @@ const unevalObjectInternal = (value: object, state: State): string => {
       return newInstance(type, argsSource ? `[${argsSource}]` : ``)
     }
     case `URLSearchParams`: {
-      const values = [...(value as Iterable<[string, string]>)]
-      return newInstance(
-        type,
-        values.length
-          ? // Must be non-null because `[string, string][]` can't be circular.
-            unevalInternal(values, state)!
-          : ``,
-      )
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+      const source = `${value}`
+      return newInstance(type, source && unevalInternal(source, state))
     }
     case `Buffer`: {
       const buffer = value as Buffer
