@@ -242,6 +242,27 @@ const createState = (
     }
 
     switch (getType(value)) {
+      case `Date`:
+      case `Instant`:
+      case `PlainDate`:
+      case `PlainTime`:
+      case `PlainDateTime`:
+      case `PlainYearMonth`:
+      case `PlainMonthDay`:
+      case `ZonedDateTime`:
+      case `Duration`:
+      case `URL`:
+      case `RegExp`:
+      case `URLSearchParams`:
+        // These values are logically distinct values and their sub-values
+        // should not be replaceable via `custom`.
+        break
+      case `Boolean`:
+      case `Number`:
+      case `String`:
+        // Traverse the underlying unboxed value to apply `custom` to it.
+        traverse(value.valueOf())
+        break
       case `Array`:
       case `Set`:
         for (const item of value as Iterable<unknown>) {
@@ -284,23 +305,6 @@ const createState = (
         }
         break
       }
-      case `Boolean`:
-      case `Number`:
-      case `String`:
-      case `Date`:
-      case `Instant`:
-      case `PlainDate`:
-      case `PlainTime`:
-      case `PlainDateTime`:
-      case `PlainYearMonth`:
-      case `PlainMonthDay`:
-      case `ZonedDateTime`:
-      case `Duration`:
-      case `URL`:
-      case `RegExp`:
-      case `URLSearchParams`:
-        // These are leaf values.
-        break
       case `Buffer`:
       case `Int8Array`:
       case `Uint8Array`:
@@ -415,7 +419,7 @@ const unevalInternal = ((value: unknown, state: State): string | null => {
     case `bigint`:
       return `${value}n`
     case `string`:
-      return unevalString(value)
+      return `"${unevalLiteral(value, STRING_CODE_UNIT_ESCAPES)}"`
     case `symbol`:
       return unevalSymbol(value, state)
     case `object`:
@@ -456,9 +460,6 @@ const unevalNumber = (value: number): string => {
 
   return source
 }
-
-const unevalString = (value: string) =>
-  `"${unevalLiteral(value, STRING_CODE_UNIT_ESCAPES)}"`
 
 // `charCodeAt` is more performant for our use-case because we're dealing with
 // strings known to be single code units.
@@ -669,13 +670,23 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `PlainDateTime`:
     case `PlainYearMonth`:
     case `PlainMonthDay`:
-    case `ZonedDateTime`:
     case `Duration`:
       return `Temporal.${type}.from(${unevalInternal(
         // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
         `${value}`,
         state,
       )})`
+    case `ZonedDateTime`: {
+      // We handle `ZonedDateTime` differently from that other `Temporal`
+      // objects because `Temporal.ZonedDateTime.from(zonedDateTime.toString())`
+      // does not always roundtrip:
+      // https://github.com/tc39/proposal-temporal/pull/3014#issuecomment-3856086253
+      const { epochNanoseconds, timeZoneId } = value as Temporal.ZonedDateTime
+      return `new Temporal.${type}(${unevalInternal(
+        epochNanoseconds,
+        state,
+      )},${unevalInternal(timeZoneId, state)})`
+    }
     case `URL`:
       return newInstance(type, unevalInternal((value as URL).href, state))
     case `RegExp`: {
@@ -695,7 +706,9 @@ const unevalObjectInternal = (value: object, state: State): string => {
           `/${source}/${flags}`
         : newInstance(
             type,
-            `${unevalString(source)}${flags && `,${unevalString(flags)}`}`,
+            `${unevalInternal(source, state)}${
+              flags && `,${unevalInternal(flags, state)}`
+            }`,
           )
     }
     case `Map`: {
@@ -928,29 +941,32 @@ const unevalTypedArray = (
       isNonCanonicalNaN,
     )
 
+  const arrayBuffer = typedArray.buffer
   if (
+    // We have to construct from a buffer if the end-user provided custom source
+    // for it.
+    state._customSources.has(arrayBuffer) ||
     // We have to construct from a buffer if it has a binding, meaning that it's
     // shared between multiple values.
-    state._bindings.has(typedArray.buffer) ||
+    state._bindings.has(arrayBuffer) ||
     // Also, if the byte lengths differ between the typed array and the buffer,
     // then that means this typed array is a view of a slice of a buffer. The
     // only way to achieve that is by constructing from a buffer.
-    typedArray.byteLength != typedArray.buffer.byteLength ||
+    typedArray.byteLength != arrayBuffer.byteLength ||
     // Lastly, if the underlying buffer is resizable, then we must also
     // construct from a buffer. The default buffer created from
     // `new TypedArray(...)` is not resizable.
-    (typedArray.buffer as ArrayBuffer).resizable ||
+    (arrayBuffer as ArrayBuffer).resizable ||
     // For floating-point arrays with non-canonical NaN values, we must
     // construct from the buffer to preserve the exact NaN bit pattern.
     hasNonCanonicalNaN
   ) {
-    const bufferSource = unevalInternal(typedArray.buffer, state)!
+    const bufferSource = unevalInternal(arrayBuffer, state)!
 
     return newInstance(
       type,
       `${bufferSource}${
-        typedArray.byteOffset + typedArray.byteLength ==
-        typedArray.buffer.byteLength
+        typedArray.byteOffset + typedArray.byteLength == arrayBuffer.byteLength
           ? typedArray.byteOffset > 0
             ? `,${typedArray.byteOffset}`
             : ``

@@ -1,6 +1,11 @@
+import { Temporal as TemporalPolyfill } from '@js-temporal/polyfill'
 import type { Tester } from '@vitest/expect'
 import * as matchers from 'jest-extended'
 import { expect } from 'vitest'
+
+if (typeof globalThis.Temporal === `undefined`) {
+  globalThis.Temporal = TemporalPolyfill
+}
 
 expect.extend(matchers)
 
