@@ -16,22 +16,65 @@ test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
   expect(source).not.toMatch(/<\/script>/gi)
 })
 
-test.each<{
+type Case = {
   name: string
   value: unknown
   source: string
   options?: UnevalOptions
   roundtrips?: boolean
-}>([
-  // Undefined and null
+}
+
+const customBoolean: UnevalOptions[`custom`] = value =>
+  typeof value === `boolean` ? String(value) : undefined
+const customNumber: UnevalOptions[`custom`] = value =>
+  typeof value === `number` && Number.isInteger(value)
+    ? `${value}.0`
+    : undefined
+const customString: UnevalOptions[`custom`] = value =>
+  typeof value === `string` ? `'${value}'` : undefined
+const customBigInt: UnevalOptions[`custom`] = value =>
+  typeof value === `bigint` ? `BigInt(${value})` : undefined
+
+test.each<Case>([
+  // Undefined
   { name: `undefined`, value: undefined, source: `void 0` },
+  {
+    name: `custom undefined`,
+    value: undefined,
+    options: {
+      custom: value => (value === undefined ? `undefined` : undefined),
+    },
+    source: `undefined`,
+  },
+
+  // Null
   { name: `null`, value: null, source: `null` },
+  {
+    name: `custom null`,
+    value: null,
+    options: {
+      custom: value => (value === null ? `JSON.parse("null")` : undefined),
+    },
+    source: `JSON.parse("null")`,
+  },
 
   // Boolean
   { name: `false`, value: false, source: `!1` },
   { name: `boxed false`, value: new Boolean(false), source: `Object(!1)` },
   { name: `true`, value: true, source: `!0` },
   { name: `boxed true`, value: new Boolean(true), source: `Object(!0)` },
+  {
+    name: `custom boolean`,
+    value: true,
+    options: { custom: customBoolean },
+    source: `true`,
+  },
+  {
+    name: `custom boolean affects boxed boolean`,
+    value: new Boolean(true),
+    options: { custom: customBoolean },
+    source: `Object(true)`,
+  },
 
   // Number
   { name: `zero`, value: 0, source: `0` },
@@ -136,6 +179,18 @@ test.each<{
     value: new Number(-Infinity),
     source: `Object(-1/0)`,
   },
+  {
+    name: `custom number`,
+    value: 42,
+    options: { custom: customNumber },
+    source: `42.0`,
+  },
+  {
+    name: `custom number affects boxed number`,
+    value: new Number(42),
+    options: { custom: customNumber },
+    source: `Object(42.0)`,
+  },
 
   // BigInt
   { name: `zero bigint`, value: 0n, source: `0n` },
@@ -151,6 +206,17 @@ test.each<{
     name: `large negative bigint`,
     value: -2_347_623_847_628_347_263_123n,
     source: `-2347623847628347263123n`,
+  },
+  {
+    name: `custom bigint`,
+    value: 42n,
+    options: {
+      custom: (value, uneval) =>
+        typeof value === `bigint`
+          ? `BigInt(${uneval(String(value))})`
+          : undefined,
+    },
+    source: `BigInt("42")`,
   },
 
   // String
@@ -355,6 +421,18 @@ test.each<{
     value: new String(`\uD83D\uDE00`),
     source: `Object("😀")`,
   },
+  {
+    name: `custom string`,
+    value: `Hello!`,
+    options: { custom: customString },
+    source: `'Hello!'`,
+  },
+  {
+    name: `custom string affects boxed string`,
+    value: new String(`Hello!`),
+    options: { custom: customString },
+    source: `Object('Hello!')`,
+  },
 
   // Symbol
   {
@@ -413,6 +491,24 @@ test.each<{
     value: Symbol.for(`howdy`),
     source: `Symbol.for("howdy")`,
   },
+  {
+    name: `custom symbol`,
+    value: Symbol(`hi`),
+    options: {
+      custom: (value, uneval) =>
+        typeof value === `symbol`
+          ? `Symbol(${uneval(value.description)})`
+          : undefined,
+    },
+    source: `Symbol("hi")`,
+    roundtrips: false,
+  },
+  {
+    name: `custom string does not affect symbol`,
+    value: Symbol.for(`hi`),
+    options: { custom: customString },
+    source: `Symbol.for("hi")`,
+  },
 
   // Array
   { name: `empty array`, value: [], source: `[]` },
@@ -441,6 +537,21 @@ test.each<{
     name: `sparse array with middle empty slots`,
     value: [1, , , , , 2],
     source: `[1,,,,,2]`,
+  },
+  {
+    name: `custom array`,
+    value: [1, 2, 3],
+    options: {
+      custom: (value, uneval) =>
+        Array.isArray(value) ? `[${value.map(uneval).join(`, `)}]` : undefined,
+    },
+    source: `[1, 2, 3]`,
+  },
+  {
+    name: `custom element affects array`,
+    value: [1, 2, 3],
+    options: { custom: customNumber },
+    source: `[1.0,2.0,3.0]`,
   },
 
   // Object
@@ -682,6 +793,31 @@ test.each<{
     ),
     source: `Object.setPrototypeOf(Object.defineProperties({},{a:{value:1}}),null)`,
   },
+  {
+    name: `custom object`,
+    value: { a: 1, b: 2, c: 3 },
+    options: {
+      custom: (value, uneval) =>
+        value !== null && typeof value === `object`
+          ? `{ ${Object.entries(value)
+              .map(([key, value]) => `[${uneval(key)}]: ${uneval(value)}`)
+              .join(`, `)} }`
+          : undefined,
+    },
+    source: `{ ["a"]: 1, ["b"]: 2, ["c"]: 3 }`,
+  },
+  {
+    name: `custom string does not affect object keys`,
+    value: { a: 1, b: 2, c: 3, 'x y z': 4 },
+    options: { custom: customString },
+    source: `{a:1,b:2,c:3,"x y z":4}`,
+  },
+  {
+    name: `custom value affects object values`,
+    value: { a: 1, b: 2, c: 3 },
+    options: { custom: customNumber },
+    source: `{a:1.0,b:2.0,c:3.0}`,
+  },
 
   // Set
   { name: `empty Set`, value: new Set(), source: `new Set` },
@@ -694,6 +830,26 @@ test.each<{
     name: `non-empty Set`,
     value: new Set([1, 2, 3]),
     source: `new Set([1,2,3])`,
+  },
+  {
+    name: `custom Set`,
+    value: new Set([1, 2, 3]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Set
+          ? `((set=new Set())=>set${Array.from(
+              value,
+              value => `.add(${uneval(value)})`,
+            ).join(``)})()`
+          : undefined,
+    },
+    source: `((set=new Set())=>set.add(1).add(2).add(3))()`,
+  },
+  {
+    name: `custom member affects Set`,
+    value: new Set([1, 2, 3]),
+    options: { custom: customNumber },
+    source: `new Set([1.0,2.0,3.0])`,
   },
 
   // Map
@@ -710,6 +866,41 @@ test.each<{
       [3, 4],
     ]),
     source: `new Map([[1,2],[3,4]])`,
+  },
+  {
+    name: `custom Map`,
+    value: new Map([
+      [1, 2],
+      [3, 4],
+    ]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Map
+          ? `((map=new Map())=>map${Array.from(
+              value,
+              ([key, value]) => `.set(${uneval(key)},${uneval(value)})`,
+            ).join(``)})()`
+          : undefined,
+    },
+    source: `((map=new Map())=>map.set(1,2).set(3,4))()`,
+  },
+  {
+    name: `custom key affects Map keys`,
+    value: new Map([
+      [1, `a`],
+      [2, `b`],
+    ]),
+    options: { custom: customNumber },
+    source: `new Map([[1.0,"a"],[2.0,"b"]])`,
+  },
+  {
+    name: `custom value affects Map value`,
+    value: new Map([
+      [`a`, 1],
+      [`b`, 2],
+    ]),
+    options: { custom: customNumber },
+    source: `new Map([["a",1.0],["b",2.0]])`,
   },
 
   // RegExp
@@ -912,78 +1103,318 @@ test.each<{
     value: new RegExp(`😀`),
     source: `/😀/`,
   },
+  {
+    name: `custom RegExp`,
+    value: /abc/,
+    options: {
+      custom: (value, uneval) =>
+        value instanceof RegExp
+          ? `new RegExp(${uneval(value.source)})`
+          : undefined,
+    },
+    source: `new RegExp("abc")`,
+  },
+  {
+    name: `custom string does not affect RegExp literal`,
+    value: /abc/,
+    options: { custom: customString },
+    source: `/abc/`,
+  },
+  {
+    name: `custom string does not affect RegExp constructor`,
+    value: new RegExp(`\v`),
+    options: { custom: customString },
+    source: `new RegExp("\\v")`,
+  },
 
   // Date
   { name: `valid Date`, value: new Date(42), source: `new Date(42)` },
   { name: `invalid Date`, value: new Date(`oh no!`), source: `new Date(NaN)` },
+  {
+    name: `custom Date`,
+    value: new Date(42),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Date
+          ? `new Date(${uneval(value.toISOString())})`
+          : undefined,
+    },
+    source: `new Date("1970-01-01T00:00:00.042Z")`,
+  },
+  {
+    name: `custom number does not affect Date`,
+    value: new Date(42),
+    options: { custom: customNumber },
+    source: `new Date(42)`,
+  },
 
   // Temporal
-  ...(typeof Temporal === `undefined`
-    ? []
-    : [
-        {
-          name: `Temporal.Instant`,
-          value: Temporal.Instant.from(`2024-12-25T00:00:00Z`),
-          source: `Temporal.Instant.from("2024-12-25T00:00:00Z")`,
-        },
-        {
-          name: `Temporal.Instant epoch`,
-          value: Temporal.Instant.from(`1970-01-01T00:00:00Z`),
-          source: `Temporal.Instant.from("1970-01-01T00:00:00Z")`,
-        },
-        {
-          name: `Temporal.PlainDate`,
-          value: Temporal.PlainDate.from(`2024-12-25`),
-          source: `Temporal.PlainDate.from("2024-12-25")`,
-        },
-        {
-          name: `Temporal.PlainTime`,
-          value: Temporal.PlainTime.from(`13:45:30`),
-          source: `Temporal.PlainTime.from("13:45:30")`,
-        },
-        {
-          name: `Temporal.PlainTime with nanoseconds`,
-          value: Temporal.PlainTime.from(`13:45:30.123456789`),
-          source: `Temporal.PlainTime.from("13:45:30.123456789")`,
-        },
-        {
-          name: `Temporal.PlainDateTime`,
-          value: Temporal.PlainDateTime.from(`2024-12-25T13:45:30`),
-          source: `Temporal.PlainDateTime.from("2024-12-25T13:45:30")`,
-        },
-        {
-          name: `Temporal.PlainYearMonth`,
-          value: Temporal.PlainYearMonth.from(`2024-12`),
-          source: `Temporal.PlainYearMonth.from("2024-12")`,
-        },
-        {
-          name: `Temporal.PlainMonthDay`,
-          value: Temporal.PlainMonthDay.from(`12-25`),
-          source: `Temporal.PlainMonthDay.from("12-25")`,
-        },
-        {
-          name: `Temporal.ZonedDateTime`,
-          value: Temporal.ZonedDateTime.from(
-            `2024-12-25T13:45:30-05:00[America/New_York]`,
-          ),
-          source: `Temporal.ZonedDateTime.from("2024-12-25T13:45:30-05:00[America/New_York]")`,
-        },
-        {
-          name: `Temporal.Duration`,
-          value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
-          source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
-        },
-        {
-          name: `Temporal.Duration zero`,
-          value: new Temporal.Duration(),
-          source: `Temporal.Duration.from("PT0S")`,
-        },
-      ]),
+  {
+    name: `Temporal.Instant`,
+    value: Temporal.Instant.from(`2024-12-25T00:00:00Z`),
+    source: `Temporal.Instant.from("2024-12-25T00:00:00Z")`,
+  },
+  {
+    name: `Temporal.Instant epoch`,
+    value: Temporal.Instant.from(`1970-01-01T00:00:00Z`),
+    source: `Temporal.Instant.from("1970-01-01T00:00:00Z")`,
+  },
+  {
+    name: `custom Temporal.Instant`,
+    value: Temporal.Instant.from(`1970-01-01T00:00:00Z`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.Instant
+          ? `Temporal.Instant.fromEpochNanoseconds(${uneval(
+              value.epochNanoseconds,
+            )})`
+          : undefined,
+    },
+    source: `Temporal.Instant.fromEpochNanoseconds(0n)`,
+  },
+  {
+    name: `custom string does not affect Temporal.Instant`,
+    value: Temporal.Instant.from(`2024-12-25T00:00:00Z`),
+    options: { custom: customString },
+    source: `Temporal.Instant.from("2024-12-25T00:00:00Z")`,
+  },
+  {
+    name: `Temporal.PlainDate`,
+    value: Temporal.PlainDate.from(`2024-12-25`),
+    source: `Temporal.PlainDate.from("2024-12-25")`,
+  },
+  {
+    name: `custom Temporal.PlainDate`,
+    value: Temporal.PlainDate.from(`2024-12-25`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.PlainDate
+          ? `Temporal.PlainDate.from(${uneval({
+              year: value.year,
+              month: value.month,
+              day: value.day,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.PlainDate.from({year:2024,month:12,day:25})`,
+  },
+  {
+    name: `custom string does not affect Temporal.PlainDate`,
+    value: Temporal.PlainDate.from(`2024-12-25`),
+    options: { custom: customString },
+    source: `Temporal.PlainDate.from("2024-12-25")`,
+  },
+  {
+    name: `Temporal.PlainTime`,
+    value: Temporal.PlainTime.from(`13:45:30`),
+    source: `Temporal.PlainTime.from("13:45:30")`,
+  },
+  {
+    name: `Temporal.PlainTime with nanoseconds`,
+    value: Temporal.PlainTime.from(`13:45:30.123456789`),
+    source: `Temporal.PlainTime.from("13:45:30.123456789")`,
+  },
+  {
+    name: `custom Temporal.PlainTime`,
+    value: Temporal.PlainTime.from(`13:45:30`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.PlainTime
+          ? `Temporal.PlainTime.from(${uneval({
+              hour: value.hour,
+              minute: value.minute,
+              second: value.second,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.PlainTime.from({hour:13,minute:45,second:30})`,
+  },
+  {
+    name: `custom string does not affect Temporal.PlainTime`,
+    value: Temporal.PlainTime.from(`13:45:30`),
+    options: { custom: customString },
+    source: `Temporal.PlainTime.from("13:45:30")`,
+  },
+  {
+    name: `Temporal.PlainDateTime`,
+    value: Temporal.PlainDateTime.from(`2024-12-25T13:45:30`),
+    source: `Temporal.PlainDateTime.from("2024-12-25T13:45:30")`,
+  },
+  {
+    name: `custom Temporal.PlainDateTime`,
+    value: Temporal.PlainDateTime.from(`2024-12-25T13:45:30`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.PlainDateTime
+          ? `Temporal.PlainDateTime.from(${uneval({
+              year: value.year,
+              month: value.month,
+              day: value.day,
+              hour: value.hour,
+              minute: value.minute,
+              second: value.second,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.PlainDateTime.from({year:2024,month:12,day:25,hour:13,minute:45,second:30})`,
+  },
+  {
+    name: `custom string does not affect Temporal.PlainDateTime`,
+    value: Temporal.PlainDateTime.from(`2024-12-25T13:45:30`),
+    options: { custom: customString },
+    source: `Temporal.PlainDateTime.from("2024-12-25T13:45:30")`,
+  },
+  {
+    name: `Temporal.PlainYearMonth`,
+    value: Temporal.PlainYearMonth.from(`2024-12`),
+    source: `Temporal.PlainYearMonth.from("2024-12")`,
+  },
+  {
+    name: `custom Temporal.PlainYearMonth`,
+    value: Temporal.PlainYearMonth.from(`2024-12`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.PlainYearMonth
+          ? `Temporal.PlainYearMonth.from(${uneval({
+              year: value.year,
+              month: value.month,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.PlainYearMonth.from({year:2024,month:12})`,
+  },
+  {
+    name: `custom string does not affect Temporal.PlainYearMonth`,
+    value: Temporal.PlainYearMonth.from(`2024-12`),
+    options: { custom: customString },
+    source: `Temporal.PlainYearMonth.from("2024-12")`,
+  },
+  {
+    name: `Temporal.PlainMonthDay`,
+    value: Temporal.PlainMonthDay.from(`12-25`),
+    source: `Temporal.PlainMonthDay.from("12-25")`,
+  },
+  {
+    name: `custom Temporal.PlainMonthDay`,
+    value: Temporal.PlainMonthDay.from(`12-25`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.PlainMonthDay
+          ? `Temporal.PlainMonthDay.from(${uneval({
+              monthCode: value.monthCode,
+              day: value.day,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.PlainMonthDay.from({monthCode:"M12",day:25})`,
+  },
+  {
+    name: `custom string does not affect Temporal.PlainMonthDay`,
+    value: Temporal.PlainMonthDay.from(`12-25`),
+    options: { custom: customString },
+    source: `Temporal.PlainMonthDay.from("12-25")`,
+  },
+  {
+    name: `Temporal.ZonedDateTime`,
+    value: Temporal.ZonedDateTime.from(
+      `2024-12-25T13:45:30-05:00[America/New_York]`,
+    ),
+    source: `new Temporal.ZonedDateTime(1735152330000000000n,"America/New_York")`,
+  },
+  {
+    name: `Temporal.ZonedDateTime at minimum epoch boundary`,
+    value: new Temporal.ZonedDateTime(
+      -8_640_000_000_000_000_000_000n,
+      `Europe/London`,
+    ),
+    source: `new Temporal.ZonedDateTime(-8640000000000000000000n,"Europe/London")`,
+  },
+  {
+    name: `custom Temporal.ZonedDateTime`,
+    value: Temporal.ZonedDateTime.from(
+      `2024-12-25T13:45:30-05:00[America/New_York]`,
+    ),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.ZonedDateTime
+          ? `Temporal.ZonedDateTime.from(${uneval({
+              year: value.year,
+              month: value.month,
+              day: value.day,
+              hour: value.hour,
+              minute: value.minute,
+              second: value.second,
+              offset: value.offset,
+              timeZone: value.timeZoneId,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.ZonedDateTime.from({year:2024,month:12,day:25,hour:13,minute:45,second:30,offset:"-05:00",timeZone:"America/New_York"})`,
+  },
+  {
+    name: `custom string does not affect Temporal.ZonedDateTime`,
+    value: Temporal.ZonedDateTime.from(
+      `2024-12-25T13:45:30-05:00[America/New_York]`,
+    ),
+    options: { custom: customString },
+    source: `new Temporal.ZonedDateTime(1735152330000000000n,"America/New_York")`,
+  },
+  {
+    name: `Temporal.Duration`,
+    value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
+    source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
+  },
+  {
+    name: `Temporal.Duration zero`,
+    value: new Temporal.Duration(),
+    source: `Temporal.Duration.from("PT0S")`,
+  },
+  {
+    name: `custom Temporal.Duration`,
+    value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Temporal.Duration
+          ? `Temporal.Duration.from(${uneval({
+              years: value.years,
+              months: value.months,
+              days: value.days,
+              hours: value.hours,
+              minutes: value.minutes,
+              seconds: value.seconds,
+            })})`
+          : undefined,
+    },
+    source: `Temporal.Duration.from({years:1,months:2,days:3,hours:4,minutes:5,seconds:6})`,
+  },
+  {
+    name: `custom string does not affect Temporal.Duration`,
+    value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
+    options: { custom: customString },
+    source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
+  },
 
   // URL
   {
     name: `URL`,
     value: new URL(`https://tomeraberba.ch`),
+    source: `new URL("https://tomeraberba.ch/")`,
+  },
+  {
+    name: `custom URL`,
+    value: new URL(`https://tomeraberba.ch`),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof URL
+          ? `new URL(${uneval(value.pathname)},${uneval(value.origin)})`
+          : undefined,
+    },
+    source: `new URL("/","https://tomeraberba.ch")`,
+  },
+  {
+    name: `custom string does not affect URL`,
+    value: new URL(`https://tomeraberba.ch`),
+    options: { custom: customString },
     source: `new URL("https://tomeraberba.ch/")`,
   },
 
@@ -1013,6 +1444,23 @@ test.each<{
       [`a`, `c`],
     ]),
     source: `new URLSearchParams("a=b&a=c")`,
+  },
+  {
+    name: `custom URLSearchParams`,
+    value: new URLSearchParams([[`a`, `b`]]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof URLSearchParams
+          ? `new URLSearchParams(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new URLSearchParams([["a","b"]])`,
+  },
+  {
+    name: `custom string does not affect URLSearchParams`,
+    value: new URLSearchParams([[`a`, `b`]]),
+    options: { custom: customString },
+    source: `new URLSearchParams("a=b")`,
   },
 
   // ArrayBuffer
@@ -1256,6 +1704,23 @@ test.each<{
     })(),
     source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
   },
+  {
+    name: `custom ArrayBuffer`,
+    value: new Uint8Array([1, 2, 3]).buffer,
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Uint8Array([1,2,3]).buffer`,
+  },
+  {
+    name: `custom number does not affect ArrayBuffer`,
+    value: new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer,
+    options: { custom: customNumber },
+    source: `Uint8Array.of(0,0,0,0,0,1,2,3).buffer`,
+  },
 
   // Buffer
   {
@@ -1372,6 +1837,35 @@ test.each<{
     value: Buffer.from(new ArrayBuffer(4), 1, 3),
     source: `Buffer.from(new ArrayBuffer(4),1)`,
   },
+  {
+    name: `custom Buffer`,
+    value: Buffer.from(new Uint8Array([1, 2, 3]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        Buffer.isBuffer(value)
+          ? `Buffer.from(${uneval([...value])})`
+          : undefined,
+    },
+    source: `Buffer.from([1,2,3])`,
+    roundtrips: false,
+  },
+  {
+    name: `custom number does not affect Buffer`,
+    value: Buffer.from(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer),
+    options: { custom: customNumber },
+    source: `Buffer.from(Uint8Array.of(0,0,0,0,0,1,2,3).buffer)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Buffer`,
+    value: Buffer.from(new Uint8Array([1, 2, 3]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `Buffer.from(new Uint8Array([1,2,3]).buffer)`,
+  },
 
   // Int8Array
   {
@@ -1416,6 +1910,34 @@ test.each<{
       return [new Int8Array(buffer), new Int8Array(buffer)]
     })(),
     source: `(a=>[new Int8Array(a),new Int8Array(a)])(new ArrayBuffer)`,
+  },
+  {
+    name: `custom Int8Array`,
+    value: new Int8Array([1, -2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Int8Array
+          ? `new Int8Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Int8Array([1,-2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Int8Array`,
+    value: new Int8Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Int8Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Int8Array`,
+    value: new Int8Array(new Uint8Array([1, 2, 3]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Int8Array(new Uint8Array([1,2,3]).buffer)`,
   },
 
   // Uint8Array
@@ -1462,6 +1984,34 @@ test.each<{
     })(),
     source: `(a=>[new Uint8Array(a),new Uint8Array(a)])(new ArrayBuffer)`,
   },
+  {
+    name: `custom Uint8Array`,
+    value: new Uint8Array([1, 2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Uint8Array
+          ? `new Uint8Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Uint8Array([1,2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Uint8Array`,
+    value: new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Uint8Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Uint8Array`,
+    value: new Uint8Array(new Uint8Array([1, 2, 3]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Uint8Array(new Uint8Array([1,2,3]).buffer)`,
+  },
 
   // Uint8ClampedArray
   {
@@ -1506,6 +2056,34 @@ test.each<{
       return [new Uint8ClampedArray(buffer), new Uint8ClampedArray(buffer)]
     })(),
     source: `(a=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])(new ArrayBuffer)`,
+  },
+  {
+    name: `custom Uint8ClampedArray`,
+    value: new Uint8ClampedArray([1, 2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Uint8ClampedArray
+          ? `new Uint8ClampedArray(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Uint8ClampedArray([1,2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Uint8ClampedArray`,
+    value: new Uint8ClampedArray([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Uint8ClampedArray.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Uint8ClampedArray`,
+    value: new Uint8ClampedArray(new Uint8Array([1, 2, 3]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Uint8ClampedArray(new Uint8Array([1,2,3]).buffer)`,
   },
 
   // Int16Array
@@ -1552,6 +2130,34 @@ test.each<{
     })(),
     source: `(a=>[new Int16Array(a),new Int16Array(a)])(new ArrayBuffer)`,
   },
+  {
+    name: `custom Int16Array`,
+    value: new Int16Array([1, -2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Int16Array
+          ? `new Int16Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Int16Array([1,-2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Int16Array`,
+    value: new Int16Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Int16Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Int16Array`,
+    value: new Int16Array(new Uint8Array([1, 0, 2, 0, 3, 0]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Int16Array(new Uint8Array([1,0,2,0,3,0]).buffer)`,
+  },
 
   // Uint16Array
   {
@@ -1596,6 +2202,34 @@ test.each<{
       return [new Uint16Array(buffer), new Uint16Array(buffer)]
     })(),
     source: `(a=>[new Uint16Array(a),new Uint16Array(a)])(new ArrayBuffer)`,
+  },
+  {
+    name: `custom Uint16Array`,
+    value: new Uint16Array([1, 2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Uint16Array
+          ? `new Uint16Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Uint16Array([1,2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Uint16Array`,
+    value: new Uint16Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Uint16Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Uint16Array`,
+    value: new Uint16Array(new Uint8Array([1, 0, 2, 0, 3, 0]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Uint16Array(new Uint8Array([1,0,2,0,3,0]).buffer)`,
   },
 
   // Int32Array
@@ -1642,6 +2276,36 @@ test.each<{
     })(),
     source: `(a=>[new Int32Array(a),new Int32Array(a)])(new ArrayBuffer)`,
   },
+  {
+    name: `custom Int32Array`,
+    value: new Int32Array([1, -2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Int32Array
+          ? `new Int32Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Int32Array([1,-2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Int32Array`,
+    value: new Int32Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Int32Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Int32Array`,
+    value: new Int32Array(
+      new Uint8Array([1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]).buffer,
+    ),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Int32Array(new Uint8Array([1,0,0,0,2,0,0,0,3,0,0,0]).buffer)`,
+  },
 
   // Uint32Array
   {
@@ -1687,11 +2351,41 @@ test.each<{
     })(),
     source: `(a=>[new Uint32Array(a),new Uint32Array(a)])(new ArrayBuffer)`,
   },
+  {
+    name: `custom Uint32Array`,
+    value: new Uint32Array([1, 2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Uint32Array
+          ? `new Uint32Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Uint32Array([1,2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Uint32Array`,
+    value: new Uint32Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Uint32Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Uint32Array`,
+    value: new Uint32Array(
+      new Uint8Array([1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]).buffer,
+    ),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Uint32Array(new Uint8Array([1,0,0,0,2,0,0,0,3,0,0,0]).buffer)`,
+  },
 
   // Float16Array
   ...(typeof Float16Array === `undefined`
     ? []
-    : [
+    : ([
         {
           name: `empty Float16Array`,
           value: new Float16Array(),
@@ -1745,7 +2439,35 @@ test.each<{
           value: new Float16Array(new Uint8Array([0, 125]).buffer),
           source: `new Float16Array(Uint8Array.of(0,125).buffer)`,
         },
-      ]),
+        {
+          name: `custom Float16Array`,
+          value: new Float16Array([1, 2, 3]),
+          options: {
+            custom: (value, uneval) =>
+              value instanceof Float16Array
+                ? `new Float16Array(${uneval([...value])})`
+                : undefined,
+          },
+          source: `new Float16Array([1,2,3])`,
+        },
+        {
+          name: `custom number does not affect Float16Array`,
+          value: new Float16Array([0, 0, 0, 0, 0, 1, 2, 3]),
+          options: { custom: customNumber },
+          source: `Float16Array.of(0,0,0,0,0,1,2,3)`,
+        },
+        {
+          name: `custom ArrayBuffer affects Float16Array`,
+          value: new Float16Array(new Uint8Array([0, 60, 0, 64, 0, 68]).buffer),
+          options: {
+            custom: (value, uneval) =>
+              value instanceof ArrayBuffer
+                ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+                : undefined,
+          },
+          source: `new Float16Array(new Uint8Array([0,60,0,64,0,68]).buffer)`,
+        },
+      ] satisfies Case[])),
 
   // Float32Array
   {
@@ -1800,6 +2522,34 @@ test.each<{
     name: `Float32Array from non-canonical NaN`,
     value: new Float32Array(new Uint8Array([0, 0, 255, 127]).buffer),
     source: `new Float32Array(Uint8Array.of(0,0,255,127).buffer)`,
+  },
+  {
+    name: `custom Float32Array`,
+    value: new Float32Array([1, -2, 3, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Float32Array
+          ? `new Float32Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Float32Array([1,-2,3,4])`,
+  },
+  {
+    name: `custom number does not affect Float32Array`,
+    value: new Float32Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Float32Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Float32Array`,
+    value: new Float32Array(new Uint8Array([0, 0, 255, 127]).buffer),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Float32Array(new Uint8Array([0,0,255,127]).buffer)`,
   },
 
   // Float64Array
@@ -1858,6 +2608,36 @@ test.each<{
     ),
     source: `new Float64Array(Uint8Array.of(0,0,0,0,0,0,255,127).buffer)`,
   },
+  {
+    name: `custom Float64Array`,
+    value: new Float64Array([1, -2, 3.14, 4]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof Float64Array
+          ? `new Float64Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new Float64Array([1,-2,3.14,4])`,
+  },
+  {
+    name: `custom number does not affect Float64Array`,
+    value: new Float64Array([0, 0, 0, 0, 0, 1, 2, 3]),
+    options: { custom: customNumber },
+    source: `Float64Array.of(0,0,0,0,0,1,2,3)`,
+  },
+  {
+    name: `custom ArrayBuffer affects Float64Array`,
+    value: new Float64Array(
+      new Uint8Array([0, 0, 0, 0, 0, 0, 255, 127]).buffer,
+    ),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new Float64Array(new Uint8Array([0,0,0,0,0,0,255,127]).buffer)`,
+  },
 
   // BigInt64Array
   {
@@ -1903,6 +2683,38 @@ test.each<{
     })(),
     source: `(a=>[new BigInt64Array(a),new BigInt64Array(a)])(new ArrayBuffer)`,
   },
+  {
+    name: `custom BigInt64Array`,
+    value: new BigInt64Array([1n, -2n, 3n, 4n]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof BigInt64Array
+          ? `new BigInt64Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new BigInt64Array([1n,-2n,3n,4n])`,
+  },
+  {
+    name: `custom bigint does not affect BigInt64Array`,
+    value: new BigInt64Array([0n, 0n, 0n, 0n, 0n, 1n, 2n, 3n]),
+    options: { custom: customBigInt },
+    source: `BigInt64Array.of(0n,0n,0n,0n,0n,1n,2n,3n)`,
+  },
+  {
+    name: `custom ArrayBuffer affects BigInt64Array`,
+    value: new BigInt64Array(
+      new Uint8Array([1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]).buffer,
+      0,
+      1,
+    ),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new BigInt64Array(new Uint8Array([1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0]).buffer,0,1)`,
+  },
 
   // BigUint64Array
   {
@@ -1947,6 +2759,38 @@ test.each<{
       return [new BigUint64Array(buffer), new BigUint64Array(buffer)]
     })(),
     source: `(a=>[new BigUint64Array(a),new BigUint64Array(a)])(new ArrayBuffer)`,
+  },
+  {
+    name: `custom BigUint64Array`,
+    value: new BigUint64Array([1n, 2n, 3n, 4n]),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof BigUint64Array
+          ? `new BigUint64Array(${uneval([...value])})`
+          : undefined,
+    },
+    source: `new BigUint64Array([1n,2n,3n,4n])`,
+  },
+  {
+    name: `custom bigint does not affect BigUint64Array`,
+    value: new BigUint64Array([0n, 0n, 0n, 0n, 0n, 1n, 2n, 3n]),
+    options: { custom: customBigInt },
+    source: `BigUint64Array.of(0n,0n,0n,0n,0n,1n,2n,3n)`,
+  },
+  {
+    name: `custom ArrayBuffer affects BigUint64Array`,
+    value: new BigUint64Array(
+      new Uint8Array([1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]).buffer,
+      0,
+      1,
+    ),
+    options: {
+      custom: (value, uneval) =>
+        value instanceof ArrayBuffer
+          ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+          : undefined,
+    },
+    source: `new BigUint64Array(new Uint8Array([1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0]).buffer,0,1)`,
   },
 
   // Shared reference
@@ -2345,18 +3189,6 @@ test.each<{
         typeof value === `function` ? String(value) : undefined,
     },
     source: `{x:42,f:() => \`hi\`}`,
-    roundtrips: false,
-  },
-  {
-    name: `custom option for symbols`,
-    value: { x: 42, s: Symbol(`hi`) },
-    options: {
-      custom: (value, uneval) =>
-        typeof value === `symbol`
-          ? `Symbol(${uneval(value.description)})`
-          : undefined,
-    },
-    source: `{x:42,s:Symbol("hi")}`,
     roundtrips: false,
   },
   (() => {

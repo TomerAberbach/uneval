@@ -253,7 +253,7 @@ export const anythingArb = fc
         fc.double(),
         fc.bigInt(),
         fc.date(),
-        ...(typeof Temporal === `undefined` ? [] : [temporalArb]),
+        temporalArb,
         fc.string({ unit: `binary` }),
         urlArb,
         urlSearchParamsArb,
