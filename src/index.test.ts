@@ -34,6 +34,8 @@ const customString: UnevalOptions[`custom`] = value =>
   typeof value === `string` ? `'${value}'` : undefined
 const customBigInt: UnevalOptions[`custom`] = value =>
   typeof value === `bigint` ? `BigInt(${value})` : undefined
+const customSymbol: UnevalOptions[`custom`] = (value, uneval) =>
+  typeof value === `symbol` ? `Symbol(${uneval(value.description)})` : undefined
 
 test.each<Case>([
   // Undefined
@@ -46,6 +48,13 @@ test.each<Case>([
     },
     source: `undefined`,
   },
+  {
+    name: `omit undefined from array`,
+    value: [1, undefined, 3],
+    options: { custom: value => (value === undefined ? null : undefined) },
+    source: `[1,,3]`,
+    roundtrips: false,
+  },
 
   // Null
   { name: `null`, value: null, source: `null` },
@@ -56,6 +65,13 @@ test.each<Case>([
       custom: value => (value === null ? `JSON.parse("null")` : undefined),
     },
     source: `JSON.parse("null")`,
+  },
+  {
+    name: `omit null from array`,
+    value: [1, null, 3],
+    options: { custom: value => (value === null ? null : undefined) },
+    source: `[1,,3]`,
+    roundtrips: false,
   },
 
   // Boolean
@@ -74,6 +90,20 @@ test.each<Case>([
     value: new Boolean(true),
     options: { custom: customBoolean },
     source: `Object(true)`,
+  },
+  {
+    name: `omit boolean from array`,
+    value: [true, 1],
+    options: { custom: value => (value === true ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
+  },
+  {
+    name: `omit boolean cascades to boxed boolean`,
+    value: [new Boolean(true), 1],
+    options: { custom: value => (value === true ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
   },
 
   // Number
@@ -191,6 +221,20 @@ test.each<Case>([
     options: { custom: customNumber },
     source: `Object(42.0)`,
   },
+  {
+    name: `omit number from array`,
+    value: [42, 1],
+    options: { custom: value => (value === 42 ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
+  },
+  {
+    name: `omit number cascades to boxed number`,
+    value: [new Number(42), 1],
+    options: { custom: value => (value === 42 ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
+  },
 
   // BigInt
   { name: `zero bigint`, value: 0n, source: `0n` },
@@ -217,6 +261,13 @@ test.each<Case>([
           : undefined,
     },
     source: `BigInt("42")`,
+  },
+  {
+    name: `omit bigint from array`,
+    value: [42n, 1],
+    options: { custom: value => (value === 42n ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
   },
 
   // String
@@ -433,6 +484,20 @@ test.each<Case>([
     options: { custom: customString },
     source: `Object('Hello!')`,
   },
+  {
+    name: `omit string from array`,
+    value: [`hello`, 1],
+    options: { custom: value => (value === `hello` ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
+  },
+  {
+    name: `omit string cascades to boxed string`,
+    value: [new String(`hello`), 1],
+    options: { custom: value => (value === `hello` ? null : undefined) },
+    source: `[,1]`,
+    roundtrips: false,
+  },
 
   // Symbol
   {
@@ -494,12 +559,7 @@ test.each<Case>([
   {
     name: `custom symbol`,
     value: Symbol(`hi`),
-    options: {
-      custom: (value, uneval) =>
-        typeof value === `symbol`
-          ? `Symbol(${uneval(value.description)})`
-          : undefined,
-    },
+    options: { custom: customSymbol },
     source: `Symbol("hi")`,
     roundtrips: false,
   },
@@ -552,6 +612,20 @@ test.each<Case>([
     value: [1, 2, 3],
     options: { custom: customNumber },
     source: `[1.0,2.0,3.0]`,
+  },
+  {
+    name: `omit array element`,
+    value: [1, 2, 3],
+    options: { custom: value => (value === 2 ? null : undefined) },
+    source: `[1,,3]`,
+    roundtrips: false,
+  },
+  {
+    name: `omit trailing array element`,
+    value: [1, 2, 3],
+    options: { custom: value => (value === 3 ? null : undefined) },
+    source: `[1,2,,]`,
+    roundtrips: false,
   },
 
   // Object
@@ -813,10 +887,48 @@ test.each<Case>([
     source: `{a:1,b:2,c:3,"x y z":4}`,
   },
   {
+    name: `custom symbol affects object keys`,
+    value: { a: 1, [Symbol.for(`hi`)]: 2 },
+    options: { custom: customSymbol },
+    source: `{a:1,[Symbol("hi")]:2}`,
+    roundtrips: false,
+  },
+  {
     name: `custom value affects object values`,
     value: { a: 1, b: 2, c: 3 },
     options: { custom: customNumber },
     source: `{a:1.0,b:2.0,c:3.0}`,
+  },
+  {
+    name: `omit object property value`,
+    value: { a: 1, b: 2, c: 3 },
+    options: { custom: value => (value === 2 ? null : undefined) },
+    source: `{a:1,c:3}`,
+    roundtrips: false,
+  },
+  {
+    name: `omit object from array`,
+    value: [1, { a: 1 }, 3],
+    options: {
+      custom: value =>
+        typeof value === `object` && value !== null && `a` in value
+          ? null
+          : undefined,
+    },
+    source: `[1,,3]`,
+    roundtrips: false,
+  },
+  {
+    name: `omit symbol key from object`,
+    value: (() => {
+      const sym = Symbol.for(`omitMe`)
+      return { a: 1, [sym]: 2, b: 3 }
+    })(),
+    options: {
+      custom: value => (value === Symbol.for(`omitMe`) ? null : undefined),
+    },
+    source: `{a:1,b:3}`,
+    roundtrips: false,
   },
 
   // Set
@@ -850,6 +962,13 @@ test.each<Case>([
     value: new Set([1, 2, 3]),
     options: { custom: customNumber },
     source: `new Set([1.0,2.0,3.0])`,
+  },
+  {
+    name: `omit Set member`,
+    value: new Set([1, 2, 3]),
+    options: { custom: value => (value === 2 ? null : undefined) },
+    source: `new Set([1,3])`,
+    roundtrips: false,
   },
 
   // Map
@@ -901,6 +1020,28 @@ test.each<Case>([
     ]),
     options: { custom: customNumber },
     source: `new Map([["a",1.0],["b",2.0]])`,
+  },
+  {
+    name: `omit Map value drops entry`,
+    value: new Map<unknown, unknown>([
+      [`a`, 1],
+      [`b`, 2],
+      [`c`, 3],
+    ]),
+    options: { custom: value => (value === 2 ? null : undefined) },
+    source: `new Map([["a",1],["c",3]])`,
+    roundtrips: false,
+  },
+  {
+    name: `omit Map key drops entry`,
+    value: new Map<unknown, unknown>([
+      [1, `a`],
+      [2, `b`],
+      [3, `c`],
+    ]),
+    options: { custom: value => (value === 2 ? null : undefined) },
+    source: `new Map([[1,"a"],[3,"c"]])`,
+    roundtrips: false,
   },
 
   // RegExp
@@ -1126,6 +1267,15 @@ test.each<Case>([
     options: { custom: customString },
     source: `new RegExp("\\v")`,
   },
+  {
+    name: `omit RegExp from container`,
+    value: [/test/, 1],
+    options: {
+      custom: value => (value instanceof RegExp ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
+  },
 
   // Date
   { name: `valid Date`, value: new Date(42), source: `new Date(42)` },
@@ -1146,6 +1296,15 @@ test.each<Case>([
     value: new Date(42),
     options: { custom: customNumber },
     source: `new Date(42)`,
+  },
+  {
+    name: `omit Date from container`,
+    value: [new Date(0), 1],
+    options: {
+      custom: value => (value instanceof Date ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
   },
 
   // Temporal
@@ -1393,6 +1552,15 @@ test.each<Case>([
     options: { custom: customString },
     source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
   },
+  {
+    name: `omit Temporal.Instant from container`,
+    value: [Temporal.Instant.from(`2024-12-25T00:00:00Z`), 1],
+    options: {
+      custom: value => (value instanceof Temporal.Instant ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
+  },
 
   // URL
   {
@@ -1416,6 +1584,15 @@ test.each<Case>([
     value: new URL(`https://tomeraberba.ch`),
     options: { custom: customString },
     source: `new URL("https://tomeraberba.ch/")`,
+  },
+  {
+    name: `omit URL from container`,
+    value: [new URL(`https://example.com`), 1],
+    options: {
+      custom: value => (value instanceof URL ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
   },
 
   // URLSearchParams
@@ -1461,6 +1638,15 @@ test.each<Case>([
     value: new URLSearchParams([[`a`, `b`]]),
     options: { custom: customString },
     source: `new URLSearchParams("a=b")`,
+  },
+  {
+    name: `omit URLSearchParams from container`,
+    value: [new URLSearchParams(`a=1`), 1],
+    options: {
+      custom: value => (value instanceof URLSearchParams ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
   },
 
   // ArrayBuffer
@@ -1721,6 +1907,15 @@ test.each<Case>([
     options: { custom: customNumber },
     source: `Uint8Array.of(0,0,0,0,0,1,2,3).buffer`,
   },
+  {
+    name: `omit ArrayBuffer from container`,
+    value: [new ArrayBuffer(4), 1],
+    options: {
+      custom: value => (value instanceof ArrayBuffer ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
+  },
 
   // Buffer
   {
@@ -1866,6 +2061,15 @@ test.each<Case>([
     },
     source: `Buffer.from(new Uint8Array([1,2,3]).buffer)`,
   },
+  {
+    name: `omit Buffer from container`,
+    value: [Buffer.alloc(4), 1],
+    options: {
+      custom: value => (Buffer.isBuffer(value) ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
+  },
 
   // Int8Array
   {
@@ -1938,6 +2142,30 @@ test.each<Case>([
           : undefined,
     },
     source: `new Int8Array(new Uint8Array([1,2,3]).buffer)`,
+  },
+  {
+    name: `omit TypedArray from container`,
+    value: [new Uint8Array([1, 2, 3]), 1],
+    options: {
+      custom: value =>
+        value instanceof Uint8Array && !Buffer.isBuffer(value)
+          ? null
+          : undefined,
+    },
+    source: `[,1]`,
+    roundtrips: false,
+  },
+  {
+    name: `omit ArrayBuffer cascades to TypedArray`,
+    value: (() => {
+      const buffer = new ArrayBuffer(4)
+      return [new Uint8Array(buffer), 1]
+    })(),
+    options: {
+      custom: value => (value instanceof ArrayBuffer ? null : undefined),
+    },
+    source: `[,1]`,
+    roundtrips: false,
   },
 
   // Uint8Array
@@ -3179,6 +3407,21 @@ test.each<Case>([
     })(),
     source: `((c,b=[,c],a=new Set([b]))=>(b[0]=a,c[""]=a))({})`,
   },
+  {
+    name: `custom shared object`,
+    value: (() => {
+      const object = { x: 1 }
+      return [object, object]
+    })(),
+    options: {
+      custom: value =>
+        typeof value === `object` && value !== null && !Array.isArray(value)
+          ? null
+          : undefined,
+    },
+    source: `[,,]`,
+    roundtrips: false,
+  },
 
   // Custom
   {
@@ -3304,6 +3547,12 @@ test.each<{
   { name: `function`, value: () => {} },
 ])(`uneval $name`, ({ value }) => {
   expect(() => uneval(value)).toThrowError()
+})
+
+test(`uneval omit root throws Error`, () => {
+  expect(() => uneval(42, { custom: () => null })).toThrowError(
+    `Cannot omit root`,
+  )
 })
 
 const expectUnevalRoundtrips = (

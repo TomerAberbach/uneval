@@ -9,7 +9,12 @@ export const unevals = {
     // Uncomment to benchmark the built version.
     // (await import(`../dist/index.js`)).default,
     tomerUneval,
-  devalue: (value, { custom } = {}) => devalue.uneval(value, custom),
+  devalue: (value, { custom } = {}) => {
+    const replacer = custom
+      ? (value: unknown) => custom(value, uneval) ?? undefined
+      : undefined
+    return devalue.uneval(value, replacer)
+  },
   jsesc: (() => {
     const options = { wrap: true, compact: true }
     return value => jsesc(value, options)

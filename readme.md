@@ -90,6 +90,8 @@ assert.deepEqual(roundtrippedPeople, people)
 Return the following types depending on the desired behavior:
 
 - `string` to provide custom source for the input value
+- `null` to omit the input value from the output (e.g. in arrays, objects, Sets,
+  Maps). Omitting the root value throws an `Error`.
 - `undefined` (or don't return anything, which is equivalent) to use the default
   behavior for the input value
 
