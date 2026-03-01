@@ -1,3 +1,4 @@
+/* eslint-disable id-length */
 /* eslint-disable prefer-regex-literals */
 /* eslint-disable require-unicode-regexp */
 /* eslint-disable no-sparse-arrays */

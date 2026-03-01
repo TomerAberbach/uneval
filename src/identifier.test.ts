@@ -18,8 +18,8 @@ test.prop(
 
 test.prop([fc.nat()], { numRuns: 100_000 })(
   `generateIdentifier generates a valid identifier`,
-  n => {
-    const identifier = generateIdentifier(n)
+  index => {
+    const identifier = generateIdentifier(index)
     const expectedValue = 42
 
     // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call, no-new-func
