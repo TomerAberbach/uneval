@@ -8,19 +8,19 @@ expect.extend(matchers)
 
 function strictPlainObjectEqualityTester(
   this: ThisParameterType<Tester>,
-  a: unknown,
-  b: unknown,
+  value1: unknown,
+  value2: unknown,
 ): boolean | undefined {
-  if (!isPlainObject(a) || !isPlainObject(b)) {
+  if (!isPlainObject(value1) || !isPlainObject(value2)) {
     return undefined
   }
 
-  if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) {
+  if (Object.getPrototypeOf(value1) !== Object.getPrototypeOf(value2)) {
     return false
   }
 
-  const keysA = Reflect.ownKeys(a)
-  const keysB = Reflect.ownKeys(b)
+  const keysA = Reflect.ownKeys(value1)
+  const keysB = Reflect.ownKeys(value2)
   if (keysA.length !== keysB.length) {
     return false
   }
@@ -30,8 +30,8 @@ function strictPlainObjectEqualityTester(
       return false
     }
 
-    const descriptorA = Object.getOwnPropertyDescriptor(a, keysA[i]!)!
-    const descriptorB = Object.getOwnPropertyDescriptor(b, keysB[i]!)!
+    const descriptorA = Object.getOwnPropertyDescriptor(value1, keysA[i]!)!
+    const descriptorB = Object.getOwnPropertyDescriptor(value2, keysB[i]!)!
 
     for (const key of DESCRIPTOR_KEYS) {
       if (key in descriptorA !== key in descriptorB) {
@@ -49,26 +49,26 @@ function strictPlainObjectEqualityTester(
 
 function strictSetEqualityTester(
   this: ThisParameterType<Tester>,
-  a: unknown,
-  b: unknown,
+  value1: unknown,
+  value2: unknown,
 ): boolean | undefined {
-  if (!(a instanceof Set) || !(b instanceof Set)) {
+  if (!(value1 instanceof Set) || !(value2 instanceof Set)) {
     return undefined
   }
 
-  return this.equals([...a], [...b])
+  return this.equals([...value1], [...value2])
 }
 
 function strictMapEqualityTester(
   this: ThisParameterType<Tester>,
-  a: unknown,
-  b: unknown,
+  value1: unknown,
+  value2: unknown,
 ): boolean | undefined {
-  if (!(a instanceof Map) || !(b instanceof Map)) {
+  if (!(value1 instanceof Map) || !(value2 instanceof Map)) {
     return undefined
   }
 
-  return this.equals([...a], [...b])
+  return this.equals([...value1], [...value2])
 }
 
 const isPlainObject = (value: unknown): value is object => {
@@ -90,29 +90,29 @@ const DESCRIPTOR_KEYS = [
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer
 const strictArrayBufferEqualityTester = (
-  a: unknown,
-  b: unknown,
+  value1: unknown,
+  value2: unknown,
 ): boolean | undefined => {
-  if (!(a instanceof ArrayBuffer) || !(b instanceof ArrayBuffer)) {
+  if (!(value1 instanceof ArrayBuffer) || !(value2 instanceof ArrayBuffer)) {
     // Defer to other equality testers.
     return undefined
   }
 
   if (
-    a.byteLength !== b.byteLength ||
-    a.maxByteLength !== b.maxByteLength ||
-    a.resizable !== b.resizable ||
-    a.detached !== b.detached
+    value1.byteLength !== value2.byteLength ||
+    value1.maxByteLength !== value2.maxByteLength ||
+    value1.resizable !== value2.resizable ||
+    value1.detached !== value2.detached
   ) {
     return false
   }
 
-  if (a.detached) {
+  if (value1.detached) {
     return true
   }
 
-  const viewA = new Uint8Array(a)
-  const viewB = new Uint8Array(b)
+  const viewA = new Uint8Array(value1)
+  const viewB = new Uint8Array(value2)
   for (let i = 0; i < viewA.length; i++) {
     if (viewA[i] !== viewB[i]) {
       return false
@@ -124,50 +124,50 @@ const strictArrayBufferEqualityTester = (
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray
 const strictTypedArrayEqualityTester = (
-  a: unknown,
-  b: unknown,
+  value1: unknown,
+  value2: unknown,
 ): boolean | undefined => {
-  if (!(a instanceof TypedArray) || !(b instanceof TypedArray)) {
+  if (!(value1 instanceof TypedArray) || !(value2 instanceof TypedArray)) {
     // Defer to other equality testers.
     return undefined
   }
 
   if (
-    a.constructor !== b.constructor ||
-    a.length !== b.length ||
-    a.byteLength !== b.byteLength ||
-    a.byteOffset !== b.byteOffset
+    value1.constructor !== value2.constructor ||
+    value1.length !== value2.length ||
+    value1.byteLength !== value2.byteLength ||
+    value1.byteOffset !== value2.byteOffset
   ) {
     return false
   }
 
-  return strictArrayBufferEqualityTester(a.buffer, b.buffer)
+  return strictArrayBufferEqualityTester(value1.buffer, value2.buffer)
 }
 
 // https://nodejs.org/api/buffer.html
 const strictBufferEqualityTester = (
-  a: unknown,
-  b: unknown,
+  value1: unknown,
+  value2: unknown,
 ): boolean | undefined => {
-  if (!Buffer.isBuffer(a) || !Buffer.isBuffer(b)) {
+  if (!Buffer.isBuffer(value1) || !Buffer.isBuffer(value2)) {
     // Defer to other equality testers.
     return undefined
   }
 
   if (
-    a.length !== b.length ||
-    a.byteLength !== b.byteLength ||
-    a.byteOffset !== b.byteOffset
+    value1.length !== value2.length ||
+    value1.byteLength !== value2.byteLength ||
+    value1.byteOffset !== value2.byteOffset
   ) {
     return false
   }
 
-  if (strictArrayBufferEqualityTester(a.buffer, b.buffer) === false) {
+  if (strictArrayBufferEqualityTester(value1.buffer, value2.buffer) === false) {
     return false
   }
 
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
+  for (let i = 0; i < value1.length; i++) {
+    if (value1[i] !== value2[i]) {
       return false
     }
   }

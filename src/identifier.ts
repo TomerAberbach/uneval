@@ -1,12 +1,12 @@
-/** Returns a unique valid JS identifier for the given {@link n}. */
-export const generateIdentifier = (n: number): string => {
+/** Returns a unique valid JS identifier for the given {@link index}. */
+export const generateIdentifier = (index: number): string => {
   let identifier = ``
   do {
-    identifier = IDENTIFIER_CHARS[n % IDENTIFIER_CHARS.length]! + identifier
+    identifier = IDENTIFIER_CHARS[index % IDENTIFIER_CHARS.length]! + identifier
     // For smaller bundle size.
     // eslint-disable-next-line unicorn/prefer-math-trunc
-    n = ~~(n / IDENTIFIER_CHARS.length) - 1
-  } while (n >= 0)
+    index = ~~(index / IDENTIFIER_CHARS.length) - 1
+  } while (index >= 0)
 
   if (identifier.length > 1) {
     // Any identifiers with 2 or more characters could clash with reserved
