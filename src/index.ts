@@ -38,8 +38,8 @@ type State = {
    */
   _bindings: Map<object, Binding>
 
-  /** A map from value to user provided custom source. */
-  _customSources: Map<unknown, string>
+  /** A map from value to user provided custom source, or `null` for omitted. */
+  _customSources: Map<unknown, string | null>
 
   /**
    * Parents objects that have already been visited above the current object
@@ -66,6 +66,8 @@ export type UnevalOptions = {
    *
    * Return the following types depending on the desired behavior:
    * - `string` to provide a custom uneval result for {@link value}
+   * - `null` to omit {@link value} from the output (e.g. in arrays, objects,
+   *   Sets, Maps). Omitting the root value throws an `Error`.
    * - `undefined` (or don't return anything, which is equivalent) to use the
    *   default behavior for {@link value}
    *
@@ -78,7 +80,7 @@ export type UnevalOptions = {
   custom?: (
     value: unknown,
     uneval: (value: unknown) => string,
-  ) => string | undefined
+  ) => string | null | undefined
 }
 
 // TODO(#17): Support ignoring unsupported things (like functions and symbols).
@@ -104,6 +106,10 @@ export type UnevalOptions = {
 const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   const state = createState(value, custom)
   const result = unevalInternal(value, state)
+  if (result === undefined) {
+    throw new Error(`Cannot omit root`)
+  }
+
   if (!state._bindings.size) {
     // If no bindings were created, then it's impossible for the returned source
     // to reference one, so it must be a string.
@@ -171,7 +177,7 @@ const createState = (
   custom: UnevalOptions[`custom`],
 ): State => {
   const bindings = new Map<object, Binding>()
-  const customSources = new Map<unknown, string>()
+  const customSources = new Map<unknown, string | null>()
 
   const ensureBinding = (value: object) => {
     if (!bindings.has(value)) {
@@ -193,26 +199,29 @@ const createState = (
    * it has any custom source.
    */
   const computeCustomSource = custom
-    ? (value: unknown): boolean => {
-        if (customSources.has(value)) {
-          return true
+    ? (value: unknown): string | null | undefined => {
+        let source = customSources.get(value)
+        if (source !== undefined) {
+          return source
         }
 
-        const source = custom(value, value => uneval(value, { custom }))
-        if (source == null) {
-          return false
+        source = custom(value, value => uneval(value, { custom }))
+        if (source !== undefined) {
+          customSources.set(value, source)
         }
 
-        customSources.set(value, source)
-        return true
+        return source
       }
-    : () => false
+    : () => undefined
 
   const traverse = (value: unknown, parent?: object) => {
-    // Note that we purposefully do not traverse functions here because we don't
-    // support them natively.
+    if (computeCustomSource(value) === null) {
+      return
+    }
+
     if (!value || typeof value != `object`) {
-      computeCustomSource(value)
+      // Note that we purposefully do not traverse functions here because we
+      // don't support them natively.
       return
     }
 
@@ -237,10 +246,6 @@ const createState = (
   }
 
   const traverseObject = (value: object) => {
-    if (computeCustomSource(value)) {
-      return
-    }
-
     switch (getType(value)) {
       case `Date`:
       case `Instant`:
@@ -259,10 +264,15 @@ const createState = (
         break
       case `Boolean`:
       case `Number`:
-      case `String`:
+      case `String`: {
         // Traverse the underlying unboxed value to apply `custom` to it.
-        traverse(value.valueOf())
+        const underlyingValue = value.valueOf()
+        traverse(underlyingValue)
+        if (customSources.get(underlyingValue) === null) {
+          customSources.set(value, null)
+        }
         break
+      }
       case `Array`:
       case `Set`:
         for (const item of value as Iterable<unknown>) {
@@ -318,28 +328,32 @@ const createState = (
       case `Float64Array`:
       case `BigInt64Array`:
       case `BigUint64Array`:
-        traverse(
-          (
-            value as
-              | Buffer
-              | Int8Array
-              | Uint8Array
-              | Uint8ClampedArray
-              | Int16Array
-              | Uint16Array
-              | Int32Array
-              | Uint32Array
-              | Float16Array
-              | Float32Array
-              | Float64Array
-              | BigInt64Array
-              | BigUint64Array
-          ).buffer,
-          value,
-        )
+        {
+          const typedArray = value as
+            | Buffer
+            | Int8Array
+            | Uint8Array
+            | Uint8ClampedArray
+            | Int16Array
+            | Uint16Array
+            | Int32Array
+            | Uint32Array
+            | Float16Array
+            | Float32Array
+            | Float64Array
+            | BigInt64Array
+            | BigUint64Array
+          traverse(typedArray.buffer, value)
+          if (customSources.get(typedArray.buffer) === null) {
+            customSources.set(value, null)
+          }
+        }
         break
       default: {
         for (const key of Reflect.ownKeys(value)) {
+          if (typeof key == `symbol`) {
+            traverse(key)
+          }
           const descriptor = Object.getOwnPropertyDescriptor(value, key)!
           traverse(descriptor.value as unknown, value)
           // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -399,14 +413,22 @@ const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
   return sortedBindings
 }
 
-const unevalInternal = ((value: unknown, state: State): string | null => {
-  const customSource = isObject(value)
-    ? // Don't check the custom source now because we may need to create a
-      // binding in `unevalObject`.
-      undefined
-    : state._customSources.get(value)
-  if (customSource != null) {
-    return customSource
+const unevalInternal = ((
+  value: unknown,
+  state: State,
+): string | null | undefined => {
+  // Don't check the custom source for objects now because we may need to create
+  // a binding in `unevalObject`.
+  if (!isObject(value)) {
+    const customSource = state._customSources.get(value)
+    if (customSource === null) {
+      // The user decided to omit this value.
+      return undefined
+    }
+    if (customSource !== undefined) {
+      // The user provided a custom source for this value.
+      return customSource
+    }
   }
 
   switch (typeof value) {
@@ -430,8 +452,8 @@ const unevalInternal = ((value: unknown, state: State): string | null => {
   (
     value: string | number | boolean | bigint | symbol | null | undefined,
     state: State,
-  ): string
-  (value: unknown, state: State): string | null
+  ): string | undefined
+  (value: unknown, state: State): string | null | undefined
 }
 
 const unevalBoolean = (value: boolean): string =>
@@ -574,7 +596,15 @@ const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
   }),
 )
 
-const unevalObject = (value: object, state: State): string | null => {
+const unevalObject = (
+  value: object,
+  state: State,
+): string | null | undefined => {
+  if (state._customSources.get(value) === null) {
+    // The user decided to omit this value.
+    return undefined
+  }
+
   const binding = state._bindings.get(value)
   if (!binding) {
     // This value has no binding so we can render its source inline.
@@ -612,7 +642,7 @@ const unevalObject = (value: object, state: State): string | null => {
 
 const unevalObjectInternal = (value: object, state: State): string => {
   const customSource = state._customSources.get(value)
-  if (customSource != null) {
+  if (typeof customSource == `string`) {
     return customSource
   }
 
@@ -626,15 +656,22 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `Array`: {
       const array = value as unknown[]
       const itemSources: string[] = []
+      let trailingEmptySlot = false
       for (let i = 0; i < array.length; i++) {
         if (!(i in array)) {
           itemSources.push(``)
+          trailingEmptySlot = true
           continue
         }
 
+        trailingEmptySlot = false
         const item = array[i]
         const result = unevalInternal(item, state)
-        if (result == null) {
+        if (result === undefined) {
+          // Omitted value. Render it as an empty slot.
+          itemSources.push(``)
+          trailingEmptySlot = true
+        } else if (result === null) {
           const valueName = state._bindings.get(value)!._name
           const itemName = state._bindings.get(
             // `item` must be an object if it's circular.
@@ -650,10 +687,10 @@ const unevalObjectInternal = (value: object, state: State): string => {
           itemSources.push(result)
         }
       }
-      if (!(array.length - 1 in array)) {
-        // The array is sparse and has a trailing empty slot. This requires an
-        // extra comma because otherwise the last comma is interpreted as a
-        // no-op trailing comma.
+      if (trailingEmptySlot) {
+        // The array has a trailing empty slot (either sparse input or custom
+        // omitted). This requires an extra comma because otherwise the last
+        // comma is interpreted as a no-op trailing comma.
         itemSources.push(``)
       }
       return `[${itemSources.join()}]`
@@ -721,12 +758,16 @@ const unevalObjectInternal = (value: object, state: State): string => {
         const keyResult = (
           foundCircularKey ? unevalWithoutCurrentBinding : unevalInternal
         )(key, state)
-        if (keyResult == null) {
+        if (keyResult === null) {
           foundCircularKey = true
         }
         const itemResult = (
           foundCircularKey ? unevalWithoutCurrentBinding : unevalInternal
         )(item, state)
+        if (keyResult === undefined || itemResult === undefined) {
+          // Skip the entire entry if key or value is omitted.
+          continue
+        }
 
         const keySource =
           keyResult ??
@@ -782,7 +823,11 @@ const unevalObjectInternal = (value: object, state: State): string => {
         let result = (
           foundCircular ? unevalWithoutCurrentBinding : unevalInternal
         )(item, state)
-        if (result == null) {
+        if (result === undefined) {
+          // Skip if omitted.
+          continue
+        }
+        if (result === null) {
           foundCircular = true
           result = state._bindings.get(
             // `item` must be an object if it's circular.
@@ -980,7 +1025,7 @@ const unevalTypedArray = (
   if (typedArray.some(value => !Object.is(value, zero))) {
     return `${type}.of(${Array.from<number | bigint, string>(
       typedArray,
-      value => unevalInternal(value, state),
+      value => unevalInternal(value, state)!,
     ).join()})`
   }
 
@@ -1018,8 +1063,18 @@ const unevalObjectLike = (object: object, state: State): string => {
     }
 
     const value = descriptor.value as unknown
+
+    if (typeof key == `symbol` && state._customSources.get(key) === null) {
+      // Skip properties with omitted symbol keys.
+      continue
+    }
+
     const valueResult = unevalInternal(value, state)
-    if (valueResult != null) {
+    if (valueResult === undefined) {
+      // Skip properties with omitted values.
+      continue
+    }
+    if (valueResult !== null) {
       const { _source: keySource, _isIdentifier: isIdentifier } =
         unevalObjectLiteralKey(key, state)
       entries.push({
@@ -1171,7 +1226,11 @@ const unevalDescriptorEntry = (
     }
 
     let result = unevalInternal(value, state)
-    if (result == null) {
+    if (result === undefined) {
+      // Skip properties with omitted values.
+      continue
+    }
+    if (result === null) {
       isCircular = true
       result = state._bindings.get(value as object)!._name
     }
@@ -1244,14 +1303,14 @@ const unevalObjectLiteralKey = (
   state: State,
 ): { _source: string; _isIdentifier: boolean } => {
   if (typeof key == `symbol`) {
-    return { _source: `[${unevalInternal(key, state)}]`, _isIdentifier: false }
+    return { _source: `[${unevalInternal(key, state)!}]`, _isIdentifier: false }
   }
 
   if (key == __PROTO__) {
     // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
     // property rather than setting `Object.prototype`.
     return {
-      _source: `[${unevalInternal(__PROTO__, state)}]`,
+      _source: `[${unevalInternal(__PROTO__, state)!}]`,
       _isIdentifier: false,
     }
   }
@@ -1274,7 +1333,7 @@ const unevalObjectLiteralKey = (
       // padded (e.g. `01`) and must be quoted to retain that.
       key == `${number}`
     return {
-      _source: isNumericKey ? key : unevalInternal(key, state),
+      _source: isNumericKey ? key : unevalInternal(key, state)!,
       _isIdentifier: false,
     }
   }
@@ -1283,13 +1342,13 @@ const unevalObjectLiteralKey = (
     return { _source: key, _isIdentifier: true }
   }
 
-  return { _source: unevalInternal(key, state), _isIdentifier: false }
+  return { _source: unevalInternal(key, state)!, _isIdentifier: false }
 }
 
 const unevalWithoutCurrentBinding = (
   value: unknown,
   state: State,
-): string | null => {
+): string | null | undefined => {
   const previousBinding = state._currentBinding
   state._currentBinding = undefined
   const result = unevalInternal(value, state)

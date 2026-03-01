@@ -3,10 +3,7 @@ import type { Tester } from '@vitest/expect'
 import * as matchers from 'jest-extended'
 import { expect } from 'vitest'
 
-if (typeof globalThis.Temporal === `undefined`) {
-  globalThis.Temporal = TemporalPolyfill
-}
-
+globalThis.Temporal = TemporalPolyfill
 expect.extend(matchers)
 
 function strictPlainObjectEqualityTester(
