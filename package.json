@@ -47,6 +47,8 @@
     "coverage": "vitest --coverage",
     "bench": "vitest bench",
     "build": "tsdown",
+    "generate-comparison-table": "node scripts/generate-comparison-table.ts",
+    "check-comparison-table": "node scripts/generate-comparison-table.ts --check",
     "prepublishOnly": "pnpm build"
   },
   "prettier": "@tomer/prettier-config",

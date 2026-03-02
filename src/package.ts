@@ -1,3 +1,4 @@
+import assert from 'node:assert'
 import * as devalue from 'devalue'
 import jsesc from 'jsesc'
 import serializeJavaScript from 'serialize-javascript'
@@ -5,7 +6,7 @@ import toSource from 'tosource'
 import tomerUneval from './index.ts'
 
 export const unevals = {
-  tomer:
+  '@tomer/uneval':
     // Uncomment to benchmark the built version.
     // (await import(`../dist/index.js`)).default,
     tomerUneval,
@@ -19,8 +20,8 @@ export const unevals = {
     const options = { wrap: true, compact: true }
     return value => jsesc(value, options)
   })(),
-  serializeJavaScript: value => serializeJavaScript(value),
-  toSource: (value, { custom } = {}) => {
+  'serialize-javascript': value => serializeJavaScript(value),
+  tosource: (value, { custom } = {}) => {
     const replacer = custom
       ? (value: unknown) => custom(value, uneval)
       : undefined
@@ -30,6 +31,8 @@ export const unevals = {
 } as const satisfies Record<string, typeof tomerUneval>
 
 // Change this to test out other packages.
-const uneval: typeof tomerUneval = unevals.tomer
+const packageName = process.env.UNEVAL_PACKAGE ?? `@tomer/uneval`
+assert(Object.hasOwn(unevals, packageName), packageName)
+const uneval: typeof tomerUneval = unevals[packageName as keyof typeof unevals]
 
 export default uneval
