@@ -6,13 +6,14 @@
     "email": "tomer@aberba.ch",
     "url": "https://tomeraberba.ch"
   },
-  "description": "Convert a JS value to JS source code.",
+  "description": "Convert a JS value to JS source code, like eval in reverse.",
   "keywords": [
     "eval",
     "source",
     "stringify",
     "serialize",
-    "roundtrip"
+    "roundtrip",
+    "uneval"
   ],
   "homepage": "https://github.com/TomerAberbach/uneval",
   "repository": "TomerAberbach/uneval",
