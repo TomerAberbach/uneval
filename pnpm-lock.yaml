@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@fast-check/poisoning':
+        specifier: ^0.2.3
+        version: 0.2.3
       '@fast-check/vitest':
         specifier: ^0.2.4
         version: 0.2.4(vitest@4.0.6(@types/debug@4.1.12)(@types/node@24.10.0)(jiti@2.6.1)(jsdom@28.1.0)(terser@5.46.0))
@@ -449,6 +452,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fast-check/poisoning@0.2.3':
+    resolution: {integrity: sha512-U5YauJJDbvIb84kgN0vuAhGrFtDpu7BGXbfEsfe5UQj2RkvautqnWTjAGu+uHkGatgYBgA1ey691bwDfwjEusA==}
 
   '@fast-check/vitest@0.2.4':
     resolution: {integrity: sha512-Ilcr+JAIPhb1s6FRm4qoglQYSGXXrS+zAupZeNuWAA3qHVGDA1d1Gb84Hb/+otL3GzVZjFJESg5/1SfIvrgssA==}
@@ -3300,6 +3306,8 @@ snapshots:
       levn: 0.4.1
 
   '@exodus/bytes@1.14.1': {}
+
+  '@fast-check/poisoning@0.2.3': {}
 
   '@fast-check/vitest@0.2.4(vitest@4.0.6(@types/debug@4.1.12)(@types/node@24.10.0)(jiti@2.6.1)(jsdom@28.1.0)(terser@5.46.0))':
     dependencies:

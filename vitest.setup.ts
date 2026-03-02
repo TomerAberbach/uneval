@@ -4,6 +4,7 @@ import * as matchers from 'jest-extended'
 import { expect } from 'vitest'
 
 globalThis.Temporal = TemporalPolyfill
+
 expect.extend(matchers)
 
 function strictPlainObjectEqualityTester(

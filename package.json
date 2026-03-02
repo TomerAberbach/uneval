@@ -51,6 +51,7 @@
   },
   "prettier": "@tomer/prettier-config",
   "devDependencies": {
+    "@fast-check/poisoning": "^0.2.3",
     "@fast-check/vitest": "^0.2.4",
     "@js-temporal/polyfill": "^0.5.1",
     "@rollup/plugin-terser": "^0.4.4",
