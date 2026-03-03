@@ -274,6 +274,12 @@ const createState = (
         break
       }
       case `Array`:
+        // Use `Object.keys` to avoid iterating empty slots, which are no-ops
+        // for traversal, and to safely handle huge sparse arrays without DoS.
+        for (const key of Object.keys(value)) {
+          traverse((value as Record<string, unknown>)[key], value)
+        }
+        break
       case `Set`:
         for (const item of value as Iterable<unknown>) {
           traverse(item, value)
@@ -652,49 +658,8 @@ const unevalObjectInternal = (value: object, state: State): string => {
 
   const type = getType(value)
   switch (type) {
-    // TODO(#8): Serialize extremely sparse arrays more efficiently.
-    case `Array`: {
-      const array = value as unknown[]
-      const itemSources: string[] = []
-      let trailingEmptySlot = false
-      for (let i = 0; i < array.length; i++) {
-        if (!(i in array)) {
-          itemSources.push(``)
-          trailingEmptySlot = true
-          continue
-        }
-
-        trailingEmptySlot = false
-        const item = array[i]
-        const result = unevalInternal(item, state)
-        if (result === undefined) {
-          // Omitted value. Render it as an empty slot.
-          itemSources.push(``)
-          trailingEmptySlot = true
-        } else if (result === null) {
-          const valueName = state._bindings.get(value)!._name
-          const itemName = state._bindings.get(
-            // `item` must be an object if it's circular.
-            item as object,
-          )!._name
-          state._mutations.push({
-            _source: `${valueName}[${i}]=${itemName}`,
-            // An assignment evaluates to the right-hand side.
-            _evaluatesTo: itemName,
-          })
-          itemSources.push(``)
-        } else {
-          itemSources.push(result)
-        }
-      }
-      if (trailingEmptySlot) {
-        // The array has a trailing empty slot (either sparse input or custom
-        // omitted). This requires an extra comma because otherwise the last
-        // comma is interpreted as a no-op trailing comma.
-        itemSources.push(``)
-      }
-      return `[${itemSources.join()}]`
-    }
+    case `Array`:
+      return unevalArray(value as unknown[], state)
     case `Boolean`:
     case `Number`:
     case `String`:
@@ -732,21 +697,25 @@ const unevalObjectInternal = (value: object, state: State): string => {
         source,
         LITERAL_UNSAFE_CODE_UNIT_ESCAPES,
       )
-      return source === escapedSource
-        ? // `RegExp.prototype.source` will return the escaped version of the
-          // source between the forward slashes for a literal. We can use it
-          // directly in the `RegExp` literal, but only if the `source` is safe
-          // for JS (e.g. no unescaped `\0` inline). We can't simply use
-          // `escapedSource` here because that doesn't roundtrip.
-          // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
-          // The former is `'\\0'` while the later is `'\0'`.
-          `/${source}/${flags}`
-        : newInstance(
-            type,
-            `${unevalInternal(source, state)}${
-              flags && `,${unevalInternal(flags, state)}`
-            }`,
-          )
+      return (
+        // `RegExp.prototype.source` will return the escaped version of the
+        // source between the forward slashes for a literal. We can use it
+        // directly in the `RegExp` literal, but only if the `source` is safe
+        // for JS (e.g. no unescaped `\0` inline). We can't simply use
+        // `escapedSource` here because that doesn't roundtrip.
+        // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
+        // The former is `'\\0'` while the later is `'\0'`.
+        source === escapedSource &&
+          // This protects against RCE from monkey-patched `RegExp` objects.
+          /^[a-z]*$/u.test(flags)
+          ? `/${source}/${flags}`
+          : newInstance(
+              type,
+              `${unevalInternal(source, state)}${
+                flags && `,${unevalInternal(flags, state)}`
+              }`,
+            )
+      )
     }
     case `Map`: {
       let foundCircularKey = false
@@ -960,6 +929,99 @@ const unevalObjectInternal = (value: object, state: State): string => {
   }
 }
 
+const unevalArray = (array: unknown[], state: State) => {
+  // Get own numeric index keys to check sparsity in `O(keys)` time instead of
+  // `O(length)` time, which could result in DoS.
+  const indices = Object.keys(array).flatMap(key => {
+    const index = Number(key)
+    // eslint-disable-next-line unicorn/prefer-number-properties
+    return isNaN(index) ? [] : [index]
+  })
+
+  const hasTrailingEmptySlots = !Object.hasOwn(array, array.length - 1)
+  const emptyArraySource = hasTrailingEmptySlots
+    ? // We'll have to set the length explicitly if there's no entry that
+      // implicitly grows the array to its length.
+      `Array(${array.length})`
+    : `[]`
+
+  // A comma for each sparse slot in a dense array.
+  const denseOverhead = array.length - indices.length
+  // A `${index}: ,` for each non-sparse slot in a sparse array.
+  const maxIndexLength = String(array.length).length
+  const entryOverhead = (maxIndexLength + 2) * indices.length
+  const sparseOverhead =
+    unevalObjectAssign(emptyArraySource).length + entryOverhead
+  if (sparseOverhead < denseOverhead) {
+    // The array is sparse enough that the `Object.assign` representation is
+    // likely more compact.
+    const entrySources: string[] = []
+    for (const index of indices) {
+      const item = array[index]
+      const result = unevalInternal(item, state)
+      if (result === undefined) {
+        // Omitted value. Render it as an empty slot.
+      } else if (result === null) {
+        const valueName = state._bindings.get(array)!._name
+        const itemName = state._bindings.get(item as object)!._name
+        state._mutations.push({
+          _source: `${valueName}[${index}]=${itemName}`,
+          _evaluatesTo: itemName,
+        })
+      } else {
+        entrySources.push(`${index}:${result}`)
+      }
+    }
+    const entriesSource = entrySources.join()
+    if (!entriesSource) {
+      return emptyArraySource
+    }
+    return unevalObjectAssign(`${emptyArraySource},{${entriesSource}}`)
+  }
+
+  const itemSources: string[] = []
+  let trailingEmptySlot = false
+  for (let i = 0; i < array.length; i++) {
+    if (!(i in array)) {
+      itemSources.push(``)
+      trailingEmptySlot = true
+      continue
+    }
+
+    trailingEmptySlot = false
+    const item = array[i]
+    const result = unevalInternal(item, state)
+    if (result === undefined) {
+      // Omitted value. Render it as an empty slot.
+      itemSources.push(``)
+      trailingEmptySlot = true
+    } else if (result === null) {
+      const valueName = state._bindings.get(array)!._name
+      const itemName = state._bindings.get(
+        // `item` must be an object if it's circular.
+        item as object,
+      )!._name
+      state._mutations.push({
+        _source: `${valueName}[${i}]=${itemName}`,
+        // An assignment evaluates to the right-hand side.
+        _evaluatesTo: itemName,
+      })
+      itemSources.push(``)
+    } else {
+      itemSources.push(result)
+    }
+  }
+  if (trailingEmptySlot) {
+    // The array has a trailing empty slot (either sparse input or custom
+    // omitted). This requires an extra comma because otherwise the last
+    // comma is interpreted as a no-op trailing comma.
+    itemSources.push(``)
+  }
+  return `[${itemSources.join()}]`
+}
+
+const unevalObjectAssign = (args: string) => `Object.assign(${args})`
+
 const unevalTypedArray = (
   typedArray:
     | Int8Array
@@ -977,7 +1039,7 @@ const unevalTypedArray = (
   type: string,
   zero: 0n | 0,
   state: State,
-) => {
+): string => {
   const isFloatingPoint =
     type == `Float16Array` || type == `Float32Array` || type == `Float64Array`
   const hasNonCanonicalNaN =
