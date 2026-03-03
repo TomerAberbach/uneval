@@ -5,11 +5,24 @@
 /* eslint-disable unicorn/new-for-builtins */
 /* eslint-disable no-new-wrappers */
 
-import { test } from '@fast-check/vitest'
-import { expect } from 'vitest'
+import { assertNoPoisoning, restoreGlobals } from '@fast-check/poisoning'
+import { fc, test } from '@fast-check/vitest'
+import { afterEach, expect } from 'vitest'
 import { anythingArb } from './arbs.ts'
 import type { UnevalOptions } from './index.ts'
 import uneval from './package.ts'
+
+const ignoredRootRegex = /^(?:__vitest_.*|Person)$/u
+const poisoningAfterEach = () => {
+  try {
+    assertNoPoisoning({ ignoredRootRegex })
+  } catch (error: unknown) {
+    restoreGlobals({ ignoredRootRegex })
+    throw error
+  }
+}
+fc.configureGlobal({ afterEach: poisoningAfterEach })
+afterEach(poisoningAfterEach)
 
 test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
   const source = expectUnevalRoundtrips(value)
@@ -414,6 +427,16 @@ test.each<Case>([
     source: `Object("<\\u002fsCrIpT>")`,
   },
   {
+    name: `string with closing script tag with whitespace`,
+    value: `</script   >`,
+    source: `"<\\u002fscript   >"`,
+  },
+  {
+    name: `boxed string with closing script tag with whitespace`,
+    value: new String(`</script   >`),
+    source: `Object("<\\u002fscript   >")`,
+  },
+  {
     name: `string with unpaired low surrogate`,
     value: `\uDC00`,
     source: `"\\udc00"`,
@@ -655,6 +678,11 @@ test.each<Case>([
     name: `object with string with dollar signs property`,
     value: { $a$: 2 },
     source: `{$a$:2}`,
+  },
+  {
+    name: `object with closing script tag property`,
+    value: { [`</script>`]: 2 },
+    source: `{"<\\u002fscript>":2}`,
   },
   { name: `object with zero property`, value: { 0: 2 }, source: `{0:2}` },
   {
@@ -1174,6 +1202,17 @@ test.each<Case>([
     name: `RegExp constructor with closing script tag`,
     value: new RegExp(`</script>`),
     source: `/<\\/script>/`,
+  },
+  {
+    name: `RegExp literal with closing script tag with whitespace`,
+    // eslint-disable-next-line no-regex-spaces
+    value: /<\/script   >/,
+    source: `/<\\/script   >/`,
+  },
+  {
+    name: `RegExp constructor with closing script tag with whitespace`,
+    value: new RegExp(`</script   >`),
+    source: `/<\\/script   >/`,
   },
   {
     name: `RegExp literal with unpaired low surrogate`,
