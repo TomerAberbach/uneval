@@ -21,7 +21,7 @@
 </div>
 
 <div align="center">
-  Convert a JS value to JS source code, like <code>eval</code> in reverse.
+  🪄 Convert a JS value to JS source code, like <code>eval</code> in reverse.
 </div>
 
 ## Features
