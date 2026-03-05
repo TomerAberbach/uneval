@@ -2206,6 +2206,33 @@ const cases: Record<string, Case[]> = {
       source: `(a=>(a.transfer(),a))(new ArrayBuffer(0,{maxByteLength:0}))`,
     },
     {
+      name: `polluted ArrayBuffer resizable with all zeros`,
+      value: (() => {
+        const buffer = new ArrayBuffer(4)
+        Object.defineProperty(buffer, `resizable`, { value: true })
+        Object.defineProperty(buffer, `byteLength`, { value: `alert('XSS')` })
+        Object.defineProperty(buffer, `maxByteLength`, {
+          value: `0}); alert('XSS')//`,
+        })
+        return buffer
+      })(),
+      source: `new ArrayBuffer(NaN,{maxByteLength:NaN})`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted ArrayBuffer resizable with non-zero values`,
+      value: (() => {
+        const buffer = new ArrayBuffer(8, { maxByteLength: 10 })
+        new Uint8Array(buffer).set([1, 2, 3])
+        Object.defineProperty(buffer, `maxByteLength`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return buffer
+      })(),
+      source: `(a=>(new Uint8Array(a).set([1,2,3]),a))(new ArrayBuffer(8,{maxByteLength:NaN}))`,
+      roundtrips: false,
+    },
+    {
       name: `custom ArrayBuffer`,
       value: new Uint8Array([1, 2, 3]).buffer,
       options: {
@@ -2349,6 +2376,18 @@ const cases: Record<string, Case[]> = {
       source: `Buffer.from(new ArrayBuffer(4),1)`,
     },
     {
+      name: `polluted Buffer byteOffset`,
+      value: (() => {
+        const buffer = Buffer.from(new ArrayBuffer(4), 1, 2)
+        Object.defineProperty(buffer, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return buffer
+      })(),
+      source: `Buffer.from(new ArrayBuffer(4),NaN,2)`,
+      roundtrips: false,
+    },
+    {
       name: `custom Buffer`,
       value: Buffer.from(new Uint8Array([1, 2, 3]).buffer),
       options: {
@@ -2431,6 +2470,18 @@ const cases: Record<string, Case[]> = {
         return [new Int8Array(buffer), new Int8Array(buffer)]
       })(),
       source: `(a=>[new Int8Array(a),new Int8Array(a)])(new ArrayBuffer)`,
+    },
+    {
+      name: `polluted Int8Array byteOffset`,
+      value: (() => {
+        const array = new Int8Array(new ArrayBuffer(4), 1, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Int8Array(new ArrayBuffer(4),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom Int8Array`,
@@ -2530,6 +2581,18 @@ const cases: Record<string, Case[]> = {
       source: `(a=>[new Uint8Array(a),new Uint8Array(a)])(new ArrayBuffer)`,
     },
     {
+      name: `polluted Uint8Array byteOffset`,
+      value: (() => {
+        const array = new Uint8Array(new ArrayBuffer(4), 1, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Uint8Array(new ArrayBuffer(4),NaN,2)`,
+      roundtrips: false,
+    },
+    {
       name: `custom Uint8Array`,
       value: new Uint8Array([1, 2, 3, 4]),
       options: {
@@ -2602,6 +2665,18 @@ const cases: Record<string, Case[]> = {
         return [new Uint8ClampedArray(buffer), new Uint8ClampedArray(buffer)]
       })(),
       source: `(a=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])(new ArrayBuffer)`,
+    },
+    {
+      name: `polluted Uint8ClampedArray byteOffset`,
+      value: (() => {
+        const array = new Uint8ClampedArray(new ArrayBuffer(4), 1, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Uint8ClampedArray(new ArrayBuffer(4),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom Uint8ClampedArray`,
@@ -2678,6 +2753,18 @@ const cases: Record<string, Case[]> = {
       source: `(a=>[new Int16Array(a),new Int16Array(a)])(new ArrayBuffer)`,
     },
     {
+      name: `polluted Int16Array byteOffset`,
+      value: (() => {
+        const array = new Int16Array(new ArrayBuffer(8), 2, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Int16Array(new ArrayBuffer(8),NaN,2)`,
+      roundtrips: false,
+    },
+    {
       name: `custom Int16Array`,
       value: new Int16Array([1, -2, 3, 4]),
       options: {
@@ -2750,6 +2837,18 @@ const cases: Record<string, Case[]> = {
         return [new Uint16Array(buffer), new Uint16Array(buffer)]
       })(),
       source: `(a=>[new Uint16Array(a),new Uint16Array(a)])(new ArrayBuffer)`,
+    },
+    {
+      name: `polluted Uint16Array byteOffset`,
+      value: (() => {
+        const array = new Uint16Array(new ArrayBuffer(8), 2, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Uint16Array(new ArrayBuffer(8),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom Uint16Array`,
@@ -2826,6 +2925,18 @@ const cases: Record<string, Case[]> = {
       source: `(a=>[new Int32Array(a),new Int32Array(a)])(new ArrayBuffer)`,
     },
     {
+      name: `polluted Int32Array byteOffset`,
+      value: (() => {
+        const array = new Int32Array(new ArrayBuffer(16), 4, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Int32Array(new ArrayBuffer(16),NaN,2)`,
+      roundtrips: false,
+    },
+    {
       name: `custom Int32Array`,
       value: new Int32Array([1, -2, 3, 4]),
       options: {
@@ -2900,6 +3011,18 @@ const cases: Record<string, Case[]> = {
         return [new Uint32Array(buffer), new Uint32Array(buffer)]
       })(),
       source: `(a=>[new Uint32Array(a),new Uint32Array(a)])(new ArrayBuffer)`,
+    },
+    {
+      name: `polluted Uint32Array byteOffset`,
+      value: (() => {
+        const array = new Uint32Array(new ArrayBuffer(16), 4, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Uint32Array(new ArrayBuffer(16),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom Uint32Array`,
@@ -2991,6 +3114,18 @@ const cases: Record<string, Case[]> = {
             source: `new Float16Array(Uint8Array.of(0,125).buffer)`,
           },
           {
+            name: `polluted Float16Array byteOffset`,
+            value: (() => {
+              const array = new Float16Array(new ArrayBuffer(8), 2, 2)
+              Object.defineProperty(array, `byteOffset`, {
+                value: `</script><script src='https://evil.com/hacked.js'>`,
+              })
+              return array
+            })(),
+            source: `new Float16Array(new ArrayBuffer(8),NaN,2)`,
+            roundtrips: false,
+          },
+          {
             name: `custom Float16Array`,
             value: new Float16Array([1, 2, 3]),
             options: {
@@ -3076,6 +3211,18 @@ const cases: Record<string, Case[]> = {
       name: `Float32Array from non-canonical NaN`,
       value: new Float32Array(new Uint8Array([0, 0, 255, 127]).buffer),
       source: `new Float32Array(Uint8Array.of(0,0,255,127).buffer)`,
+    },
+    {
+      name: `polluted Float32Array byteOffset`,
+      value: (() => {
+        const array = new Float32Array(new ArrayBuffer(16), 4, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Float32Array(new ArrayBuffer(16),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom Float32Array`,
@@ -3164,6 +3311,18 @@ const cases: Record<string, Case[]> = {
       source: `new Float64Array(Uint8Array.of(0,0,0,0,0,0,255,127).buffer)`,
     },
     {
+      name: `polluted Float64Array byteOffset`,
+      value: (() => {
+        const array = new Float64Array(new ArrayBuffer(32), 8, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new Float64Array(new ArrayBuffer(32),NaN,2)`,
+      roundtrips: false,
+    },
+    {
       name: `custom Float64Array`,
       value: new Float64Array([1, -2, 3.14, 4]),
       options: {
@@ -3238,6 +3397,18 @@ const cases: Record<string, Case[]> = {
         return [new BigInt64Array(buffer), new BigInt64Array(buffer)]
       })(),
       source: `(a=>[new BigInt64Array(a),new BigInt64Array(a)])(new ArrayBuffer)`,
+    },
+    {
+      name: `polluted BigInt64Array byteOffset`,
+      value: (() => {
+        const array = new BigInt64Array(new ArrayBuffer(32), 8, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new BigInt64Array(new ArrayBuffer(32),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom BigInt64Array`,
@@ -3316,6 +3487,18 @@ const cases: Record<string, Case[]> = {
         return [new BigUint64Array(buffer), new BigUint64Array(buffer)]
       })(),
       source: `(a=>[new BigUint64Array(a),new BigUint64Array(a)])(new ArrayBuffer)`,
+    },
+    {
+      name: `polluted BigUint64Array byteOffset`,
+      value: (() => {
+        const array = new BigUint64Array(new ArrayBuffer(32), 8, 2)
+        Object.defineProperty(array, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return array
+      })(),
+      source: `new BigUint64Array(new ArrayBuffer(32),NaN,2)`,
+      roundtrips: false,
     },
     {
       name: `custom BigUint64Array`,
