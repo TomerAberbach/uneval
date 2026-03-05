@@ -839,17 +839,21 @@ const unevalObjectInternal = (value: object, state: State): string => {
         return `${type}.alloc(0)`
       }
 
+      const byteOffset = +buffer.byteOffset
+      const byteLength = +buffer.byteLength
       return `${type}.from(${unevalInternal(arrayBuffer, state)!}${
-        buffer.byteOffset + buffer.byteLength == arrayBuffer.byteLength
-          ? buffer.byteOffset > 0
-            ? `,${buffer.byteOffset}`
+        byteOffset + byteLength == arrayBuffer.byteLength
+          ? byteOffset > 0
+            ? `,${byteOffset}`
             : ``
-          : `,${buffer.byteOffset},${buffer.byteLength}`
+          : `,${byteOffset},${byteLength}`
       })`
     }
     case `ArrayBuffer`: {
       const arrayBuffer = value as ArrayBuffer
-      const { detached, resizable, byteLength, maxByteLength } = arrayBuffer
+      let { detached, resizable, byteLength, maxByteLength } = arrayBuffer
+      byteLength = +byteLength
+      maxByteLength = +maxByteLength
 
       if (detached) {
         const valueName = state._bindings.get(value)!._name
@@ -1070,14 +1074,15 @@ const unevalTypedArray = (
   ) {
     const bufferSource = unevalInternal(arrayBuffer, state)!
 
+    const byteOffset = +typedArray.byteOffset
     return newInstance(
       type,
       `${bufferSource}${
-        typedArray.byteOffset + typedArray.byteLength == arrayBuffer.byteLength
-          ? typedArray.byteOffset > 0
-            ? `,${typedArray.byteOffset}`
+        byteOffset + typedArray.byteLength == arrayBuffer.byteLength
+          ? byteOffset > 0
+            ? `,${byteOffset}`
             : ``
-          : `,${typedArray.byteOffset},${
+          : `,${byteOffset},${
               typedArray.byteLength / typedArray.BYTES_PER_ELEMENT
             }`
       }`,
