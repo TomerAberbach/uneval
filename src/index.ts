@@ -1,4 +1,5 @@
 // For smaller bundle size.
+/* eslint-disable unicorn/prefer-number-properties */
 /* eslint-disable eqeqeq */
 
 import { generateIdentifier } from './identifier.ts'
@@ -83,7 +84,6 @@ export type UnevalOptions = {
   ) => string | null | undefined
 }
 
-// TODO(#17): Support ignoring unsupported things (like functions and symbols).
 // TODO(#51): Support arbitrary properties on random types (e.g. Arrays, etc.)
 /**
  * Converts the given {@link value} to JavaScript source code.
@@ -91,7 +91,7 @@ export type UnevalOptions = {
  * @example
  * ```js
  * import assert from 'node:assert'
- * import uneval from 'uneval'
+ * import uneval from '@tomer/uneval'
  *
  * const object = { message: `hello world` }
  *
@@ -101,13 +101,23 @@ export type UnevalOptions = {
  *
  * const roundtrippedObject = (0, eval)(`(${source})`)
  * assert.deepEqual(roundtrippedObject, object)
+ *
+ * const circularObject = {}
+ * circularObject.self = circularObject
+ *
+ * const circularSource = uneval(circularObject)
+ * console.log(circularSource)
+ * //=> (a=>a.self=a)({})
+ *
+ * const roundtrippedCircularObject = (0, eval)(`(${circularSource})`)
+ * assert.deepEqual(roundtrippedCircularObject, circularObject)
  * ```
  */
 const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   const state = createState(value, custom)
   const result = unevalInternal(value, state)
   if (result === undefined) {
-    throw new Error(`Cannot omit root`)
+    throw new Error(`Root omitted`)
   }
 
   if (!state._bindings.size) {
@@ -194,29 +204,18 @@ const createState = (
   const PARENT = 2
   const seenLocation = new Map<object, typeof SOMEWHERE | typeof PARENT>()
 
-  /**
-   * Computes the custom source for the given {@link value} and returns whether
-   * it has any custom source.
-   */
-  const computeCustomSource = custom
-    ? (value: unknown): string | null | undefined => {
-        let source = customSources.get(value)
-        if (source !== undefined) {
-          return source
-        }
-
+  const traverse = (value: unknown, parent?: object) => {
+    if (custom) {
+      let source = customSources.get(value)
+      if (source === undefined) {
         source = custom(value, value => uneval(value, { custom }))
         if (source !== undefined) {
           customSources.set(value, source)
         }
-
-        return source
       }
-    : () => undefined
-
-  const traverse = (value: unknown, parent?: object) => {
-    if (computeCustomSource(value) === null) {
-      return
+      if (source === null) {
+        return
+      }
     }
 
     if (!value || typeof value != `object`) {
@@ -246,6 +245,7 @@ const createState = (
   }
 
   const traverseObject = (value: object) => {
+    // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (getType(value)) {
       case `Date`:
       case `Instant`:
@@ -281,7 +281,7 @@ const createState = (
         }
         break
       case `Set`:
-        for (const item of value as Iterable<unknown>) {
+        for (const item of value as Set<unknown>) {
           traverse(item, value)
         }
         break
@@ -304,7 +304,7 @@ const createState = (
           }
         }
         break
-      // TODO(#42): Support TypedArrays and Buffers containing detached ArrayBuffers.
+      // TODO(#42): Support TypedArrays containing detached ArrayBuffers.
       case `ArrayBuffer`: {
         const arrayBuffer = value as ArrayBuffer
         if (
@@ -333,28 +333,27 @@ const createState = (
       case `Float32Array`:
       case `Float64Array`:
       case `BigInt64Array`:
-      case `BigUint64Array`:
-        {
-          const typedArray = value as
-            | Buffer
-            | Int8Array
-            | Uint8Array
-            | Uint8ClampedArray
-            | Int16Array
-            | Uint16Array
-            | Int32Array
-            | Uint32Array
-            | Float16Array
-            | Float32Array
-            | Float64Array
-            | BigInt64Array
-            | BigUint64Array
-          traverse(typedArray.buffer, value)
-          if (customSources.get(typedArray.buffer) === null) {
-            customSources.set(value, null)
-          }
+      case `BigUint64Array`: {
+        const { buffer } = value as
+          | Buffer
+          | Int8Array
+          | Uint8Array
+          | Uint8ClampedArray
+          | Int16Array
+          | Uint16Array
+          | Int32Array
+          | Uint32Array
+          | Float16Array
+          | Float32Array
+          | Float64Array
+          | BigInt64Array
+          | BigUint64Array
+        traverse(buffer, value)
+        if (customSources.get(buffer) === null) {
+          customSources.set(value, null)
         }
         break
+      }
       default: {
         for (const key of Reflect.ownKeys(value)) {
           if (typeof key == `symbol`) {
@@ -624,12 +623,10 @@ const unevalObject = (
     return null
   }
 
-  if (state._currentBinding) {
-    // Register the current binding we're rendering as dependent on this value's
-    // binding (we return the binding name below) so that we can topologically
-    // sort the bindings later.
-    state._currentBinding._dependencies.add(value)
-  }
+  // Register the current binding we're rendering as dependent on this value's
+  // binding (we return the binding name below) so that we can topologically
+  // sort the bindings later.
+  state._currentBinding?._dependencies.add(value)
 
   if (!binding._source) {
     const previousBinding = state._currentBinding
@@ -657,6 +654,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
   }
 
   const type = getType(value)
+  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
   switch (type) {
     case `Array`:
       return unevalArray(value as unknown[], state)
@@ -665,7 +663,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `String`:
       return `Object(${unevalInternal(value.valueOf(), state)})`
     case `Date`:
-      return newInstance(type, unevalInternal((value as Date).valueOf(), state))
+      return newInstance(type, unevalInternal(+value, state))
     case `Instant`:
     case `PlainDate`:
     case `PlainTime`:
@@ -683,14 +681,15 @@ const unevalObjectInternal = (value: object, state: State): string => {
       // objects because `Temporal.ZonedDateTime.from(zonedDateTime.toString())`
       // does not always roundtrip:
       // https://github.com/tc39/proposal-temporal/pull/3014#issuecomment-3856086253
-      const { epochNanoseconds, timeZoneId } = value as Temporal.ZonedDateTime
+      const zonedDateTime = value as Temporal.ZonedDateTime
       return `new Temporal.${type}(${unevalInternal(
-        epochNanoseconds,
+        zonedDateTime.epochNanoseconds,
         state,
-      )},${unevalInternal(timeZoneId, state)})`
+      )},${unevalInternal(zonedDateTime.timeZoneId, state)})`
     }
     case `URL`:
-      return newInstance(type, unevalInternal((value as URL).href, state))
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+      return newInstance(type, unevalInternal(`${value}`, state))
     case `RegExp`: {
       const { source, flags } = value as RegExp
       const escapedSource = unevalLiteral(
@@ -705,7 +704,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
         // `escapedSource` here because that doesn't roundtrip.
         // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
         // The former is `'\\0'` while the later is `'\0'`.
-        source === escapedSource &&
+        source == escapedSource &&
           // This protects against RCE from monkey-patched `RegExp` objects.
           /^[a-z]*$/u.test(flags)
           ? `/${source}/${flags}`
@@ -720,7 +719,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `Map`: {
       let foundCircularKey = false
       const argSources: string[] = []
-      for (const [key, item] of value as Iterable<[unknown, unknown]>) {
+      for (const [key, item] of value as Map<unknown, unknown>) {
         // If we've seen a circular key, then all remaining entries will end
         // up in mutations so we uneval them without the current binding to
         // not add unnecessary dependencies to the current binding.
@@ -738,49 +737,35 @@ const unevalObjectInternal = (value: object, state: State): string => {
           continue
         }
 
-        const keySource =
-          keyResult ??
-          state._bindings.get(
-            // `key` must be an object if it's circular.
-            key as object,
-          )!._name
-        const itemSource =
-          itemResult ??
-          state._bindings.get(
-            // `item` must be an object if it's circular.
-            item as object,
-          )!._name
+        const keySource = keyResult ?? bindingName(key as object, state)
+        const itemSource = itemResult ?? bindingName(item as object, state)
 
-        if (foundCircularKey) {
+        if (
           // After and including the first circular key, we add entries via
-          // mutation to preserve iteration order.
-          const valueName = state._bindings.get(value)!._name
-          state._mutations.push({
-            _source: `${valueName}.set(${keySource},${itemSource})`,
-            // `Map.set` always returns `this`.
-            _evaluatesTo: valueName,
-          })
-          continue
-        }
-
-        if (itemResult != null) {
+          // mutation below to preserve iteration order.
+          !foundCircularKey &&
+          itemResult != null
+        ) {
           argSources.push(`[${keySource},${itemSource}]`)
           continue
         }
 
-        // If the item is circular, include the key in the constructor, but set
-        // the value later via mutation.
-        const valueName = state._bindings.get(value)!._name
+        const valueName = bindingName(value, state)
         state._mutations.push({
           _source: `${valueName}.set(${keySource},${itemSource})`,
           // `Map.set` always returns `this`.
           _evaluatesTo: valueName,
         })
-        argSources.push(`[${keySource}]`)
+        if (!foundCircularKey) {
+          // If the item is circular, but we've not seen a circular key, then
+          // include the key in the constructor, but set the value later via
+          // mutation.
+          argSources.push(`[${keySource}]`)
+        }
       }
 
       const argsSource = argSources.join()
-      return newInstance(type, argsSource ? `[${argsSource}]` : ``)
+      return newInstance(type, argsSource && `[${argsSource}]`)
     }
     case `Set`: {
       let foundCircular = false
@@ -798,10 +783,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
         }
         if (result === null) {
           foundCircular = true
-          result = state._bindings.get(
-            // `item` must be an object if it's circular.
-            item as object,
-          )!._name
+          result = bindingName(item as object, state)
         }
 
         if (!foundCircular) {
@@ -811,7 +793,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
 
         // After and including the first circular value, we add set values
         // via mutation to preserve iteration order.
-        const valueName = state._bindings.get(value)!._name
+        const valueName = bindingName(value, state)
         state._mutations.push({
           _source: `${valueName}.add(${result})`,
           // `Set.add` always returns `this`.
@@ -820,7 +802,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
       }
 
       const argsSource = argSources.join()
-      return newInstance(type, argsSource ? `[${argsSource}]` : ``)
+      return newInstance(type, argsSource && `[${argsSource}]`)
     }
     case `URLSearchParams`: {
       // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
@@ -839,25 +821,16 @@ const unevalObjectInternal = (value: object, state: State): string => {
         return `${type}.alloc(0)`
       }
 
-      const byteOffset = +buffer.byteOffset
-      const byteLength = +buffer.byteLength
-      return `${type}.from(${unevalInternal(arrayBuffer, state)!}${
-        byteOffset + byteLength == arrayBuffer.byteLength
-          ? byteOffset > 0
-            ? `,${byteOffset}`
-            : ``
-          : `,${byteOffset},${byteLength}`
-      })`
+      return `${type}.from(${unevalBufferWrapperArgs(buffer, state)})`
     }
     case `ArrayBuffer`: {
       const arrayBuffer = value as ArrayBuffer
-      let { detached, resizable, byteLength, maxByteLength } = arrayBuffer
-      byteLength = +byteLength
-      maxByteLength = +maxByteLength
+      const { detached, resizable, byteLength, maxByteLength } = arrayBuffer
 
       if (detached) {
-        const valueName = state._bindings.get(value)!._name
-        state._mutations.push({ _source: `${valueName}.transfer()` })
+        state._mutations.push({
+          _source: `${bindingName(value, state)}.transfer()`,
+        })
       }
 
       let uint8Array: Uint8Array
@@ -871,7 +844,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
         return newInstance(
           type,
           resizable
-            ? `${byteLength},{maxByteLength:${maxByteLength}}`
+            ? `${+byteLength},{maxByteLength:${+maxByteLength}}`
             : byteLength > 0
               ? byteLength
               : ``,
@@ -882,15 +855,17 @@ const unevalObjectInternal = (value: object, state: State): string => {
         return `${unevalInternal(uint8Array, state)!}.buffer`
       }
 
-      const valueName = state._bindings.get(value)!._name
       const lastNonZeroIndex = uint8Array.findLastIndex(value => value != 0)
       state._mutations.push({
-        _source: `new Uint8Array(${valueName}).set([${
+        _source: `new Uint8Array(${bindingName(value, state)}).set([${
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           uint8Array.slice(firstNonZeroIndex, lastNonZeroIndex + 1)
         }]${firstNonZeroIndex > 0 ? `,${firstNonZeroIndex}` : ``})`,
       })
-      return newInstance(type, `${byteLength},{maxByteLength:${maxByteLength}}`)
+      return newInstance(
+        type,
+        `${+byteLength},{maxByteLength:${+maxByteLength}}`,
+      )
     }
     // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
     case `Int8Array`:
@@ -937,9 +912,8 @@ const unevalArray = (array: unknown[], state: State) => {
   // Get own numeric index keys to check sparsity in `O(keys)` time instead of
   // `O(length)` time, which could result in DoS.
   const indices = Object.keys(array).flatMap(key => {
-    const index = Number(key)
-    // eslint-disable-next-line unicorn/prefer-number-properties
-    return isNaN(index) ? [] : [index]
+    const index = +key
+    return isNaN(index) ? [] : index
   })
 
   const hasTrailingEmptySlots = !Object.hasOwn(array, array.length - 1)
@@ -952,7 +926,7 @@ const unevalArray = (array: unknown[], state: State) => {
   // A comma for each sparse slot in a dense array.
   const denseOverhead = array.length - indices.length
   // A `${index}: ,` for each non-sparse slot in a sparse array.
-  const maxIndexLength = String(array.length).length
+  const maxIndexLength = `${array.length}`.length
   const entryOverhead = (maxIndexLength + 2) * indices.length
   const sparseOverhead =
     unevalObjectAssign(emptyArraySource).length + entryOverhead
@@ -966,10 +940,9 @@ const unevalArray = (array: unknown[], state: State) => {
       if (result === undefined) {
         // Omitted value. Render it as an empty slot.
       } else if (result === null) {
-        const valueName = state._bindings.get(array)!._name
-        const itemName = state._bindings.get(item as object)!._name
+        const itemName = bindingName(item as object, state)
         state._mutations.push({
-          _source: `${valueName}[${index}]=${itemName}`,
+          _source: `${bindingName(array, state)}[${index}]=${itemName}`,
           _evaluatesTo: itemName,
         })
       } else {
@@ -1000,13 +973,9 @@ const unevalArray = (array: unknown[], state: State) => {
       itemSources.push(``)
       trailingEmptySlot = true
     } else if (result === null) {
-      const valueName = state._bindings.get(array)!._name
-      const itemName = state._bindings.get(
-        // `item` must be an object if it's circular.
-        item as object,
-      )!._name
+      const itemName = bindingName(item as object, state)
       state._mutations.push({
-        _source: `${valueName}[${i}]=${itemName}`,
+        _source: `${bindingName(array, state)}[${i}]=${itemName}`,
         // An assignment evaluates to the right-hand side.
         _evaluatesTo: itemName,
       })
@@ -1072,21 +1041,7 @@ const unevalTypedArray = (
     // construct from the buffer to preserve the exact NaN bit pattern.
     hasNonCanonicalNaN
   ) {
-    const bufferSource = unevalInternal(arrayBuffer, state)!
-
-    const byteOffset = +typedArray.byteOffset
-    return newInstance(
-      type,
-      `${bufferSource}${
-        byteOffset + typedArray.byteLength == arrayBuffer.byteLength
-          ? byteOffset > 0
-            ? `,${byteOffset}`
-            : ``
-          : `,${byteOffset},${
-              typedArray.byteLength / typedArray.BYTES_PER_ELEMENT
-            }`
-      }`,
-    )
+    return newInstance(type, unevalBufferWrapperArgs(typedArray, state))
   }
 
   if (typedArray.some(value => !Object.is(value, zero))) {
@@ -1100,7 +1055,7 @@ const unevalTypedArray = (
 }
 
 const isNonCanonicalNaN = (value: number): boolean => {
-  if (!Number.isNaN(value)) {
+  if (!isNaN(value)) {
     return false
   }
 
@@ -1109,8 +1064,30 @@ const isNonCanonicalNaN = (value: number): boolean => {
 }
 
 const float64ScratchView = new DataView(new ArrayBuffer(8))
-float64ScratchView.setFloat64(0, Number.NaN)
+float64ScratchView.setFloat64(0, NaN)
 const CANONICAL_NAN_BITS = float64ScratchView.getBigUint64(0)
+
+const unevalBufferWrapperArgs = (
+  {
+    byteOffset,
+    byteLength,
+    buffer,
+    BYTES_PER_ELEMENT,
+  }: {
+    byteOffset: number
+    byteLength: number
+    buffer: ArrayBufferLike
+    BYTES_PER_ELEMENT: number
+  },
+  state: State,
+): string =>
+  `${unevalInternal(buffer, state)!}${
+    byteOffset + byteLength == buffer.byteLength
+      ? byteOffset > 0
+        ? `,${byteOffset}`
+        : ``
+      : `,${+byteOffset},${byteLength / BYTES_PER_ELEMENT}`
+  }`
 
 const newInstance = (type: string, args: string | number = ``) =>
   `new ${type}${args === `` ? `` : `(${args})`}`
@@ -1145,7 +1122,6 @@ const unevalObjectLike = (object: object, state: State): string => {
       const { _source: keySource, _isIdentifier: isIdentifier } =
         unevalObjectLiteralKey(key, state)
       entries.push({
-        _isCircular: false,
         _source:
           isIdentifier && keySource == valueResult
             ? keySource
@@ -1154,11 +1130,8 @@ const unevalObjectLike = (object: object, state: State): string => {
       continue
     }
 
-    const objectName = state._bindings.get(object)!._name
-    const valueName = state._bindings.get(
-      // `value` must be an object if it's circular.
-      value as object,
-    )!._name
+    const objectName = bindingName(object, state)
+    const valueName = bindingName(value as object, state)
     const mutation: Mutation =
       typeof key == `symbol`
         ? {
@@ -1170,7 +1143,7 @@ const unevalObjectLike = (object: object, state: State): string => {
           ? {
               _source: `Object.defineProperty(${objectName},"${__PROTO__}",{value:${
                 valueName
-              },writable:!0,enumerable:!0,configurable:!0})`,
+              },configurable:!0,enumerable:!0,writable:!0})`,
               // `Object.defineProperty` always returns the input object.
               _evaluatesTo: objectName,
             }
@@ -1262,7 +1235,7 @@ const isRegularDataDescriptor = (descriptor: PropertyDescriptor): boolean =>
   descriptor.writable!
 
 const unevalDescriptorEntry = (
-  key: PropertyKey,
+  key: string | symbol,
   descriptor: PropertyDescriptor,
   object: object,
   state: State,
@@ -1299,7 +1272,7 @@ const unevalDescriptorEntry = (
     }
     if (result === null) {
       isCircular = true
-      result = state._bindings.get(value as object)!._name
+      result = bindingName(value as object, state)
     }
 
     descriptorEntrySources.push(`${key}:${result}`)
@@ -1315,7 +1288,6 @@ const unevalDescriptorEntry = (
 
   if (!isCircular) {
     return {
-      _isCircular: false,
       _source: `${unevalObjectLiteralKey(key, state)._source}:${descriptorSource}`,
     }
   }
@@ -1332,7 +1304,7 @@ const unevalDescriptorEntry = (
     // later at all.
     _source: `${unevalObjectLiteralKey(key, state)._source}:{configurable:!0}`,
     _mutation: hasPlaceholder => {
-      const objectName = state._bindings.get(object)!._name
+      const objectName = bindingName(object, state)
 
       // When a placeholder with `configurable: true` was emitted, the
       // mutation must explicitly set `configurable: false` to overwrite it.
@@ -1353,36 +1325,22 @@ const unevalDescriptorEntry = (
 }
 
 type ObjectEntry = { _source: string } & (
-  | { _isCircular: false }
+  | { _isCircular?: never }
   | { _isCircular: true; _mutation: (hasPlaceholder: boolean) => Mutation }
 )
 
-const BOOLEAN_DESCRIPTOR_KEYS = [
-  `configurable`,
-  `enumerable`,
-  `writable`,
-] as const
-const GET_SET_DESCRIPTOR_KEYS = [`get`, `set`] as const
-const UNKNOWN_DESCRIPTOR_KEYS = [`value`, ...GET_SET_DESCRIPTOR_KEYS] as const
-
 const unevalObjectLiteralKey = (
-  key: PropertyKey,
+  key: string | symbol,
   state: State,
-): { _source: string; _isIdentifier: boolean } => {
-  if (typeof key == `symbol`) {
-    return { _source: `[${unevalInternal(key, state)!}]`, _isIdentifier: false }
-  }
-
-  if (key == __PROTO__) {
+): { _source: string; _isIdentifier?: boolean } => {
+  if (
+    typeof key == `symbol` ||
     // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
     // property rather than setting `Object.prototype`.
-    return {
-      _source: `[${unevalInternal(__PROTO__, state)!}]`,
-      _isIdentifier: false,
-    }
+    key == __PROTO__
+  ) {
+    return { _source: `[${unevalInternal(key, state)!}]` }
   }
-
-  key = key as string
 
   // The vast majority of keys are non-numeric so don't bother with the
   // expensive numeric key check below if the key is definitely not numeric
@@ -1399,17 +1357,14 @@ const unevalObjectLiteralKey = (
       // If the key doesn't roundtrip through numeric conversion, then it's
       // padded (e.g. `01`) and must be quoted to retain that.
       key == `${number}`
-    return {
-      _source: isNumericKey ? key : unevalInternal(key, state)!,
-      _isIdentifier: false,
-    }
+    return { _source: isNumericKey ? key : unevalInternal(key, state)! }
   }
 
   if (PROPERTY_REG_EXP.test(key)) {
     return { _source: key, _isIdentifier: true }
   }
 
-  return { _source: unevalInternal(key, state)!, _isIdentifier: false }
+  return { _source: unevalInternal(key, state)! }
 }
 
 const unevalWithoutCurrentBinding = (
@@ -1423,8 +1378,8 @@ const unevalWithoutCurrentBinding = (
   return result
 }
 
-const __PROTO__ = `__proto__`
-const PROPERTY_REG_EXP = /^[$_\p{ID_Start}][$_\p{ID_Continue}]*$/u
+const bindingName = (value: object, state: State) =>
+  state._bindings.get(value)!._name
 
 const isDefaultObjectPrototype = (value: unknown): boolean =>
   value == Object.prototype ||
@@ -1434,16 +1389,26 @@ const isDefaultObjectPrototype = (value: unknown): boolean =>
 const ownKeysString = (value: object) =>
   Object.getOwnPropertyNames(value).sort().join(`\0`)
 
-const DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING = ownKeysString(Object.prototype)
-
 const isObject = (value: unknown): value is object => {
   const type = typeof value
   return (type == `object` && !!value) || type == `function`
 }
 
-const getType = (value: object): string =>
+const getType = (value: object): string | undefined =>
   // `.constructor` returns `undefined` for objects with null prototype.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  value.constructor?.name ?? `Object`
+  value.constructor?.name
+
+const __PROTO__ = `__proto__`
+const DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING = ownKeysString(Object.prototype)
+
+const PROPERTY_REG_EXP = /^[$_\p{ID_Start}][$_\p{ID_Continue}]*$/u
+const BOOLEAN_DESCRIPTOR_KEYS = [
+  `configurable`,
+  `enumerable`,
+  `writable`,
+] as const
+const GET_SET_DESCRIPTOR_KEYS = [`get`, `set`] as const
+const UNKNOWN_DESCRIPTOR_KEYS = [`value`, ...GET_SET_DESCRIPTOR_KEYS] as const
 
 export default uneval

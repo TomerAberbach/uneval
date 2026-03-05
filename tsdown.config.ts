@@ -27,6 +27,10 @@ export default defineConfig([
         ecma: 2020,
         module: true,
         toplevel: true,
+        compress: {
+          pure_getters: true,
+          passes: 2,
+        },
         mangle: {
           properties: {
             regex: `^_[^_]+`,

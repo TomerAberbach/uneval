@@ -1565,7 +1565,7 @@ const cases: Record<string, Case[]> = {
           `</script><script src='https://evil.com/hacked.js'>`
         return value
       })(),
-      source: `new Date("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+      source: `new Date(NaN)`,
       roundtrips: false,
     },
     {
@@ -1867,7 +1867,7 @@ const cases: Record<string, Case[]> = {
         })
         return value
       })(),
-      source: `new URL("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+      source: `new URL("https://example.com/")`,
       roundtrips: false,
     },
     {
@@ -3678,7 +3678,7 @@ const cases: Record<string, Case[]> = {
           writable: true,
         })
       })(),
-      source: `(a=>Object.defineProperty(a,"__proto__",{value:a,writable:!0,enumerable:!0,configurable:!0}))({})`,
+      source: `(a=>Object.defineProperty(a,"__proto__",{value:a,configurable:!0,enumerable:!0,writable:!0}))({})`,
     },
     {
       name: `circular property preserves order with non-circular properties after`,
