@@ -638,6 +638,12 @@ const cases: Record<string, Case[]> = {
       options: { custom: customString },
       source: `Symbol.for("hi")`,
     },
+    {
+      name: `custom string with sibling string does not affect symbol`,
+      value: [Symbol.for(`hi`), `hi`],
+      options: { custom: customString },
+      source: `[Symbol.for("hi"),'hi']`,
+    },
   ],
 
   Array: [
@@ -1072,6 +1078,12 @@ const cases: Record<string, Case[]> = {
       value: { a: 1, b: 2, c: 3, 'x y z': 4 },
       options: { custom: customString },
       source: `{a:1,b:2,c:3,"x y z":4}`,
+    },
+    {
+      name: `custom string with sibling string does not affect object keys`,
+      value: [{ a: 1, b: 2, c: 3, 'x y z': 4 }, `x y z`],
+      options: { custom: customString },
+      source: `[{a:1,b:2,c:3,"x y z":4},'x y z']`,
     },
     {
       name: `custom symbol affects object keys`,
@@ -1533,10 +1545,22 @@ const cases: Record<string, Case[]> = {
       source: `/abc/`,
     },
     {
+      name: `custom string with sibling string does not affect RegExp literal`,
+      value: [/abc/, `abc`],
+      options: { custom: customString },
+      source: `[/abc/,'abc']`,
+    },
+    {
       name: `custom string does not affect RegExp constructor`,
       value: new RegExp(`\v`),
       options: { custom: customString },
       source: `new RegExp("\\v")`,
+    },
+    {
+      name: `custom string with sibling string does not affect RegExp constructor`,
+      value: [new RegExp(`\v`), `\v`],
+      options: { custom: customString },
+      source: `[new RegExp("\\v"),'\v']`,
     },
     {
       name: `omit RegExp from container`,
@@ -1586,6 +1610,12 @@ const cases: Record<string, Case[]> = {
       source: `new Date(42)`,
     },
     {
+      name: `custom number with sibling number does not affect Date`,
+      value: [new Date(42), 42],
+      options: { custom: customNumber },
+      source: `[new Date(42),42.0]`,
+    },
+    {
       name: `omit Date from container`,
       value: [new Date(0), 1],
       options: {
@@ -1627,6 +1657,12 @@ const cases: Record<string, Case[]> = {
       source: `Temporal.Instant.from("2024-12-25T00:00:00Z")`,
     },
     {
+      name: `custom string with sibling string does not affect Temporal.Instant`,
+      value: [Temporal.Instant.from(`2024-12-25T00:00:00Z`), `2024-12-25T00:00:00Z`],
+      options: { custom: customString },
+      source: `[Temporal.Instant.from("2024-12-25T00:00:00Z"),'2024-12-25T00:00:00Z']`,
+    },
+    {
       name: `Temporal.PlainDate`,
       value: Temporal.PlainDate.from(`2024-12-25`),
       source: `Temporal.PlainDate.from("2024-12-25")`,
@@ -1651,6 +1687,12 @@ const cases: Record<string, Case[]> = {
       value: Temporal.PlainDate.from(`2024-12-25`),
       options: { custom: customString },
       source: `Temporal.PlainDate.from("2024-12-25")`,
+    },
+    {
+      name: `custom string with sibling string does not affect Temporal.PlainDate`,
+      value: [Temporal.PlainDate.from(`2024-12-25`), `2024-12-25`],
+      options: { custom: customString },
+      source: `[Temporal.PlainDate.from("2024-12-25"),'2024-12-25']`,
     },
     {
       name: `Temporal.PlainTime`,
@@ -1684,6 +1726,12 @@ const cases: Record<string, Case[]> = {
       source: `Temporal.PlainTime.from("13:45:30")`,
     },
     {
+      name: `custom string with sibling string does not affect Temporal.PlainTime`,
+      value: [Temporal.PlainTime.from(`13:45:30`), `13:45:30`],
+      options: { custom: customString },
+      source: `[Temporal.PlainTime.from("13:45:30"),'13:45:30']`,
+    },
+    {
       name: `Temporal.PlainDateTime`,
       value: Temporal.PlainDateTime.from(`2024-12-25T13:45:30`),
       source: `Temporal.PlainDateTime.from("2024-12-25T13:45:30")`,
@@ -1713,6 +1761,12 @@ const cases: Record<string, Case[]> = {
       source: `Temporal.PlainDateTime.from("2024-12-25T13:45:30")`,
     },
     {
+      name: `custom string with sibling string does not affect Temporal.PlainDateTime`,
+      value: [Temporal.PlainDateTime.from(`2024-12-25T13:45:30`), `2024-12-25T13:45:30`],
+      options: { custom: customString },
+      source: `[Temporal.PlainDateTime.from("2024-12-25T13:45:30"),'2024-12-25T13:45:30']`,
+    },
+    {
       name: `Temporal.PlainYearMonth`,
       value: Temporal.PlainYearMonth.from(`2024-12`),
       source: `Temporal.PlainYearMonth.from("2024-12")`,
@@ -1738,6 +1792,12 @@ const cases: Record<string, Case[]> = {
       source: `Temporal.PlainYearMonth.from("2024-12")`,
     },
     {
+      name: `custom string with sibling string does not affect Temporal.PlainYearMonth`,
+      value: [Temporal.PlainYearMonth.from(`2024-12`), `2024-12`],
+      options: { custom: customString },
+      source: `[Temporal.PlainYearMonth.from("2024-12"),'2024-12']`,
+    },
+    {
       name: `Temporal.PlainMonthDay`,
       value: Temporal.PlainMonthDay.from(`12-25`),
       source: `Temporal.PlainMonthDay.from("12-25")`,
@@ -1761,6 +1821,12 @@ const cases: Record<string, Case[]> = {
       value: Temporal.PlainMonthDay.from(`12-25`),
       options: { custom: customString },
       source: `Temporal.PlainMonthDay.from("12-25")`,
+    },
+    {
+      name: `custom string with sibling string does not affect Temporal.PlainMonthDay`,
+      value: [Temporal.PlainMonthDay.from(`12-25`), `12-25`],
+      options: { custom: customString },
+      source: `[Temporal.PlainMonthDay.from("12-25"),'12-25']`,
     },
     {
       name: `Temporal.ZonedDateTime`,
@@ -1808,6 +1874,15 @@ const cases: Record<string, Case[]> = {
       source: `new Temporal.ZonedDateTime(1735152330000000000n,"America/New_York")`,
     },
     {
+      name: `custom string with sibling string does not affect Temporal.ZonedDateTime`,
+      value: [
+        Temporal.ZonedDateTime.from(`2024-12-25T13:45:30-05:00[America/New_York]`),
+        `America/New_York`,
+      ],
+      options: { custom: customString },
+      source: `[new Temporal.ZonedDateTime(1735152330000000000n,"America/New_York"),'America/New_York']`,
+    },
+    {
       name: `Temporal.Duration`,
       value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
       source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
@@ -1840,6 +1915,12 @@ const cases: Record<string, Case[]> = {
       value: Temporal.Duration.from(`P1Y2M3DT4H5M6S`),
       options: { custom: customString },
       source: `Temporal.Duration.from("P1Y2M3DT4H5M6S")`,
+    },
+    {
+      name: `custom string with sibling string does not affect Temporal.Duration`,
+      value: [Temporal.Duration.from(`P1Y2M3DT4H5M6S`), `P1Y2M3DT4H5M6S`],
+      options: { custom: customString },
+      source: `[Temporal.Duration.from("P1Y2M3DT4H5M6S"),'P1Y2M3DT4H5M6S']`,
     },
     {
       name: `omit Temporal.Instant from container`,
@@ -1886,6 +1967,12 @@ const cases: Record<string, Case[]> = {
       value: new URL(`https://tomeraberba.ch`),
       options: { custom: customString },
       source: `new URL("https://tomeraberba.ch/")`,
+    },
+    {
+      name: `custom string with sibling string does not affect URL`,
+      value: [new URL(`https://tomeraberba.ch`), `https://tomeraberba.ch/`],
+      options: { custom: customString },
+      source: `[new URL("https://tomeraberba.ch/"),'https://tomeraberba.ch/']`,
     },
     {
       name: `omit URL from container`,
@@ -1952,6 +2039,12 @@ const cases: Record<string, Case[]> = {
       value: new URLSearchParams([[`a`, `b`]]),
       options: { custom: customString },
       source: `new URLSearchParams("a=b")`,
+    },
+    {
+      name: `custom string with sibling string does not affect URLSearchParams`,
+      value: [new URLSearchParams([[`a`, `b`]]), `a=b`],
+      options: { custom: customString },
+      source: `[new URLSearchParams("a=b"),'a=b']`,
     },
     {
       name: `omit URLSearchParams from container`,
@@ -2250,6 +2343,12 @@ const cases: Record<string, Case[]> = {
       source: `Uint8Array.of(0,0,0,0,0,1,2,3).buffer`,
     },
     {
+      name: `custom number with sibling number does not affect ArrayBuffer`,
+      value: [new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer, 1],
+      options: { custom: customNumber },
+      source: `[Uint8Array.of(0,0,0,0,0,1,2,3).buffer,1.0]`,
+    },
+    {
       name: `omit ArrayBuffer from container`,
       value: [new ArrayBuffer(4), 1],
       options: {
@@ -2406,6 +2505,12 @@ const cases: Record<string, Case[]> = {
       source: `Buffer.from(Uint8Array.of(0,0,0,0,0,1,2,3).buffer)`,
     },
     {
+      name: `custom number with sibling number does not affect Buffer`,
+      value: [Buffer.from(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer), 1],
+      options: { custom: customNumber },
+      source: `[Buffer.from(Uint8Array.of(0,0,0,0,0,1,2,3).buffer),1.0]`,
+    },
+    {
       name: `custom ArrayBuffer affects Buffer`,
       value: Buffer.from(new Uint8Array([1, 2, 3]).buffer),
       options: {
@@ -2499,6 +2604,12 @@ const cases: Record<string, Case[]> = {
       value: new Int8Array([0, 0, 0, 0, 0, 1, 2, 3]),
       options: { custom: customNumber },
       source: `Int8Array.of(0,0,0,0,0,1,2,3)`,
+    },
+    {
+      name: `custom number with sibling number does not affect Int8Array`,
+      value: [new Int8Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Int8Array.of(0,0,0,0,0,1,2,3),1.0]`,
     },
     {
       name: `custom ArrayBuffer affects Int8Array`,
@@ -2610,6 +2721,12 @@ const cases: Record<string, Case[]> = {
       source: `Uint8Array.of(0,0,0,0,0,1,2,3)`,
     },
     {
+      name: `custom number with sibling number does not affect Uint8Array`,
+      value: [new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Uint8Array.of(0,0,0,0,0,1,2,3),1.0]`,
+    },
+    {
       name: `custom ArrayBuffer affects Uint8Array`,
       value: new Uint8Array(new Uint8Array([1, 2, 3]).buffer),
       options: {
@@ -2694,6 +2811,12 @@ const cases: Record<string, Case[]> = {
       value: new Uint8ClampedArray([0, 0, 0, 0, 0, 1, 2, 3]),
       options: { custom: customNumber },
       source: `Uint8ClampedArray.of(0,0,0,0,0,1,2,3)`,
+    },
+    {
+      name: `custom number with sibling number does not affect Uint8ClampedArray`,
+      value: [new Uint8ClampedArray([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Uint8ClampedArray.of(0,0,0,0,0,1,2,3),1.0]`,
     },
     {
       name: `custom ArrayBuffer affects Uint8ClampedArray`,
@@ -2782,6 +2905,12 @@ const cases: Record<string, Case[]> = {
       source: `Int16Array.of(0,0,0,0,0,1,2,3)`,
     },
     {
+      name: `custom number with sibling number does not affect Int16Array`,
+      value: [new Int16Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Int16Array.of(0,0,0,0,0,1,2,3),1.0]`,
+    },
+    {
       name: `custom ArrayBuffer affects Int16Array`,
       value: new Int16Array(new Uint8Array([1, 0, 2, 0, 3, 0]).buffer),
       options: {
@@ -2866,6 +2995,12 @@ const cases: Record<string, Case[]> = {
       value: new Uint16Array([0, 0, 0, 0, 0, 1, 2, 3]),
       options: { custom: customNumber },
       source: `Uint16Array.of(0,0,0,0,0,1,2,3)`,
+    },
+    {
+      name: `custom number with sibling number does not affect Uint16Array`,
+      value: [new Uint16Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Uint16Array.of(0,0,0,0,0,1,2,3),1.0]`,
     },
     {
       name: `custom ArrayBuffer affects Uint16Array`,
@@ -2954,6 +3089,12 @@ const cases: Record<string, Case[]> = {
       source: `Int32Array.of(0,0,0,0,0,1,2,3)`,
     },
     {
+      name: `custom number with sibling number does not affect Int32Array`,
+      value: [new Int32Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Int32Array.of(0,0,0,0,0,1,2,3),1.0]`,
+    },
+    {
       name: `custom ArrayBuffer affects Int32Array`,
       value: new Int32Array(
         new Uint8Array([1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]).buffer,
@@ -3040,6 +3181,12 @@ const cases: Record<string, Case[]> = {
       value: new Uint32Array([0, 0, 0, 0, 0, 1, 2, 3]),
       options: { custom: customNumber },
       source: `Uint32Array.of(0,0,0,0,0,1,2,3)`,
+    },
+    {
+      name: `custom number with sibling number does not affect Uint32Array`,
+      value: [new Uint32Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Uint32Array.of(0,0,0,0,0,1,2,3),1.0]`,
     },
     {
       name: `custom ArrayBuffer affects Uint32Array`,
@@ -3143,6 +3290,12 @@ const cases: Record<string, Case[]> = {
             source: `Float16Array.of(0,0,0,0,0,1,2,3)`,
           },
           {
+            name: `custom number with sibling number does not affect Float16Array`,
+            value: [new Float16Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+            options: { custom: customNumber },
+            source: `[Float16Array.of(0,0,0,0,0,1,2,3),1.0]`,
+          },
+          {
             name: `custom ArrayBuffer affects Float16Array`,
             value: new Float16Array(
               new Uint8Array([0, 60, 0, 64, 0, 68]).buffer,
@@ -3240,6 +3393,12 @@ const cases: Record<string, Case[]> = {
       value: new Float32Array([0, 0, 0, 0, 0, 1, 2, 3]),
       options: { custom: customNumber },
       source: `Float32Array.of(0,0,0,0,0,1,2,3)`,
+    },
+    {
+      name: `custom number with sibling number does not affect Float32Array`,
+      value: [new Float32Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Float32Array.of(0,0,0,0,0,1,2,3),1.0]`,
     },
     {
       name: `custom ArrayBuffer affects Float32Array`,
@@ -3340,6 +3499,12 @@ const cases: Record<string, Case[]> = {
       source: `Float64Array.of(0,0,0,0,0,1,2,3)`,
     },
     {
+      name: `custom number with sibling number does not affect Float64Array`,
+      value: [new Float64Array([0, 0, 0, 0, 0, 1, 2, 3]), 1],
+      options: { custom: customNumber },
+      source: `[Float64Array.of(0,0,0,0,0,1,2,3),1.0]`,
+    },
+    {
       name: `custom ArrayBuffer affects Float64Array`,
       value: new Float64Array(
         new Uint8Array([0, 0, 0, 0, 0, 0, 255, 127]).buffer,
@@ -3426,6 +3591,12 @@ const cases: Record<string, Case[]> = {
       value: new BigInt64Array([0n, 0n, 0n, 0n, 0n, 1n, 2n, 3n]),
       options: { custom: customBigInt },
       source: `BigInt64Array.of(0n,0n,0n,0n,0n,1n,2n,3n)`,
+    },
+    {
+      name: `custom bigint with sibling bigint does not affect BigInt64Array`,
+      value: [new BigInt64Array([0n, 0n, 0n, 0n, 0n, 1n, 2n, 3n]), 1n],
+      options: { custom: customBigInt },
+      source: `[BigInt64Array.of(0n,0n,0n,0n,0n,1n,2n,3n),BigInt(1)]`,
     },
     {
       name: `custom ArrayBuffer affects BigInt64Array`,
@@ -3516,6 +3687,12 @@ const cases: Record<string, Case[]> = {
       value: new BigUint64Array([0n, 0n, 0n, 0n, 0n, 1n, 2n, 3n]),
       options: { custom: customBigInt },
       source: `BigUint64Array.of(0n,0n,0n,0n,0n,1n,2n,3n)`,
+    },
+    {
+      name: `custom bigint with sibling bigint does not affect BigUint64Array`,
+      value: [new BigUint64Array([0n, 0n, 0n, 0n, 0n, 1n, 2n, 3n]), 1n],
+      options: { custom: customBigInt },
+      source: `[BigUint64Array.of(0n,0n,0n,0n,0n,1n,2n,3n),BigInt(1)]`,
     },
     {
       name: `custom ArrayBuffer affects BigUint64Array`,

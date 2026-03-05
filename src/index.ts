@@ -449,7 +449,7 @@ const unevalInternal = ((
     case `string`:
       return `"${unevalLiteral(value, STRING_CODE_UNIT_ESCAPES)}"`
     case `symbol`:
-      return unevalSymbol(value, state)
+      return unevalSymbol(value)
     case `object`:
     case `function`:
       return value == null ? `null` : unevalObject(value, state)
@@ -576,7 +576,7 @@ const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   ...LITERAL_UNSAFE_CODE_UNIT_ESCAPES,
 }
 
-const unevalSymbol = (value: symbol, state: State): string => {
+const unevalSymbol = (value: symbol): string => {
   let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
   if (key) {
     return `Symbol.${key}`
@@ -584,7 +584,7 @@ const unevalSymbol = (value: symbol, state: State): string => {
 
   key = Symbol.keyFor(value)
   if (key) {
-    return `Symbol.for(${unevalInternal(key, state)})`
+    return `Symbol.for("${unevalLiteral(key, STRING_CODE_UNIT_ESCAPES)}")`
   }
 
   throw new TypeError(`Unsupported symbol`)
@@ -665,7 +665,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `String`:
       return `Object(${unevalInternal(value.valueOf(), state)})`
     case `Date`:
-      return newInstance(type, unevalInternal((value as Date).valueOf(), state))
+      return newInstance(type, unevalNumber((value as Date).valueOf()))
     case `Instant`:
     case `PlainDate`:
     case `PlainTime`:
@@ -673,24 +673,19 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `PlainYearMonth`:
     case `PlainMonthDay`:
     case `Duration`:
-      return `Temporal.${type}.from(${unevalInternal(
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
-        `${value}`,
-        state,
-      )})`
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+      return `Temporal.${type}.from("${unevalLiteral(`${value}`, STRING_CODE_UNIT_ESCAPES)}")`
     case `ZonedDateTime`: {
       // We handle `ZonedDateTime` differently from that other `Temporal`
       // objects because `Temporal.ZonedDateTime.from(zonedDateTime.toString())`
       // does not always roundtrip:
       // https://github.com/tc39/proposal-temporal/pull/3014#issuecomment-3856086253
       const { epochNanoseconds, timeZoneId } = value as Temporal.ZonedDateTime
-      return `new Temporal.${type}(${unevalInternal(
-        epochNanoseconds,
-        state,
-      )},${unevalInternal(timeZoneId, state)})`
+      return `new Temporal.${type}(${epochNanoseconds}n,"${unevalLiteral(timeZoneId, STRING_CODE_UNIT_ESCAPES)}")`
     }
     case `URL`:
-      return newInstance(type, unevalInternal((value as URL).href, state))
+      return newInstance(type, `"${unevalLiteral((value as URL).href, STRING_CODE_UNIT_ESCAPES)}"`)
+
     case `RegExp`: {
       const { source, flags } = value as RegExp
       const escapedSource = unevalLiteral(
@@ -711,8 +706,8 @@ const unevalObjectInternal = (value: object, state: State): string => {
           ? `/${source}/${flags}`
           : newInstance(
               type,
-              `${unevalInternal(source, state)}${
-                flags && `,${unevalInternal(flags, state)}`
+              `"${unevalLiteral(source, STRING_CODE_UNIT_ESCAPES)}"${
+                flags && `,"${unevalLiteral(flags, STRING_CODE_UNIT_ESCAPES)}"`
               }`,
             )
       )
@@ -825,7 +820,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
     case `URLSearchParams`: {
       // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
       const source = `${value}`
-      return newInstance(type, source && unevalInternal(source, state))
+      return newInstance(type, source && `"${unevalLiteral(source, STRING_CODE_UNIT_ESCAPES)}"`)
     }
     case `Buffer`: {
       const buffer = value as Buffer
@@ -1092,7 +1087,7 @@ const unevalTypedArray = (
   if (typedArray.some(value => !Object.is(value, zero))) {
     return `${type}.of(${Array.from<number | bigint, string>(
       typedArray,
-      value => unevalInternal(value, state)!,
+      value => typeof value === `bigint` ? `${value}n` : unevalNumber(value as number),
     ).join()})`
   }
 
@@ -1400,7 +1395,7 @@ const unevalObjectLiteralKey = (
       // padded (e.g. `01`) and must be quoted to retain that.
       key == `${number}`
     return {
-      _source: isNumericKey ? key : unevalInternal(key, state)!,
+      _source: isNumericKey ? key : `"${unevalLiteral(key, STRING_CODE_UNIT_ESCAPES)}"`,
       _isIdentifier: false,
     }
   }
@@ -1409,7 +1404,7 @@ const unevalObjectLiteralKey = (
     return { _source: key, _isIdentifier: true }
   }
 
-  return { _source: unevalInternal(key, state)!, _isIdentifier: false }
+  return { _source: `"${unevalLiteral(key, STRING_CODE_UNIT_ESCAPES)}"`, _isIdentifier: false }
 }
 
 const unevalWithoutCurrentBinding = (
