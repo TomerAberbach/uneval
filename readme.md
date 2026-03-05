@@ -27,23 +27,23 @@
 ## Features
 
 - `undefined` and `null`
-- booleans
-- numbers (including [`-0`](https://en.wikipedia.org/wiki/Signed_zero))
-- strings and
-  [`RegExp`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp)
+- `boolean`
+- `number` (including [`-0`](https://en.wikipedia.org/wiki/Signed_zero))
+- `string` and
+  [`RegExp`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp)
   (including
   [unpaired surrogates](<https://en.wikipedia.org/wiki/UTF-16#U+D800_to_U+DFFF_(surrogates)>),
   [`</script>` escaping](#security-guarantees), etc.)
 - Boxed primitives
-- [`BigInt`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt)
+- [`BigInt`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt)
 - [Shared](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol#shared_symbols_in_the_global_symbol_registry)
   and
   [well-known](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol#well-known_symbols)
-  [`Symbol`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol)
-- [`Array`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
+  [`Symbol`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol)
+- [`Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
   (including
   [sparse arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array#array_methods_and_empty_slots))
-- [`Object`s](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+- [`Object`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
   (including
   [`null`-prototype](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object#null-prototype_objects),
   arbitrary
@@ -69,10 +69,10 @@
   [`Float16Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float16Array),
   and float arrays with
   [non-canonical NaNs](https://en.wikipedia.org/wiki/NaN#Canonical_NaN))
-- Shared and circular references (for _all_ of the above types)
-- [Custom types](#customization)
+- Shared/circular reference (for _all_ of the above types)
+- [Custom type](#customization)
 
-And more!
+[And more!](#comparison)
 
 ## Install
 
