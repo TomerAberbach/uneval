@@ -165,8 +165,9 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   // parameter values require more bytes than call arguments (due to the `=`).
   const parameterSources: string[] = []
   const argSources: string[] = []
-  let hasDependency = false
+  let hasDependency: boolean | undefined
   for (const binding of bindings) {
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     hasDependency ||= !!binding._dependencies.size
     if (hasDependency) {
       parameterSources.push(`${binding._name}=${binding._source}`)
@@ -510,14 +511,13 @@ const unevalLiteral = (
     const code = codeUnit.charCodeAt(0)
 
     // https://en.wikipedia.org/wiki/UTF-16#U+D800_to_U+DFFF_(surrogates)
-    let isUnpairedSurrogate: boolean
+    let isUnpairedSurrogate: boolean | undefined
     const isLowSurrogate = code >= 0xd800 && code <= 0xdbff
     if (isLowSurrogate) {
       const next = value.charCodeAt(i + 1)
       const isHighSurrogate = next >= 0xdc00 && next <= 0xdfff
       if (isHighSurrogate) {
         i++
-        isUnpairedSurrogate = false
       } else {
         isUnpairedSurrogate = true
       }
@@ -717,7 +717,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
       )
     }
     case `Map`: {
-      let foundCircularKey = false
+      let foundCircularKey: true | undefined
       const argSources: string[] = []
       for (const [key, item] of value as Map<unknown, unknown>) {
         // If we've seen a circular key, then all remaining entries will end
@@ -768,7 +768,7 @@ const unevalObjectInternal = (value: object, state: State): string => {
       return newInstance(type, argsSource && `[${argsSource}]`)
     }
     case `Set`: {
-      let foundCircular = false
+      let foundCircular: true | undefined
       const argSources: string[] = []
       for (const item of value as Iterable<unknown>) {
         // If we've seen a circular value, then all remaining values will end
@@ -911,12 +911,9 @@ const unevalObjectInternal = (value: object, state: State): string => {
 const unevalArray = (array: unknown[], state: State) => {
   // Get own numeric index keys to check sparsity in `O(keys)` time instead of
   // `O(length)` time, which could result in DoS.
-  const indices = Object.keys(array).flatMap(key => {
-    const index = +key
-    return isNaN(index) ? [] : index
-  })
+  const indices = Object.keys(array).flatMap(key => (isNaN(+key) ? [] : +key))
 
-  const hasTrailingEmptySlots = !Object.hasOwn(array, array.length - 1)
+  const hasTrailingEmptySlots = !(array.length - 1 in array)
   const emptyArraySource = hasTrailingEmptySlots
     ? // We'll have to set the length explicitly if there's no entry that
       // implicitly grows the array to its length.
@@ -933,57 +930,55 @@ const unevalArray = (array: unknown[], state: State) => {
   if (sparseOverhead < denseOverhead) {
     // The array is sparse enough that the `Object.assign` representation is
     // likely more compact.
-    const entrySources: string[] = []
-    for (const index of indices) {
-      const item = array[index]
-      const result = unevalInternal(item, state)
-      if (result === undefined) {
-        // Omitted value. Render it as an empty slot.
-      } else if (result === null) {
-        const itemName = bindingName(item as object, state)
-        state._mutations.push({
-          _source: `${bindingName(array, state)}[${index}]=${itemName}`,
-          _evaluatesTo: itemName,
-        })
-      } else {
-        entrySources.push(`${index}:${result}`)
-      }
-    }
-    const entriesSource = entrySources.join()
-    if (!entriesSource) {
-      return emptyArraySource
-    }
-    return unevalObjectAssign(`${emptyArraySource},{${entriesSource}}`)
+    const entriesSource = indices
+      .flatMap(index => {
+        const item = array[index]
+        const result = unevalInternal(item, state)
+        if (result) {
+          return `${index}:${result}`
+        }
+
+        if (result === null) {
+          const itemName = bindingName(item as object, state)
+          state._mutations.push({
+            _source: `${bindingName(array, state)}[${index}]=${itemName}`,
+            _evaluatesTo: itemName,
+          })
+        }
+        return []
+      })
+      .join()
+    return entriesSource
+      ? unevalObjectAssign(`${emptyArraySource},{${entriesSource}}`)
+      : emptyArraySource
   }
 
-  const itemSources: string[] = []
-  let trailingEmptySlot = false
-  for (let i = 0; i < array.length; i++) {
-    if (!(i in array)) {
-      itemSources.push(``)
+  let trailingEmptySlot: boolean | undefined
+  const itemSources = Array.from(array, (item, index) => {
+    if (!(index in array)) {
       trailingEmptySlot = true
-      continue
+      return ``
     }
 
     trailingEmptySlot = false
-    const item = array[i]
     const result = unevalInternal(item, state)
-    if (result === undefined) {
-      // Omitted value. Render it as an empty slot.
-      itemSources.push(``)
-      trailingEmptySlot = true
-    } else if (result === null) {
+    if (result) {
+      return result
+    }
+
+    if (result === null) {
       const itemName = bindingName(item as object, state)
       state._mutations.push({
-        _source: `${bindingName(array, state)}[${i}]=${itemName}`,
+        _source: `${bindingName(array, state)}[${index}]=${itemName}`,
         // An assignment evaluates to the right-hand side.
         _evaluatesTo: itemName,
       })
-      itemSources.push(``)
     } else {
-      itemSources.push(result)
+      // Omitted value. Render it as an empty slot.
+      trailingEmptySlot = true
     }
-  }
+    return ``
+  })
   if (trailingEmptySlot) {
     // The array has a trailing empty slot (either sparse input or custom
     // omitted). This requires an extra comma because otherwise the last
@@ -1242,8 +1237,8 @@ const unevalDescriptorEntry = (
 ): ObjectEntry => {
   const descriptorEntrySources: string[] = []
 
-  let isCircular = false
-  let isGetSet = false
+  let isCircular: true | undefined
+  let isGetSet: true | undefined
   for (const key of UNKNOWN_DESCRIPTOR_KEYS) {
     if (!(key in descriptor)) {
       continue
