@@ -21,4 +21,5 @@ export const generateIdentifier = (index: number): string => {
   return identifier
 }
 
-const IDENTIFIER_CHARS = `abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`
+let IDENTIFIER_CHARS = `abcdefghijklmnopqrstuvwxyz`
+IDENTIFIER_CHARS += IDENTIFIER_CHARS.toUpperCase()
