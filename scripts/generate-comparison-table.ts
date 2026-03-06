@@ -5,7 +5,7 @@ import { findPackageJSON } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { JsonTestResults } from 'vitest/reporters'
-import { unevals } from '../src/package.ts'
+import { unevals } from '../src/testing/package.ts'
 
 const writeOrCheckComparisonTable = () => {
   const packageStatsByCategory = computePackageStatsByCategory()

@@ -8,9 +8,9 @@
 import { assertNoPoisoning, restoreGlobals } from '@fast-check/poisoning'
 import { test } from '@fast-check/vitest'
 import { afterEach, describe, expect } from 'vitest'
-import { anythingArb } from './arbs.ts'
 import type { UnevalOptions } from './index.ts'
-import uneval from './package.ts'
+import { anythingArb } from './testing/arbs.ts'
+import uneval from './testing/package.ts'
 
 const ignoredRootRegex = /^(?:console|__vitest_.*|Person)$/u
 const poisoningAfterEach = () => {

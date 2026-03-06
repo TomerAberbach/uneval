@@ -3,7 +3,7 @@ import * as devalue from 'devalue'
 import jsesc from 'jsesc'
 import serializeJavaScript from 'serialize-javascript'
 import toSource from 'tosource'
-import tomerUneval from './index.ts'
+import tomerUneval from '../index.ts'
 
 export const unevals = {
   '@tomer/uneval':
