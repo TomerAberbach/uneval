@@ -3820,7 +3820,7 @@ const cases: Record<string, Case[]> = {
         obj.ref = circular
         return circular
       })(),
-      source: `((a,b)=>(a.add(a),a.add(1),b.ref=a,a.add(b)))(new Set,{})`,
+      source: `((b,a)=>(a.add(a),a.add(1),b.ref=a,a.add(b)))({},new Set)`,
     },
     {
       name: `directly circular map entry value`,
@@ -3914,7 +3914,7 @@ const cases: Record<string, Case[]> = {
         obj.map = map
         return map
       })(),
-      source: `((a,b)=>(a.set(a,"self"),a.set("middle",2),b.map=a,a.set(b,"obj"),a.set("last",3)))(new Map([["first",1]]),{})`,
+      source: `((b,a)=>(a.set(a,"self"),a.set("middle",2),b.map=a,a.set(b,"obj"),a.set("last",3)))({},new Map([["first",1]]))`,
     },
     {
       name: `map with circular key whose value has a binding`,
@@ -3925,7 +3925,7 @@ const cases: Record<string, Case[]> = {
         map.set(`x`, obj)
         return map
       })(),
-      source: `((a,b)=>(a.set(a,b),a.set("x",b)))(new Map,{})`,
+      source: `((b,a)=>(a.set(a,b),a.set("x",b)))({},new Map)`,
     },
     {
       name: `absurd circular set and object`,
