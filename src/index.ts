@@ -10,11 +10,8 @@ type Binding = {
   _name: string
   /** The value of the binding as a source string. */
   _source?: string
-  /**
-   * The binding values this binding depends on, corresponding to keys in
-   * {@link State._bindings}.
-   */
-  _dependencies: Set<object>
+  /** Whether the binding has a dependency on another binding. */
+  _hasDependency?: true
 }
 
 /** An mutation of a binding. */
@@ -55,6 +52,12 @@ type State = {
    * being rendered (e.g. directly returned).
    */
   _currentBinding?: Binding
+
+  /**
+   * Bindings in the order they were first rendered, which is naturally
+   * topological order since dependencies are always rendered before dependents.
+   */
+  _bindingOrder: Binding[]
 
   /** A list of mutations of bindings. */
   _mutations: Mutation[]
@@ -156,8 +159,6 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
     bodySource = `(${bodySource})`
   }
 
-  const bindings = [...topologicallySortBindings(state._bindings)]
-
   // We use an IIFE's lambda parameters to declare bindings because it's fewer
   // bytes than using `var` or `let`. We place the binding values in the call
   // arguments for the leading bindings that don't have dependencies and place
@@ -166,9 +167,9 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   const parameterSources: string[] = []
   const argSources: string[] = []
   let hasDependency: boolean | undefined
-  for (const binding of bindings) {
+  for (const binding of state._bindingOrder) {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    hasDependency ||= !!binding._dependencies.size
+    hasDependency ||= binding._hasDependency
     if (hasDependency) {
       parameterSources.push(`${binding._name}=${binding._source}`)
     } else {
@@ -179,7 +180,7 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
 
   const parametersSource = parameterSources.join()
   return `(${
-    bindings.length > 1 ? `(${parametersSource})` : parametersSource
+    parameterSources.length > 1 ? `(${parametersSource})` : parametersSource
   }=>${bodySource})(${argSources.join()})`
 }
 
@@ -194,7 +195,6 @@ const createState = (
     if (!bindings.has(value)) {
       bindings.set(value, {
         _name: generateIdentifier(bindings.size),
-        _dependencies: new Set(),
       })
     }
   }
@@ -385,38 +385,9 @@ const createState = (
     _bindings: bindings,
     _customSources: customSources,
     _currentParents: new Set(),
+    _bindingOrder: [],
     _mutations: [],
   }
-}
-
-/**
- * Topologically sorts the bindings so that binding dependencies appear before
- * dependent bindings.
- */
-const topologicallySortBindings = (bindings: State[`_bindings`]): Binding[] => {
-  const visited = new Set<object>()
-  const sortedBindings: Binding[] = []
-
-  const dfs = (value: object) => {
-    visited.add(value)
-
-    const binding = bindings.get(value)!
-    for (const dependency of binding._dependencies) {
-      if (!visited.has(dependency)) {
-        dfs(dependency)
-      }
-    }
-
-    sortedBindings.push(binding)
-  }
-
-  for (const [value] of bindings) {
-    if (!visited.has(value)) {
-      dfs(value)
-    }
-  }
-
-  return sortedBindings
 }
 
 const unevalInternal = ((
@@ -623,10 +594,11 @@ const unevalObject = (
     return null
   }
 
-  // Register the current binding we're rendering as dependent on this value's
-  // binding (we return the binding name below) so that we can topologically
-  // sort the bindings later.
-  state._currentBinding?._dependencies.add(value)
+  // Note the current binding as having a dependency (on the binding we're
+  // rendering below).
+  if (state._currentBinding) {
+    state._currentBinding._hasDependency = true
+  }
 
   if (!binding._source) {
     const previousBinding = state._currentBinding
@@ -638,6 +610,8 @@ const unevalObject = (
     binding._source = unevalObjectInternal(value, state)
     state._currentParents.delete(value)
     state._currentBinding = previousBinding
+
+    state._bindingOrder.push(binding)
   }
 
   return binding._name
