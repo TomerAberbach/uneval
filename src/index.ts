@@ -611,6 +611,8 @@ const unevalObject = (
     state._currentParents.delete(value)
     state._currentBinding = previousBinding
 
+    // It's important to add the binding to the order after its source is
+    // rendered so that it's rendered after its dependencies.
     state._bindingOrder.push(binding)
   }
 
