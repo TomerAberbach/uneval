@@ -1,4 +1,5 @@
 // For smaller bundle size.
+/* eslint-disable @typescript-eslint/prefer-string-starts-ends-with */
 /* eslint-disable unicorn/prefer-number-properties */
 /* eslint-disable eqeqeq */
 
@@ -152,7 +153,7 @@ const uneval = (value: unknown, { custom }: UnevalOptions = {}): string => {
   }
 
   let bodySource = bodySources.join()
-  if (bodySources.length > 1 || bodySource.startsWith(`{`)) {
+  if (bodySources.length > 1 || bodySource[0] == `{`) {
     // If the body is a comma expression, then it requires a parentheses to be a
     // syntactically correct expression return. If the body is an object, then
     // it also needs parentheses so that it isn't interpreted as a block.
@@ -246,8 +247,9 @@ const createState = (
   }
 
   const traverseObject = (value: object) => {
+    const type = getType(value)
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
-    switch (getType(value)) {
+    switch (type) {
       case `Date`:
       case `Instant`:
       case `PlainDate`:
@@ -322,40 +324,29 @@ const createState = (
         }
         break
       }
-      case `Buffer`:
-      case `Int8Array`:
-      case `Uint8Array`:
-      case `Uint8ClampedArray`:
-      case `Int16Array`:
-      case `Uint16Array`:
-      case `Int32Array`:
-      case `Uint32Array`:
-      case `Float16Array`:
-      case `Float32Array`:
-      case `Float64Array`:
-      case `BigInt64Array`:
-      case `BigUint64Array`: {
-        const { buffer } = value as
-          | Buffer
-          | Int8Array
-          | Uint8Array
-          | Uint8ClampedArray
-          | Int16Array
-          | Uint16Array
-          | Int32Array
-          | Uint32Array
-          | Float16Array
-          | Float32Array
-          | Float64Array
-          | BigInt64Array
-          | BigUint64Array
-        traverse(buffer, value)
-        if (customSources.get(buffer) === null) {
-          customSources.set(value, null)
-        }
-        break
-      }
       default: {
+        if (type != `DataView` && ArrayBuffer.isView(value)) {
+          const { buffer } = value as
+            | Buffer
+            | Int8Array
+            | Uint8Array
+            | Uint8ClampedArray
+            | Int16Array
+            | Uint16Array
+            | Int32Array
+            | Uint32Array
+            | Float16Array
+            | Float32Array
+            | Float64Array
+            | BigInt64Array
+            | BigUint64Array
+          traverse(buffer, value)
+          if (customSources.get(buffer) === null) {
+            customSources.set(value, null)
+          }
+          break
+        }
+
         for (const key of Reflect.ownKeys(value)) {
           if (typeof key == `symbol`) {
             traverse(key)
@@ -843,43 +834,12 @@ const unevalObjectInternal = (value: object, state: State): string => {
         `${+byteLength},{maxByteLength:${+maxByteLength}}`,
       )
     }
-    // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
-    case `Int8Array`:
-    case `Uint8Array`:
-    case `Uint8ClampedArray`:
-    case `Int16Array`:
-    case `Uint16Array`:
-    case `Int32Array`:
-    case `Uint32Array`:
-    case `Float16Array`:
-    case `Float32Array`:
-    case `Float64Array`:
-      return unevalTypedArray(
-        value as
-          | Int8Array
-          | Uint8Array
-          | Uint8ClampedArray
-          | Int16Array
-          | Uint16Array
-          | Int32Array
-          | Uint32Array
-          | Float16Array
-          | Float32Array
-          | Float64Array,
-        type,
-        0,
-        state,
-      )
-    // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
-    case `BigInt64Array`:
-    case `BigUint64Array`:
-      return unevalTypedArray(
-        value as BigInt64Array | BigUint64Array,
-        type,
-        0n,
-        state,
-      )
     default:
+      if (type != `DataView` && ArrayBuffer.isView(value)) {
+        // TODO(#8): Serialize extremely sparse typed arrays more efficiently.
+        return unevalTypedArray(value as TypedArray, type!, state)
+      }
+
       return unevalObjectLike(value, state)
   }
 }
@@ -966,26 +926,26 @@ const unevalArray = (array: unknown[], state: State) => {
 
 const unevalObjectAssign = (args: string) => `Object.assign(${args})`
 
+type TypedArray =
+  | Int8Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | Int16Array
+  | Uint16Array
+  | Int32Array
+  | Uint32Array
+  | Float16Array
+  | Float32Array
+  | Float64Array
+  | BigInt64Array
+  | BigUint64Array
+
 const unevalTypedArray = (
-  typedArray:
-    | Int8Array
-    | Uint8Array
-    | Uint8ClampedArray
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float16Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array,
+  typedArray: TypedArray,
   type: string,
-  zero: 0n | 0,
   state: State,
 ): string => {
-  const isFloatingPoint =
-    type == `Float16Array` || type == `Float32Array` || type == `Float64Array`
+  const isFloatingPoint = type[0] == `F`
   const hasNonCanonicalNaN =
     isFloatingPoint &&
     [...(typedArray as Float16Array | Float32Array | Float64Array)].some(
@@ -1015,6 +975,7 @@ const unevalTypedArray = (
     return newInstance(type, unevalBufferWrapperArgs(typedArray, state))
   }
 
+  const zero = type[0] == `B` ? 0n : 0
   if (typedArray.some(value => !Object.is(value, zero))) {
     return `${type}.of(${Array.from<number | bigint, string>(
       typedArray,
