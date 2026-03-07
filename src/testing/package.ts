@@ -7,8 +7,8 @@ import tomerUneval from '../index.ts'
 
 export const unevals = {
   '@tomer/uneval':
-    // Uncomment to benchmark the built version.
-    // (await import(`../dist/index.js`)).default,
+    // Uncomment to benchmark against the built version, which is faster.
+    // (await import(`../../dist/index.js`)).default,
     tomerUneval,
   devalue: (value, { custom } = {}) => {
     const replacer = custom

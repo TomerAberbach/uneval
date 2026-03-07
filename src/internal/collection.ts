@@ -6,9 +6,14 @@ import { unevalInternal } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
 export const unevalArray: Uneval<unknown[]> = (array, state) => {
-  // Get own numeric index keys to check sparsity in `O(keys)` time instead of
-  // `O(length)` time, which could result in DoS.
-  const indices = Object.keys(array).flatMap(key => (isNaN(+key) ? [] : +key))
+  const indices: number[] = []
+  const keys = state._cache.get(array)!._keys!
+  for (const key of keys) {
+    const index = +key
+    if (!isNaN(index)) {
+      indices.push(index)
+    }
+  }
 
   const hasTrailingEmptySlots = !(array.length - 1 in array)
   const emptyArraySource = hasTrailingEmptySlots
