@@ -3,7 +3,7 @@
 
 import { unevalArrayBuffer, unevalBuffer, unevalTypedArray } from './buffer.ts'
 import { unevalArray, unevalMap, unevalSet } from './collection.ts'
-import { bindingName } from './common.ts'
+import { bindingName, PROPERTY_REG_EXP } from './common.ts'
 import { unevalInternal } from './index.ts'
 import { unevalPrimitiveWrapper, unevalRegExp } from './primitive.ts'
 import { unevalDate, unevalTemporal } from './temporal.ts'
@@ -378,7 +378,6 @@ const ownKeysString = (value: object) =>
 const __PROTO__ = `__proto__`
 const DEFAULT_OBJECT_PROTOTYPE_KEYS_STRING = ownKeysString(Object.prototype)
 
-const PROPERTY_REG_EXP = /^[$_\p{ID_Start}][$_\p{ID_Continue}]*$/u
 const BOOLEAN_DESCRIPTOR_KEYS = [
   `configurable`,
   `enumerable`,

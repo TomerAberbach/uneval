@@ -6,14 +6,8 @@ export const getType = (
 ): [] | [number, string] | [undefined, string] => {
   // `.constructor` returns `undefined` for objects with null prototype.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const name: string | undefined = value.constructor?.name
-  return [
-    (TYPES as Record<string, number>)[name] ??
-      (name != `DataView` && ArrayBuffer.isView(value)
-        ? T_TYPED_ARRAY
-        : undefined),
-    name,
-  ]
+  const name = value.constructor?.name
+  return [(TYPES as Record<string, number>)[name], name]
 }
 
 export const T_PRIMITIVE_WRAPPER = 0
@@ -29,24 +23,40 @@ export const T_TEMPORAL = 9
 export const T_URL = 10
 
 const TYPES = {
-  Array: T_ARRAY,
-  ArrayBuffer: T_ARRAY_BUFFER,
   Boolean: T_PRIMITIVE_WRAPPER,
+  Number: T_PRIMITIVE_WRAPPER,
+  RegExp: T_REG_EXP,
+  String: T_PRIMITIVE_WRAPPER,
+
+  Array: T_ARRAY,
+  Set: T_SET,
+  Map: T_MAP,
+
+  ArrayBuffer: T_ARRAY_BUFFER,
+  Int8Array: T_TYPED_ARRAY,
+  Uint8Array: T_TYPED_ARRAY,
+  Uint8ClampedArray: T_TYPED_ARRAY,
+  Int16Array: T_TYPED_ARRAY,
+  Uint16Array: T_TYPED_ARRAY,
+  Int32Array: T_TYPED_ARRAY,
+  Uint32Array: T_TYPED_ARRAY,
+  Float16Array: T_TYPED_ARRAY,
+  Float32Array: T_TYPED_ARRAY,
+  Float64Array: T_TYPED_ARRAY,
+  BigInt64Array: T_TYPED_ARRAY,
+  BigUint64Array: T_TYPED_ARRAY,
   Buffer: T_BUFFER,
+
   Date: T_DATE,
   Duration: T_TEMPORAL,
   Instant: T_TEMPORAL,
-  Map: T_MAP,
-  Number: T_PRIMITIVE_WRAPPER,
   PlainDate: T_TEMPORAL,
   PlainDateTime: T_TEMPORAL,
   PlainMonthDay: T_TEMPORAL,
   PlainTime: T_TEMPORAL,
   PlainYearMonth: T_TEMPORAL,
-  RegExp: T_REG_EXP,
-  Set: T_SET,
-  String: T_PRIMITIVE_WRAPPER,
+  ZonedDateTime: T_TEMPORAL,
+
   URL: T_URL,
   URLSearchParams: T_URL,
-  ZonedDateTime: T_TEMPORAL,
 } as const
