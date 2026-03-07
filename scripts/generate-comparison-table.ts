@@ -99,8 +99,11 @@ const computePackageStatsByCategory = (): Map<string, Map<string, Stats>> => {
 const generateComparisonTable = (
   packageStatsByCategory: Map<string, Map<string, Stats>>,
 ): string => {
-  const columns = packages.map(pkg =>
-    pkg === `@tomer/uneval` ? `<code>${pkg}</code>` : packageLink(pkg),
+  const columns = packages.map(
+    pkg =>
+      `${
+        pkg === `@tomer/uneval` ? `<code>${pkg}</code>` : packageLink(pkg)
+      }<br>${packageBundleSizeBadge(pkg)}`,
   )
 
   const lineNumbers = computeLineNumbers()
@@ -207,6 +210,9 @@ const packageLink = (pkg: string): string => {
   ).version as string
   return `<a href="https://npm.im/package/${pkg}/v/${version}"><code>${escapeHtml(pkg)}@${version}</code></a>`
 }
+
+const packageBundleSizeBadge = (pkg: string): string =>
+  `<img src="https://deno.bundlejs.com/?q=${encodeURIComponent(pkg)}&badge" alt="${pkg} gzip size" />`
 
 const escapeHtml = (str: string): string =>
   str.replaceAll(`&`, `&amp;`).replaceAll(`<`, `&lt;`).replaceAll(`>`, `&gt;`)
