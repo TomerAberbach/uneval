@@ -100,10 +100,7 @@ const generateComparisonTable = (
   packageStatsByCategory: Map<string, Map<string, Stats>>,
 ): string => {
   const columns = packages.map(
-    pkg =>
-      `${
-        pkg === `@tomer/uneval` ? `<code>${pkg}</code>` : packageLink(pkg)
-      }<br>${packageBundleSizeBadge(pkg)}`,
+    pkg => `${packageLink(pkg)}<br>${packageBundleSizeBadge(pkg)}`,
   )
 
   const lineNumbers = computeLineNumbers()
@@ -174,8 +171,8 @@ const githubCodeLink = ({
 }): string =>
   `<a href="https://github.com/${
     repository
-  }/blob/main/src/index.test.ts#L${lineNumber}"><code>${escapeHtml(
-    content,
+  }/blob/main/src/index.test.ts#L${lineNumber}"><code>${noBreak(
+    escapeHtml(content),
   )}</code></a>`
 
 const computeLineNumbers = (): Map<string, number> => {
@@ -208,14 +205,26 @@ const packageLink = (pkg: string): string => {
       readFileSync(findPackageJSON(pkg, import.meta.url)!, `utf8`),
     ) as Record<string, unknown>
   ).version as string
-  return `<a href="https://npm.im/package/${pkg}/v/${version}"><code>${escapeHtml(pkg)}@${version}</code></a>`
+  return `<a href="https://npm.im/package/${pkg}/v/${version}"><code>${noBreak(
+    escapeHtml(pkg),
+  )}@${noBreak(escapeHtml(version))}</code></a>`
 }
 
 const packageBundleSizeBadge = (pkg: string): string =>
-  `<img src="https://deno.bundlejs.com/?q=${encodeURIComponent(pkg)}&badge" alt="${pkg} gzip size" />`
+  `<img src="https://deno.bundlejs.com/?q=${encodeURIComponent(pkg)}&badge" alt="${pkg} gzip size" height="17.5" />`
 
-const escapeHtml = (str: string): string =>
-  str.replaceAll(`&`, `&amp;`).replaceAll(`<`, `&lt;`).replaceAll(`>`, `&gt;`)
+const escapeHtml = (string: string): string =>
+  string
+    .replaceAll(`&`, `&amp;`)
+    .replaceAll(`<`, `&lt;`)
+    .replaceAll(`>`, `&gt;`)
+
+const noBreak = (html: string): string =>
+  html
+    .replaceAll(`-`, `&NoBreak;-&NoBreak;`)
+    .replaceAll(`/`, `&NoBreak;/&NoBreak;`)
+    .replaceAll(`.`, `&NoBreak;.&NoBreak;`)
+    .replaceAll(` `, `&nbsp;`)
 
 const emoji = (passed: number, total: number): string => {
   const percentage = passed / total
