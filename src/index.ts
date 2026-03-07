@@ -145,6 +145,7 @@ const createState = (
 ): State => {
   const bindings = new Map<object, Binding>()
   const customSources = new Map<unknown, string | null>()
+  const cache: State[`_cache`] = new Map()
 
   const ensureBinding = (value: object) => {
     if (!bindings.has(value)) {
@@ -201,11 +202,17 @@ const createState = (
   const traverseObject = (value: object) => {
     const [type] = getType(value)
     if (type == undefined) {
-      for (const key of Reflect.ownKeys(value)) {
+      const keys = Reflect.ownKeys(value)
+      const descriptors: PropertyDescriptor[] = []
+      cache.set(value, { _ownKeys: keys, _descriptors: descriptors })
+
+      for (const key of keys) {
         if (typeof key == `symbol`) {
           traverse(key)
         }
         const descriptor = Object.getOwnPropertyDescriptor(value, key)!
+        descriptors.push(descriptor)
+
         traverse(descriptor.value as unknown, value)
         // eslint-disable-next-line @typescript-eslint/unbound-method
         traverse(descriptor.get, value)
@@ -229,7 +236,9 @@ const createState = (
     } else if (type == T_ARRAY) {
       // Use `Object.keys` to avoid iterating empty slots, which are no-ops for
       // traversal, and to safely handle huge sparse arrays without DoS.
-      for (const key of Object.keys(value)) {
+      const keys = Object.keys(value)
+      cache.set(value, { _keys: keys })
+      for (const key of keys) {
         traverse((value as Record<string, unknown>)[key], value)
       }
     } else if (type == T_SET) {
@@ -285,6 +294,7 @@ const createState = (
     _currentParents: new Set(),
     _bindingOrder: [],
     _mutations: [],
+    _cache: cache,
   }
 }
 

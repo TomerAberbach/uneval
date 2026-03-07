@@ -88,13 +88,16 @@ const unevals: Uneval<any>[] = [
 ]
 
 const unevalObjectLike = (object: object, state: State): string => {
+  const cached = state._cache.get(object)!
+  const keys = cached._ownKeys!
+  const descriptors = cached._descriptors!
+
   const entries: ObjectEntry[] = []
 
-  const keys = Reflect.ownKeys(object)
   let keyIndex: number
   for (keyIndex = 0; keyIndex < keys.length; keyIndex++) {
     const key = keys[keyIndex]!
-    const descriptor = Object.getOwnPropertyDescriptor(object, key)!
+    const descriptor = descriptors[keyIndex]!
     if (!isRegularDataDescriptor(descriptor)) {
       // All properties from this index onward will be rendered via
       // `Object.defineProperties` to preserve property order.
@@ -164,7 +167,7 @@ const unevalObjectLike = (object: object, state: State): string => {
   if (firstDescriptorIndex < keys.length) {
     for (; keyIndex < keys.length; keyIndex++) {
       const key = keys[keyIndex]!
-      const descriptor = Object.getOwnPropertyDescriptor(object, key)!
+      const descriptor = descriptors[keyIndex]!
       entries.push(unevalDescriptorEntry(key, descriptor, object, state))
     }
   }

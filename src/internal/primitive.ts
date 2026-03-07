@@ -92,6 +92,11 @@ export const unevalLiteral = (
     }
   }
 
+  if (lastIndex === 0) {
+    // Avoid unnecessary slicing below for performance.
+    return value
+  }
+
   source += value.slice(lastIndex)
   return source
 }

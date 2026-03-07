@@ -55,6 +55,19 @@ export type State = {
 
   /** A list of mutations of bindings. */
   _mutations: Mutation[]
+
+  /** A cache of information queried during traversal by object. */
+  _cache: Map<
+    object,
+    {
+      /** From {@link Object.keys}. */
+      _keys?: string[]
+      /** From {@link Reflect.ownKeys}. */
+      _ownKeys?: (string | symbol)[]
+      /** From {@link Object.getOwnPropertyDescriptor}. */
+      _descriptors?: PropertyDescriptor[]
+    }
+  >
 }
 
 /** A function that unevals a value of type {@link Value}. */
