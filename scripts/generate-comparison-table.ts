@@ -100,7 +100,12 @@ const generateComparisonTable = (
   packageStatsByCategory: Map<string, Map<string, Stats>>,
 ): string => {
   const columns = packages.map(
-    pkg => `${packageLink(pkg)}<br>${packageBundleSizeBadge(pkg)}`,
+    pkg =>
+      `${
+        pkg === `@tomer/uneval`
+          ? `<code>${noBreak(pkg)}</code>`
+          : packageLink(pkg)
+      }<br>${packageBundleSizeBadge(pkg)}`,
   )
 
   const lineNumbers = computeLineNumbers()
