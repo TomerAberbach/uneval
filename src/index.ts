@@ -6,7 +6,6 @@ import { generateIdentifier } from './internal/identifier.ts'
 import { unevalInternal } from './internal/index.ts'
 import { isDefaultObjectPrototype, isObject } from './internal/object.ts'
 import {
-  ALL_TYPES,
   getType,
   T_ARRAY,
   T_ARRAY_BUFFER,
@@ -149,9 +148,7 @@ const createState = (
 
   const ensureBinding = (value: object) => {
     if (!bindings.has(value)) {
-      bindings.set(value, {
-        _name: generateIdentifier(bindings.size),
-      })
+      bindings.set(value, { _name: generateIdentifier(bindings.size) })
     }
   }
 
@@ -203,7 +200,7 @@ const createState = (
 
   const traverseObject = (value: object) => {
     const [type] = getType(value)
-    if (!ALL_TYPES.has(type)) {
+    if (type == undefined) {
       for (const key of Reflect.ownKeys(value)) {
         if (typeof key == `symbol`) {
           traverse(key)
@@ -252,8 +249,8 @@ const createState = (
           ) == PARENT &&
           isObject(key)
         ) {
-          // If the item is circular and the key is an object, then the key
-          // also needs a binding so we can reference it in mutations.
+          // If the item is circular and the key is an object, then the key also
+          // needs a binding so we can reference it in mutations.
           ensureBinding(key)
         }
       }
@@ -265,8 +262,7 @@ const createState = (
         // `.transfer()` on.
         arrayBuffer.detached ||
         // If the `ArrayBuffer` is resizable and has non-zero values, then
-        // we'll have to construct it, put it in a binding, then `.set(...)`
-        // it.
+        // we'll have to construct it, put it in a binding, then `.set(...)` it.
         (arrayBuffer.resizable &&
           new Uint8Array(arrayBuffer).some(value => value != 0))
       ) {

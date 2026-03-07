@@ -50,7 +50,3 @@ const TYPES = {
   URLSearchParams: T_URL,
   ZonedDateTime: T_TEMPORAL,
 } as const
-
-export const ALL_TYPES: ReadonlySet<unknown> = new Set(
-  Array.from({ length: 11 }, (_, i) => i),
-)
