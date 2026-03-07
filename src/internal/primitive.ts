@@ -1,7 +1,7 @@
 // For smaller bundle size.
 /* eslint-disable eqeqeq */
 
-import { newInstance } from './common.ts'
+import { newInstance, PROPERTY_REG_EXP } from './common.ts'
 import { unevalInternal } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
@@ -101,9 +101,7 @@ export const unevalLiteral = (
  * Code unit escapes for code units that are not safe to include in JS source
  * code for a literal (like a `string` or `RegExp`).
  */
-export const LITERAL_UNSAFE_CODE_UNIT_ESCAPES: Readonly<
-  Record<string, string>
-> = {
+export const UNSAFE_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '\0': `\\0`,
   '\n': `\\n`,
   '\r': `\\r`,
@@ -119,7 +117,7 @@ export const LITERAL_UNSAFE_CODE_UNIT_ESCAPES: Readonly<
 export const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '"': `\\"`,
   '\\': `\\\\`,
-  ...LITERAL_UNSAFE_CODE_UNIT_ESCAPES,
+  ...UNSAFE_CODE_UNIT_ESCAPES,
 }
 
 export const unevalSymbol = (value: symbol, state: State): string => {
@@ -143,6 +141,10 @@ const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
     if (typeof key != `string`) {
       return []
     }
+    if (!PROPERTY_REG_EXP.test(key)) {
+      // Defend against pollution attacks.
+      return []
+    }
     const value = Symbol[key as keyof typeof Symbol]
     return typeof value == `symbol` ? [[value, key]] : []
   }),
@@ -159,7 +161,7 @@ export const unevalRegExp: Uneval<RegExp> = (
   state,
   name,
 ) => {
-  const escapedSource = unevalLiteral(source, LITERAL_UNSAFE_CODE_UNIT_ESCAPES)
+  const escapedSource = unevalLiteral(source, UNSAFE_CODE_UNIT_ESCAPES)
   return (
     // `RegExp.prototype.source` will return the escaped version of the
     // source between the forward slashes for a literal. We can use it

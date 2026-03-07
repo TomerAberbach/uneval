@@ -10,7 +10,15 @@ import { test } from '@fast-check/vitest'
 import { afterEach, describe, expect } from 'vitest'
 import type { UnevalOptions } from './index.ts'
 import { anythingArb } from './testing/arbs.ts'
-import uneval from './testing/package.ts'
+
+// This has to happen before `uneval` is imported because well-known symbols are
+// collected its module runs.
+const evilSymbol = Symbol(`evil`)
+// @ts-expect-error For testing.
+Symbol[`</script>xss`] = evilSymbol
+const { default: uneval } = await import(`./testing/package.ts`)
+// @ts-expect-error For testing.
+delete Symbol[`</script>xss`]
 
 const ignoredRootRegex = /^(?:console|__vitest_.*|Person)$/u
 const poisoningAfterEach = () => {
@@ -28,7 +36,7 @@ const isComparison = !!process.env.UNEVAL_COMPARISON
 type Case = {
   name: string
   value: unknown
-  source: string
+  source: string | undefined
   options?: UnevalOptions
   roundtrips?: boolean
 }
@@ -624,6 +632,12 @@ const cases: Record<string, Case[]> = {
       name: `global symbol registry symbol with closing script tag`,
       value: Symbol.for(`</script>`),
       source: `Symbol.for("<\\u002fscript>")`,
+    },
+    {
+      name: `polluted symbol`,
+      value: evilSymbol,
+      source: undefined,
+      roundtrips: false,
     },
     {
       name: `custom symbol`,
@@ -2484,6 +2498,18 @@ const cases: Record<string, Case[]> = {
       roundtrips: false,
     },
     {
+      name: `polluted Int8Array subclass`,
+      value: (() => {
+        class Evil extends Int8Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
+      roundtrips: false,
+    },
+    {
       name: `custom Int8Array`,
       value: new Int8Array([1, -2, 3, 4]),
       options: {
@@ -2535,8 +2561,9 @@ const cases: Record<string, Case[]> = {
       source: `[,1]`,
       roundtrips: false,
     },
+  ],
 
-    // Uint8Array
+  Uint8Array: [
     {
       name: `empty Uint8Array`,
       value: new Uint8Array(),
@@ -2590,6 +2617,18 @@ const cases: Record<string, Case[]> = {
         return array
       })(),
       source: `new Uint8Array(new ArrayBuffer(4),NaN,2)`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted Uint8Array subclass`,
+      value: (() => {
+        class Evil extends Uint8Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
       roundtrips: false,
     },
     {
@@ -2679,6 +2718,18 @@ const cases: Record<string, Case[]> = {
       roundtrips: false,
     },
     {
+      name: `polluted Uint8ClampedArray subclass`,
+      value: (() => {
+        class Evil extends Uint8ClampedArray {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
+      roundtrips: false,
+    },
+    {
       name: `custom Uint8ClampedArray`,
       value: new Uint8ClampedArray([1, 2, 3, 4]),
       options: {
@@ -2762,6 +2813,18 @@ const cases: Record<string, Case[]> = {
         return array
       })(),
       source: `new Int16Array(new ArrayBuffer(8),NaN,2)`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted Int16Array subclass`,
+      value: (() => {
+        class Evil extends Int16Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
       roundtrips: false,
     },
     {
@@ -2851,6 +2914,18 @@ const cases: Record<string, Case[]> = {
       roundtrips: false,
     },
     {
+      name: `polluted Uint16Array subclass`,
+      value: (() => {
+        class Evil extends Uint16Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
+      roundtrips: false,
+    },
+    {
       name: `custom Uint16Array`,
       value: new Uint16Array([1, 2, 3, 4]),
       options: {
@@ -2934,6 +3009,18 @@ const cases: Record<string, Case[]> = {
         return array
       })(),
       source: `new Int32Array(new ArrayBuffer(16),NaN,2)`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted Int32Array subclass`,
+      value: (() => {
+        class Evil extends Int32Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
       roundtrips: false,
     },
     {
@@ -3022,6 +3109,18 @@ const cases: Record<string, Case[]> = {
         return array
       })(),
       source: `new Uint32Array(new ArrayBuffer(16),NaN,2)`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted Uint32Array subclass`,
+      value: (() => {
+        class Evil extends Uint32Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
       roundtrips: false,
     },
     {
@@ -3126,6 +3225,18 @@ const cases: Record<string, Case[]> = {
             roundtrips: false,
           },
           {
+            name: `polluted Float16Array subclass`,
+            value: (() => {
+              class Evil extends Float16Array {}
+              Object.defineProperty(Evil, `name`, {
+                value: `</script><script>alert(1)//`,
+              })
+              return new Evil(1)
+            })(),
+            source: undefined,
+            roundtrips: false,
+          },
+          {
             name: `custom Float16Array`,
             value: new Float16Array([1, 2, 3]),
             options: {
@@ -3222,6 +3333,18 @@ const cases: Record<string, Case[]> = {
         return array
       })(),
       source: `new Float32Array(new ArrayBuffer(16),NaN,2)`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted Float32Array subclass`,
+      value: (() => {
+        class Evil extends Float32Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
       roundtrips: false,
     },
     {
@@ -3323,6 +3446,18 @@ const cases: Record<string, Case[]> = {
       roundtrips: false,
     },
     {
+      name: `polluted Float64Array subclass`,
+      value: (() => {
+        class Evil extends Float64Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
+      roundtrips: false,
+    },
+    {
       name: `custom Float64Array`,
       value: new Float64Array([1, -2, 3.14, 4]),
       options: {
@@ -3408,6 +3543,18 @@ const cases: Record<string, Case[]> = {
         return array
       })(),
       source: `new BigInt64Array(new ArrayBuffer(32),NaN,2)`,
+      roundtrips: false,
+    },
+    {
+      name: `polluted BigInt64Array subclass`,
+      value: (() => {
+        class Evil extends BigInt64Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
       roundtrips: false,
     },
     {
@@ -3501,6 +3648,18 @@ const cases: Record<string, Case[]> = {
       roundtrips: false,
     },
     {
+      name: `polluted BigUint64Array subclass`,
+      value: (() => {
+        class Evil extends BigUint64Array {}
+        Object.defineProperty(Evil, `name`, {
+          value: `</script><script>alert(1)//`,
+        })
+        return new Evil(1)
+      })(),
+      source: undefined,
+      roundtrips: false,
+    },
+    {
       name: `custom BigUint64Array`,
       value: new BigUint64Array([1n, 2n, 3n, 4n]),
       options: {
@@ -3551,8 +3710,6 @@ const cases: Record<string, Case[]> = {
       })(),
       source: `((a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV)=>[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,$aa,$ab,$ac,$ad,$ae,$af,$ag,$ah,$ai,$aj,$ak,$al,$am,$an,$ao,$ap,$aq,$ar,$as,$at,$au,$av,$aw,$ax,$ay,$az,$aA,$aB,$aC,$aD,$aE,$aF,$aG,$aH,$aI,$aJ,$aK,$aL,$aM,$aN,$aO,$aP,$aQ,$aR,$aS,$aT,$aU,$aV])({},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{})`,
     },
-
-    // Circular reference
     {
       name: `directly circular object`,
       value: (() => {
@@ -4082,16 +4239,23 @@ for (let [category, categoryCases] of Object.entries(cases)) {
     test.each(categoryCases)(
       `uneval $name`,
       ({ value, source, options, roundtrips = true }) => {
-        const actualSource = (roundtrips ? expectUnevalRoundtrips : uneval)(
-          value,
-          options,
-        )
+        let capturedError: unknown
+        const actualSource = roundtrips
+          ? expectUnevalRoundtrips(value, options)
+          : (() => {
+              try {
+                return uneval(value, options)
+              } catch (error: unknown) {
+                capturedError = error
+                return undefined
+              }
+            })()
 
         // When comparing with packages, we don't fail other packages if they
         // output slightly different source. That's fine as long as their source
         // still roundtrips.
         if (!isComparison) {
-          expect(actualSource).toBe(source)
+          expect(actualSource, String(capturedError)).toBe(source)
         }
       },
     )
