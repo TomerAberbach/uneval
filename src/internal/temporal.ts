@@ -2,11 +2,11 @@
 /* eslint-disable eqeqeq */
 
 import { newInstance } from './common.ts'
-import { unevalInternal } from './index.ts'
+import { unevalWithoutCustom } from './index.ts'
 import type { Uneval } from './types.ts'
 
 export const unevalDate: Uneval<Date> = (date, state, name) =>
-  newInstance(name, unevalInternal(+date, state))
+  newInstance(name, unevalWithoutCustom(+date, state))
 
 export const unevalTemporal: Uneval<
   | Temporal.Duration
@@ -20,7 +20,7 @@ export const unevalTemporal: Uneval<
 > = (temporal, state, name) => {
   // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
   if (name[0] != `Z`) {
-    return `Temporal.${name}.from(${unevalInternal(
+    return `Temporal.${name}.from(${unevalWithoutCustom(
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       `${temporal}`,
       state,
@@ -32,8 +32,8 @@ export const unevalTemporal: Uneval<
   // does not always roundtrip:
   // https://github.com/tc39/proposal-temporal/pull/3014#issuecomment-3856086253
   const zonedDateTime = temporal as Temporal.ZonedDateTime
-  return `new Temporal.${name}(${unevalInternal(
+  return `new Temporal.${name}(${unevalWithoutCustom(
     zonedDateTime.epochNanoseconds,
     state,
-  )},${unevalInternal(zonedDateTime.timeZoneId, state)})`
+  )},${unevalWithoutCustom(zonedDateTime.timeZoneId, state)})`
 }

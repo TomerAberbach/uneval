@@ -4,7 +4,7 @@
 import { unevalArrayBuffer, unevalBuffer, unevalTypedArray } from './buffer.ts'
 import { unevalArray, unevalMap, unevalSet } from './collection.ts'
 import { bindingName, PROPERTY_REG_EXP } from './common.ts'
-import { unevalInternal } from './index.ts'
+import { unevalInternal, unevalWithoutCustom } from './index.ts'
 import { unevalPrimitiveWrapper, unevalRegExp } from './primitive.ts'
 import { unevalDate, unevalTemporal } from './temporal.ts'
 import { getType } from './type.ts'
@@ -14,8 +14,9 @@ import { unevalURL } from './url.ts'
 export const unevalObject = (
   value: object,
   state: State,
+  allowCustom: boolean,
 ): string | null | undefined => {
-  if (state._customSources.get(value) === null) {
+  if (allowCustom && state._customSources.get(value) === null) {
     // The user decided to omit this value.
     return undefined
   }
@@ -337,7 +338,12 @@ const unevalObjectLiteralKey = (
     // property rather than setting `Object.prototype`.
     key == __PROTO__
   ) {
-    return { _source: `[${unevalInternal(key, state)!}]` }
+    return {
+      _source: `[${(key == __PROTO__ ? unevalWithoutCustom : unevalInternal)(
+        key,
+        state,
+      )!}]`,
+    }
   }
 
   // The vast majority of keys are non-numeric so don't bother with the
@@ -355,14 +361,16 @@ const unevalObjectLiteralKey = (
       // If the key doesn't roundtrip through numeric conversion, then it's
       // padded (e.g. `01`) and must be quoted to retain that.
       key == `${number}`
-    return { _source: isNumericKey ? key : unevalInternal(key, state)! }
+    return {
+      _source: isNumericKey ? key : unevalWithoutCustom(key, state),
+    }
   }
 
   if (PROPERTY_REG_EXP.test(key)) {
     return { _source: key, _isIdentifier: true }
   }
 
-  return { _source: unevalInternal(key, state)! }
+  return { _source: unevalWithoutCustom(key, state) }
 }
 
 export const isDefaultObjectPrototype = (value: unknown): boolean =>

@@ -3,7 +3,7 @@
 /* eslint-disable eqeqeq */
 
 import { bindingName, newInstance } from './common.ts'
-import { unevalInternal } from './index.ts'
+import { unevalInternal, unevalWithoutCustom } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
 export type TypedArray =
@@ -61,7 +61,7 @@ export const unevalTypedArray = (
   if (typedArray.some(value => !Object.is(value, zero))) {
     return `${name}.of(${Array.from<number | bigint, string>(
       typedArray,
-      value => unevalInternal(value, state)!,
+      value => unevalWithoutCustom(value, state),
     ).join()})`
   }
 
@@ -149,7 +149,7 @@ export const unevalArrayBuffer: Uneval<ArrayBuffer> = (
   }
 
   if (!resizable) {
-    return `${unevalInternal(uint8Array, state)!}.buffer`
+    return `${unevalWithoutCustom(uint8Array, state)}.buffer`
   }
 
   const lastNonZeroIndex = uint8Array.findLastIndex(value => value != 0)
