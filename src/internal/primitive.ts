@@ -5,42 +5,41 @@ import { newInstance, PROPERTY_REG_EXP } from './common.ts'
 import { unevalInternal, unevalWithoutCustom } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
-export const unevalBoolean = (value: boolean): string =>
+export const unevalBoolean = (boolean: boolean): string =>
   // Convert `false` to `!1` and `true` to `!0`
-  `!${+!value}`
+  `!${+!boolean}`
 
-export const unevalNumber = (value: number): string => {
-  if (value == Infinity) {
+export const unevalNumber = (number: number): string => {
+  if (number == Infinity) {
     return `1/0`
-  } else if (value == -Infinity) {
+  } else if (number == -Infinity) {
     return `-1/0`
+  } else if (Object.is(number, -0)) {
+    // Converting -0 to a string becomes `0` so we have to special-case it.
+    return `-0`
   }
 
-  const source = `${value}`
-  if (Object.is(value, -0)) {
-    // Converting -0 to a string becomes `0` so we have to special-case it.
-    return `-${source}`
-  }
+  const source = `${number}`
 
   // Convert `0.123` to `.123` and  `-0.123` to `-.123`.
-  if (source.startsWith(`0.`)) {
-    return source.slice(1)
-  } else if (source.startsWith(`-0.`)) {
-    return `-${source.slice(2)}`
+  const zeroIndex = +(number < 0)
+  const pointIndex = zeroIndex + 1
+  if (source[zeroIndex] == `0` && source[pointIndex] == `.`) {
+    return source.slice(0, zeroIndex) + source.slice(pointIndex)
   }
 
   return source
 }
 
-export const unevalBigint = (value: bigint): string => `${value}n`
+export const unevalBigint = (bigint: bigint): string => `${bigint}n`
 
-export const unevalSymbol = (value: symbol, state: State): string => {
-  let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
+export const unevalSymbol = (symbol: symbol, state: State): string => {
+  let key = WELL_KNOWN_SYMBOL_TO_KEY.get(symbol)
   if (key) {
     return `Symbol.${key}`
   }
 
-  key = Symbol.keyFor(value)
+  key = Symbol.keyFor(symbol)
   if (key) {
     return `Symbol.for(${unevalWithoutCustom(key, state)})`
   }
@@ -104,17 +103,17 @@ export const unevalString = (string: string): string =>
 // strings known to be single code units.
 /* eslint-disable unicorn/prefer-code-point */
 const unevalLiteral = (
-  value: string,
+  literal: string,
   codeUnitEscapes: Readonly<Record<string, string>>,
 ): string => {
   let source = ``
 
   let lastIndex = 0
-  for (let i = 0; i < value.length; i += 1) {
-    const codeUnit = value[i]!
+  for (let i = 0; i < literal.length; i += 1) {
+    const codeUnit = literal[i]!
     const escaped = codeUnitEscapes[codeUnit]
     if (escaped) {
-      source += value.slice(lastIndex, i) + escaped
+      source += literal.slice(lastIndex, i) + escaped
       lastIndex = i + 1
       continue
     }
@@ -125,7 +124,7 @@ const unevalLiteral = (
     let isUnpairedSurrogate: boolean | undefined
     const isLowSurrogate = code >= 0xd800 && code <= 0xdbff
     if (isLowSurrogate) {
-      const next = value.charCodeAt(i + 1)
+      const next = literal.charCodeAt(i + 1)
       const isHighSurrogate = next >= 0xdc00 && next <= 0xdfff
       if (isHighSurrogate) {
         i++
@@ -141,7 +140,7 @@ const unevalLiteral = (
 
     if (isUnpairedSurrogate) {
       // Escape unpaired surrogates in the source.
-      source += `${value.slice(lastIndex, i)}\\u${code.toString(16)}`
+      source += `${literal.slice(lastIndex, i)}\\u${code.toString(16)}`
       lastIndex = i + 1
       continue
     }
@@ -150,20 +149,20 @@ const unevalLiteral = (
     if (
       codeUnit == `/` &&
       i > 0 &&
-      value[i - 1] == `<` &&
-      value.slice(i + 1, i + 7).toLowerCase() == `script`
+      literal[i - 1] == `<` &&
+      literal.slice(i + 1, i + 7).toLowerCase() == `script`
     ) {
-      source += `${value.slice(lastIndex, i)}\\u002f`
+      source += `${literal.slice(lastIndex, i)}\\u002f`
       lastIndex = i + 1
     }
   }
 
   if (lastIndex === 0) {
     // Avoid unnecessary slicing below for performance.
-    return value
+    return literal
   }
 
-  source += value.slice(lastIndex)
+  source += literal.slice(lastIndex)
   return source
 }
 /* eslint-enable unicorn/prefer-code-point */

@@ -29,7 +29,7 @@ export default defineConfig([
         toplevel: true,
         compress: {
           pure_getters: true,
-          passes: 2,
+          passes: 5,
         },
         mangle: {
           properties: {
