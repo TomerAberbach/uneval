@@ -3131,6 +3131,11 @@ const cases: Record<string, Case[]> = {
       expected: { source: `Buffer.alloc(0)` },
     },
     {
+      name: `empty non-resizable Buffer containing non-empty ArrayBuffer`,
+      value: Buffer.from(new ArrayBuffer(1), 0, 0),
+      expected: { source: `Buffer.from(new ArrayBuffer(1),0,0)` },
+    },
+    {
       name: `empty resizable full capacity Buffer`,
       value: Buffer.from(new ArrayBuffer(0, { maxByteLength: 0 })),
       expected: { source: `Buffer.from(new ArrayBuffer(0,{maxByteLength:0}))` },
