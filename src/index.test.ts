@@ -3393,6 +3393,18 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      todo: true,
+      name: `detached Int8Array`,
+      value: (() => {
+        const typedArray = new Int8Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Int8Array)`,
+      },
+    },
+    {
       name: `polluted Int8Array byteOffset`,
       value: (() => {
         const array = new Int8Array(new ArrayBuffer(4), 1, 2)
@@ -3547,6 +3559,18 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      todo: true,
+      name: `detached Uint8Array`,
+      value: (() => {
+        const typedArray = new Uint8Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Uint8Array)`,
+      },
+    },
+    {
       name: `polluted Uint8Array byteOffset`,
       value: (() => {
         const array = new Uint8Array(new ArrayBuffer(4), 1, 2)
@@ -3670,6 +3694,18 @@ const cases: Record<string, Case[]> = {
       })(),
       expected: {
         source: `(a=>[new Uint8ClampedArray(a),new Uint8ClampedArray(a)])(new ArrayBuffer)`,
+      },
+    },
+    {
+      todo: true,
+      name: `detached Uint8ClampedArray`,
+      value: (() => {
+        const typedArray = new Uint8ClampedArray()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Uint8ClampedArray)`,
       },
     },
     {
@@ -3801,6 +3837,18 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      todo: true,
+      name: `detached Int16Array`,
+      value: (() => {
+        const typedArray = new Int16Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Int16Array)`,
+      },
+    },
+    {
       name: `polluted Int16Array byteOffset`,
       value: (() => {
         const array = new Int16Array(new ArrayBuffer(8), 2, 2)
@@ -3926,6 +3974,18 @@ const cases: Record<string, Case[]> = {
       })(),
       expected: {
         source: `(a=>[new Uint16Array(a),new Uint16Array(a)])(new ArrayBuffer)`,
+      },
+    },
+    {
+      todo: true,
+      name: `detached Uint16Array`,
+      value: (() => {
+        const typedArray = new Uint16Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Uint16Array)`,
       },
     },
     {
@@ -4057,6 +4117,18 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      todo: true,
+      name: `detached Int32Array`,
+      value: (() => {
+        const typedArray = new Int32Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Int32Array)`,
+      },
+    },
+    {
       name: `polluted Int32Array byteOffset`,
       value: (() => {
         const array = new Int32Array(new ArrayBuffer(16), 4, 2)
@@ -4184,6 +4256,18 @@ const cases: Record<string, Case[]> = {
       })(),
       expected: {
         source: `(a=>[new Uint32Array(a),new Uint32Array(a)])(new ArrayBuffer)`,
+      },
+    },
+    {
+      todo: true,
+      name: `detached Uint32Array`,
+      value: (() => {
+        const typedArray = new Uint32Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Uint32Array)`,
       },
     },
     {
@@ -4334,6 +4418,18 @@ const cases: Record<string, Case[]> = {
             },
           },
           {
+            todo: true,
+            name: `detached Float16Array`,
+            value: (() => {
+              const typedArray = new Float16Array()
+              typedArray.buffer.transfer()
+              return typedArray
+            })(),
+            expected: {
+              source: `(a=>(a.buffer.transfer(),a))(new Float16Array)`,
+            },
+          },
+          {
             name: `polluted Float16Array byteOffset`,
             value: (() => {
               const array = new Float16Array(new ArrayBuffer(8), 2, 2)
@@ -4474,6 +4570,18 @@ const cases: Record<string, Case[]> = {
       value: new Float32Array(new Uint8Array([0, 0, 255, 127]).buffer),
       expected: {
         source: `new Float32Array(Uint8Array.of(0,0,255,127).buffer)`,
+      },
+    },
+    {
+      todo: true,
+      name: `detached Float32Array`,
+      value: (() => {
+        const typedArray = new Float32Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Float32Array)`,
       },
     },
     {
@@ -4619,6 +4727,18 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      todo: true,
+      name: `detached Float64Array`,
+      value: (() => {
+        const typedArray = new Float64Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new Float64Array)`,
+      },
+    },
+    {
       name: `polluted Float64Array byteOffset`,
       value: (() => {
         const array = new Float64Array(new ArrayBuffer(32), 8, 2)
@@ -4746,6 +4866,18 @@ const cases: Record<string, Case[]> = {
       })(),
       expected: {
         source: `(a=>[new BigInt64Array(a),new BigInt64Array(a)])(new ArrayBuffer)`,
+      },
+    },
+    {
+      todo: true,
+      name: `detached BigInt64Array`,
+      value: (() => {
+        const typedArray = new BigInt64Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new BigInt64Array)`,
       },
     },
     {
@@ -4880,6 +5012,18 @@ const cases: Record<string, Case[]> = {
       })(),
       expected: {
         source: `(a=>[new BigUint64Array(a),new BigUint64Array(a)])(new ArrayBuffer)`,
+      },
+    },
+    {
+      todo: true,
+      name: `detached BigUint64Array`,
+      value: (() => {
+        const typedArray = new BigUint64Array()
+        typedArray.buffer.transfer()
+        return typedArray
+      })(),
+      expected: {
+        source: `(a=>(a.buffer.transfer(),a))(new BigUint64Array)`,
       },
     },
     {
