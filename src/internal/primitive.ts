@@ -2,7 +2,7 @@
 /* eslint-disable eqeqeq */
 
 import { newInstance, PROPERTY_REG_EXP } from './common.ts'
-import { unevalInternal } from './index.ts'
+import { unevalInternal, unevalWithoutCustom } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
 export const unevalBoolean = (value: boolean): string =>
@@ -34,10 +34,76 @@ export const unevalNumber = (value: number): string => {
 
 export const unevalBigint = (value: bigint): string => `${value}n`
 
+export const unevalSymbol = (value: symbol, state: State): string => {
+  let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
+  if (key) {
+    return `Symbol.${key}`
+  }
+
+  key = Symbol.keyFor(value)
+  if (key) {
+    return `Symbol.for(${unevalWithoutCustom(key, state)})`
+  }
+
+  throw new TypeError(`Unsupported symbol`)
+}
+
+const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
+  Reflect.ownKeys(Symbol).flatMap(key => {
+    // This doesn't happen in practice, but best to be safe if one day a
+    // non-string key as added to `Symbol`.
+    if (typeof key != `string`) {
+      return []
+    }
+    if (!PROPERTY_REG_EXP.test(key)) {
+      // Defend against pollution attacks.
+      return []
+    }
+    const value = Symbol[key as keyof typeof Symbol]
+    return typeof value == `symbol` ? [[value, key]] : []
+  }),
+)
+
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+export const unevalPrimitiveWrapper: Uneval<Boolean | Number | String> = (
+  value,
+  state,
+) => `Object(${unevalInternal(value.valueOf(), state)})`
+
+export const unevalRegExp: Uneval<RegExp> = (
+  { source, flags },
+  state,
+  name,
+) => {
+  const escapedSource = unevalLiteral(source, UNSAFE_CODE_UNIT_ESCAPES)
+  return (
+    // `RegExp.prototype.source` will return the escaped version of the
+    // source between the forward slashes for a literal. We can use it
+    // directly in the `RegExp` literal, but only if the `source` is safe
+    // for JS (e.g. no unescaped `\0` inline). We can't simply use
+    // `escapedSource` here because that doesn't roundtrip.
+    // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
+    // The former is `'\\0'` while the later is `'\0'`.
+    source == escapedSource &&
+      // This protects against RCE from monkey-patched `RegExp` objects.
+      /^[a-z]*$/u.test(flags)
+      ? `/${source}/${flags}`
+      : newInstance(
+          name,
+          `${unevalWithoutCustom(source, state)}${
+            flags && `,${unevalWithoutCustom(flags, state)}`
+          }`,
+        )
+  )
+}
+
+export const unevalString = (string: string): string =>
+  `"${unevalLiteral(string, STRING_CODE_UNIT_ESCAPES)}"`
+
 // `charCodeAt` is more performant for our use-case because we're dealing with
 // strings known to be single code units.
 /* eslint-disable unicorn/prefer-code-point */
-export const unevalLiteral = (
+const unevalLiteral = (
   value: string,
   codeUnitEscapes: Readonly<Record<string, string>>,
 ): string => {
@@ -106,7 +172,7 @@ export const unevalLiteral = (
  * Code unit escapes for code units that are not safe to include in JS source
  * code for a literal (like a `string` or `RegExp`).
  */
-export const UNSAFE_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
+const UNSAFE_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '\0': `\\0`,
   '\n': `\\n`,
   '\r': `\\r`,
@@ -119,71 +185,8 @@ export const UNSAFE_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '\u2029': `\\u2029`,
 }
 
-export const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
+const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '"': `\\"`,
   '\\': `\\\\`,
   ...UNSAFE_CODE_UNIT_ESCAPES,
-}
-
-export const unevalSymbol = (value: symbol, state: State): string => {
-  let key = WELL_KNOWN_SYMBOL_TO_KEY.get(value)
-  if (key) {
-    return `Symbol.${key}`
-  }
-
-  key = Symbol.keyFor(value)
-  if (key) {
-    return `Symbol.for(${unevalInternal(key, state)})`
-  }
-
-  throw new TypeError(`Unsupported symbol`)
-}
-
-const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
-  Reflect.ownKeys(Symbol).flatMap(key => {
-    // This doesn't happen in practice, but best to be safe if one day a
-    // non-string key as added to `Symbol`.
-    if (typeof key != `string`) {
-      return []
-    }
-    if (!PROPERTY_REG_EXP.test(key)) {
-      // Defend against pollution attacks.
-      return []
-    }
-    const value = Symbol[key as keyof typeof Symbol]
-    return typeof value == `symbol` ? [[value, key]] : []
-  }),
-)
-
-// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
-export const unevalPrimitiveWrapper: Uneval<Boolean | Number | String> = (
-  value,
-  state,
-) => `Object(${unevalInternal(value.valueOf(), state)})`
-
-export const unevalRegExp: Uneval<RegExp> = (
-  { source, flags },
-  state,
-  name,
-) => {
-  const escapedSource = unevalLiteral(source, UNSAFE_CODE_UNIT_ESCAPES)
-  return (
-    // `RegExp.prototype.source` will return the escaped version of the
-    // source between the forward slashes for a literal. We can use it
-    // directly in the `RegExp` literal, but only if the `source` is safe
-    // for JS (e.g. no unescaped `\0` inline). We can't simply use
-    // `escapedSource` here because that doesn't roundtrip.
-    // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
-    // The former is `'\\0'` while the later is `'\0'`.
-    source == escapedSource &&
-      // This protects against RCE from monkey-patched `RegExp` objects.
-      /^[a-z]*$/u.test(flags)
-      ? `/${source}/${flags}`
-      : newInstance(
-          name,
-          `${unevalInternal(source, state)}${
-            flags && `,${unevalInternal(flags, state)}`
-          }`,
-        )
-  )
 }

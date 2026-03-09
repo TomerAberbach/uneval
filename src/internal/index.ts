@@ -3,22 +3,33 @@
 
 import { isObject, unevalObject } from './object.ts'
 import {
-  STRING_CODE_UNIT_ESCAPES,
   unevalBigint,
   unevalBoolean,
-  unevalLiteral,
   unevalNumber,
+  unevalString,
   unevalSymbol,
 } from './primitive.ts'
 import type { State } from './types.ts'
 
+export const unevalWithoutCustom = ((
+  value: unknown,
+  state: State,
+): string | null => unevalInternal(value, state, false)!) as {
+  (
+    value: string | number | boolean | bigint | symbol | null | undefined,
+    state: State,
+  ): string
+  (value: unknown, state: State): string | null
+}
+
 export const unevalInternal = ((
   value: unknown,
   state: State,
+  withoutCustom = true,
 ): string | null | undefined => {
   // Don't check the custom source for objects now because we may need to create
   // a binding in `unevalObject`.
-  if (!isObject(value)) {
+  if (withoutCustom && !isObject(value)) {
     const customSource = state._customSources.get(value)
     if (customSource === null) {
       // The user decided to omit this value.
@@ -40,16 +51,21 @@ export const unevalInternal = ((
   } else if (type == `bigint`) {
     return unevalBigint(value as bigint)
   } else if (type == `string`) {
-    return `"${unevalLiteral(value as string, STRING_CODE_UNIT_ESCAPES)}"`
+    return unevalString(value as string)
   } else if (type == `symbol`) {
     return unevalSymbol(value as symbol, state)
   } else {
-    return value == null ? `null` : unevalObject(value, state)
+    return value == null ? `null` : unevalObject(value, state, withoutCustom)
   }
 }) as {
   (
     value: string | number | boolean | bigint | symbol | null | undefined,
     state: State,
+    withoutCustom?: boolean,
   ): string | undefined
-  (value: unknown, state: State): string | null | undefined
+  (
+    value: unknown,
+    state: State,
+    withoutCustom?: boolean,
+  ): string | null | undefined
 }
