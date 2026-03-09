@@ -25,6 +25,14 @@ export const unevalTypedArray = (
   state: State,
   name: string,
 ): string => {
+  const arrayBuffer = typedArray.buffer as ArrayBuffer
+  if (arrayBuffer.detached) {
+    state._mutations.push({
+      _source: `${bindingName(typedArray, state)}.buffer.transfer()`,
+    })
+    return newInstance(name)
+  }
+
   // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
   const isFloatingPoint = name[0] == `F`
   const hasNonCanonicalNaN =
@@ -32,8 +40,6 @@ export const unevalTypedArray = (
     [...(typedArray as Float16Array | Float32Array | Float64Array)].some(
       isNonCanonicalNaN,
     )
-
-  const arrayBuffer = typedArray.buffer
   if (
     // We have to construct from a buffer if the end-user provided custom source
     // for it.
@@ -48,7 +54,7 @@ export const unevalTypedArray = (
     // Lastly, if the underlying buffer is resizable, then we must also
     // construct from a buffer. The default buffer created from
     // `new TypedArray(...)` is not resizable.
-    (arrayBuffer as ArrayBuffer).resizable ||
+    arrayBuffer.resizable ||
     // For floating-point arrays with non-canonical NaN values, we must
     // construct from the buffer to preserve the exact NaN bit pattern.
     hasNonCanonicalNaN
