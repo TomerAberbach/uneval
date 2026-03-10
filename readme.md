@@ -246,8 +246,15 @@ But with escaping we get:
 
 ## Comparison
 
-See the [auto-generated](./scripts/generate-comparison-table.ts) table below for
-how `@tomer/uneval` compares to similar to packages!
+The comparison table below is
+[auto-generated](./scripts/generate-comparison-table.ts) by running the
+[full test suite](./src/index.test.ts) of roundtrip tests against each package.
+
+Each roundtrip test `uneval`s the input value, `eval`s the returned source, and
+asserts the `eval` result is equal to the original input value.
+
+We do _not_ assert each package's source output because it can reasonably differ
+between packages while still roundtripping.
 
 **Emoji key:**
 
@@ -259,9 +266,6 @@ how `@tomer/uneval` compares to similar to packages!
 |  🟠   | 25%–49% of tests passing |
 |  🔴   | 1%–24% of tests passing  |
 |  ❌   | 0% of tests passing      |
-
-Each test `uneval`s the input value, `eval`s the returned source, and asserts
-the `eval` result is equal to the original input value.
 
 <!-- prettier-ignore-start -->
 <!-- COMPARISON TABLE START -->
