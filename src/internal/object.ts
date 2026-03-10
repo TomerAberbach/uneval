@@ -117,9 +117,11 @@ const unevalObjectLike = (object: object, state: State): string => {
       // Skip properties with omitted values.
       continue
     }
+
+    const { _source: keySource, _isIdentifier: isIdentifier } =
+      unevalObjectLiteralKey(key, state)
+
     if (valueResult !== null) {
-      const { _source: keySource, _isIdentifier: isIdentifier } =
-        unevalObjectLiteralKey(key, state)
       entries.push({
         _source:
           isIdentifier && keySource == valueResult
@@ -159,7 +161,7 @@ const unevalObjectLike = (object: object, state: State): string => {
       _isCircular: true,
       // This is a placeholder property for preserving property order. We'll set
       // the property's actual value later with the mutation below.
-      _source: `${unevalObjectLiteralKey(key, state)._source}:null`,
+      _source: `${keySource}:null`,
       _mutation: () => mutation,
     })
   }
@@ -249,11 +251,7 @@ const unevalDescriptorEntry = (
     }
 
     const value = descriptor[key] as unknown
-    if (
-      GET_SET_DESCRIPTOR_KEYS.includes(
-        key as (typeof GET_SET_DESCRIPTOR_KEYS)[number],
-      )
-    ) {
+    if (key != `value`) {
       if (value == null && isGetSet) {
         // We only need one of `get` and `set` to be set in order for the
         // descriptor to not be a data descriptor. If `get` or `set` is already
@@ -394,5 +392,4 @@ const BOOLEAN_DESCRIPTOR_KEYS = [
   `enumerable`,
   `writable`,
 ] as const
-const GET_SET_DESCRIPTOR_KEYS = [`get`, `set`] as const
-const UNKNOWN_DESCRIPTOR_KEYS = [`value`, ...GET_SET_DESCRIPTOR_KEYS] as const
+const UNKNOWN_DESCRIPTOR_KEYS = [`value`, `get`, `set`] as const
