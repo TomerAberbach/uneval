@@ -17,7 +17,9 @@ function strictPlainObjectEqualityTester(
     return undefined
   }
 
-  if (Object.getPrototypeOf(value1) !== Object.getPrototypeOf(value2)) {
+  if (
+    !this.equals(Object.getPrototypeOf(value1), Object.getPrototypeOf(value2))
+  ) {
     return false
   }
 
@@ -78,7 +80,18 @@ const isPlainObject = (value: unknown): value is object => {
     return false
   }
   const prototype = Object.getPrototypeOf(value) as unknown
-  return prototype === Object.prototype || prototype === null
+  if (
+    prototype === Object.prototype ||
+    typeof prototype !== `object` ||
+    prototype === null
+  ) {
+    return true
+  }
+
+  return Reflect.ownKeys(prototype).every(
+    key =>
+      typeof (prototype as Record<PropertyKey, unknown>)[key] !== `function`,
+  )
 }
 
 const DESCRIPTOR_KEYS = [
