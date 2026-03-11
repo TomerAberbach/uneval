@@ -44,7 +44,7 @@ export const unevalSymbol = (symbol: symbol, state: State): string => {
     return `Symbol.for(${unevalWithoutCustom(key, state)})`
   }
 
-  throw new TypeError(`Unsupported symbol`)
+  throw new TypeError(`Unsupported: Symbol`)
 }
 
 const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
