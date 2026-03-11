@@ -10,6 +10,7 @@ import {
   T_ARRAY,
   T_ARRAY_BUFFER,
   T_BUFFER,
+  T_DATA_VIEW,
   T_MAP,
   T_PRIMITIVE_WRAPPER,
   T_SET,
@@ -276,8 +277,12 @@ const createState = (
       ) {
         ensureBinding(value)
       }
-    } else if (type == T_BUFFER || type == T_TYPED_ARRAY) {
-      const { buffer } = value as Buffer | TypedArray
+    } else if (
+      type == T_BUFFER ||
+      type == T_DATA_VIEW ||
+      type == T_TYPED_ARRAY
+    ) {
+      const { buffer } = value as Buffer | DataView | TypedArray
 
       if ((buffer as ArrayBuffer).detached) {
         // If the buffer is detached, we need a binding on the container itself

@@ -202,6 +202,21 @@ const bufferArb = fc
     return Buffer.from(arrayBuffer, start, end - start)
   })
 
+const dataViewArb = fc
+  .record({
+    arrayBuffer: nonDetachedArrayBufferArb,
+    range: fc.tuple(fc.nat(), fc.nat()),
+  })
+  .map(({ arrayBuffer, range: [start, end] }) => {
+    start %= arrayBuffer.byteLength + 1
+    end %= arrayBuffer.byteLength + 1
+    if (start > end) {
+      ;[start, end] = [end, start]
+    }
+
+    return new DataView(arrayBuffer, start, end - start)
+  })
+
 const circularSymbol = Symbol(`circular`)
 const depthIdentifier = fc.createDepthIdentifier()
 export const anythingArb = fc
@@ -260,6 +275,7 @@ export const anythingArb = fc
         typedArrayArb,
         arrayBufferArb,
         bufferArb,
+        dataViewArb,
         tie(`object`),
         tie(`array`),
         tie(`map`),

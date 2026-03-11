@@ -124,6 +124,20 @@ const unevalBufferWrapperArgs = (
       : `,${+byteOffset},${byteLength / BYTES_PER_ELEMENT}`
   }`
 
+export const unevalDataView: Uneval<DataView> = (dataView, state, name) =>
+  newInstance(
+    name,
+    unevalBufferWrapperArgs(
+      {
+        byteOffset: dataView.byteOffset,
+        byteLength: dataView.byteLength,
+        buffer: dataView.buffer as ArrayBuffer,
+        BYTES_PER_ELEMENT: 1,
+      },
+      state,
+    ),
+  )
+
 export const unevalArrayBuffer: Uneval<ArrayBuffer> = (
   arrayBuffer,
   state,

@@ -1,7 +1,12 @@
 // For smaller bundle size.
 /* eslint-disable eqeqeq */
 
-import { unevalArrayBuffer, unevalBuffer, unevalTypedArray } from './buffer.ts'
+import {
+  unevalArrayBuffer,
+  unevalBuffer,
+  unevalDataView,
+  unevalTypedArray,
+} from './buffer.ts'
 import { unevalArray, unevalMap, unevalSet } from './collection.ts'
 import { bindingName, PROPERTY_REG_EXP } from './common.ts'
 import { unevalInternal, unevalWithoutCustom } from './index.ts'
@@ -81,8 +86,9 @@ const unevals: Uneval<any>[] = [
   unevalSet,
   unevalMap,
   unevalArrayBuffer,
-  unevalTypedArray,
   unevalBuffer,
+  unevalDataView,
+  unevalTypedArray,
   unevalDate,
   unevalTemporal,
   unevalURL,

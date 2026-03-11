@@ -13,12 +13,13 @@ export const T_ARRAY = 2
 export const T_SET = 3
 export const T_MAP = 4
 export const T_ARRAY_BUFFER = 5
-export const T_TYPED_ARRAY = 6
-export const T_BUFFER = 7
-export const T_DATE = 8
-export const T_TEMPORAL = 9
-export const T_URL = 10
-export const T_UNSUPPORTED = 11
+export const T_BUFFER = 6
+export const T_DATA_VIEW = 7
+export const T_TYPED_ARRAY = 8
+export const T_DATE = 9
+export const T_TEMPORAL = 10
+export const T_URL = 11
+export const T_UNSUPPORTED = 12
 
 const TYPES = {
   Boolean: T_PRIMITIVE_WRAPPER,
@@ -31,6 +32,8 @@ const TYPES = {
   Map: T_MAP,
 
   ArrayBuffer: T_ARRAY_BUFFER,
+  Buffer: T_BUFFER,
+  DataView: T_DATA_VIEW,
   Int8Array: T_TYPED_ARRAY,
   Uint8Array: T_TYPED_ARRAY,
   Uint8ClampedArray: T_TYPED_ARRAY,
@@ -43,7 +46,6 @@ const TYPES = {
   Float64Array: T_TYPED_ARRAY,
   BigInt64Array: T_TYPED_ARRAY,
   BigUint64Array: T_TYPED_ARRAY,
-  Buffer: T_BUFFER,
 
   Date: T_DATE,
   Duration: T_TEMPORAL,
