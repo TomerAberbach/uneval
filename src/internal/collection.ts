@@ -6,14 +6,7 @@ import { unevalInternal } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
 export const unevalArray: Uneval<unknown[]> = (array, state) => {
-  const indices: number[] = []
-  const keys = state._cache.get(array)!._keys!
-  for (const key of keys) {
-    const index = +key
-    if (!isNaN(index)) {
-      indices.push(index)
-    }
-  }
+  const indices = state._cache.get(array)!._keys!.map(key => +key)
 
   const hasTrailingEmptySlots = !(array.length - 1 in array)
   const emptyArraySource = hasTrailingEmptySlots

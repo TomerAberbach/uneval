@@ -1002,6 +1002,19 @@ const cases: Record<string, Case[]> = {
         roundtrips: false,
       },
     },
+    {
+      name: `omit element from sparse array using Object.assign representation`,
+      value: (() => {
+        const array: unknown[] = Array(100)
+        array[50] = 42
+        return array
+      })(),
+      options: { custom: value => (value === 42 ? null : undefined) },
+      expected: {
+        source: `Array(100)`,
+        roundtrips: false,
+      },
+    },
   ],
 
   Object: [
@@ -1247,6 +1260,15 @@ const cases: Record<string, Case[]> = {
       value: Object.defineProperty({}, `__proto__`, { value: null }),
       expected: {
         source: `Object.defineProperties({},{["__proto__"]:{value:null}})`,
+      },
+    },
+    {
+      name: `omit value from non-regular property descriptor`,
+      value: Object.defineProperty({}, `a`, { value: 42 }),
+      options: { custom: value => (value === 42 ? null : undefined) },
+      expected: {
+        source: `Object.defineProperties({},{a:{}})`,
+        roundtrips: false,
       },
     },
     {
