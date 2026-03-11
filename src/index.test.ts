@@ -5746,6 +5746,7 @@ for (let [category, categoryCases] of Object.entries(cases)) {
           // output slightly different source. That's fine as long as their
           // source still roundtrips.
           expectUnevalRoundtrips(value)
+          return
         }
 
         if (`error` in expected) {
