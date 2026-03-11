@@ -3398,7 +3398,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Int8Array`,
       value: (() => {
         const typedArray = new Int8Array()
@@ -3564,7 +3563,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Uint8Array`,
       value: (() => {
         const typedArray = new Uint8Array()
@@ -3702,7 +3700,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Uint8ClampedArray`,
       value: (() => {
         const typedArray = new Uint8ClampedArray()
@@ -3842,7 +3839,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Int16Array`,
       value: (() => {
         const typedArray = new Int16Array()
@@ -3982,7 +3978,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Uint16Array`,
       value: (() => {
         const typedArray = new Uint16Array()
@@ -4122,7 +4117,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Int32Array`,
       value: (() => {
         const typedArray = new Int32Array()
@@ -4264,7 +4258,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Uint32Array`,
       value: (() => {
         const typedArray = new Uint32Array()
@@ -4423,7 +4416,6 @@ const cases: Record<string, Case[]> = {
             },
           },
           {
-            todo: true,
             name: `detached Float16Array`,
             value: (() => {
               const typedArray = new Float16Array()
@@ -4578,7 +4570,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Float32Array`,
       value: (() => {
         const typedArray = new Float32Array()
@@ -4732,7 +4723,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached Float64Array`,
       value: (() => {
         const typedArray = new Float64Array()
@@ -4874,7 +4864,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached BigInt64Array`,
       value: (() => {
         const typedArray = new BigInt64Array()
@@ -5020,7 +5009,6 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
-      todo: true,
       name: `detached BigUint64Array`,
       value: (() => {
         const typedArray = new BigUint64Array()

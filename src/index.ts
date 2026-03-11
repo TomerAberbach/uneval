@@ -264,7 +264,6 @@ const createState = (
         }
       }
     } else if (type == T_ARRAY_BUFFER) {
-      // TODO(#42): Support TypedArrays containing detached ArrayBuffers.
       const arrayBuffer = value as ArrayBuffer
       if (
         // If the `ArrayBuffer` is detached, then we need a binding to call
@@ -279,9 +278,16 @@ const createState = (
       }
     } else if (type == T_BUFFER || type == T_TYPED_ARRAY) {
       const { buffer } = value as Buffer | TypedArray
-      traverse(buffer, value)
-      if (customSources.get(buffer) === null) {
-        customSources.set(value, null)
+
+      if ((buffer as ArrayBuffer).detached) {
+        // If the buffer is detached, we need a binding on the container itself
+        // so we can call `.buffer.transfer()` on it as a mutation.
+        ensureBinding(value)
+      } else {
+        traverse(buffer, value)
+        if (customSources.get(buffer) === null) {
+          customSources.set(value, null)
+        }
       }
     }
   }
