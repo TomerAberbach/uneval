@@ -86,6 +86,7 @@ export const unevalBuffer: Uneval<Buffer> = (buffer, state, name) => {
   if (
     !buffer.byteOffset &&
     !buffer.byteLength &&
+    !arrayBuffer.byteLength &&
     !arrayBuffer.resizable &&
     !arrayBuffer.detached
   ) {

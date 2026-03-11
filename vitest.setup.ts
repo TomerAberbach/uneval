@@ -2,6 +2,7 @@ import { Temporal as TemporalPolyfill } from '@js-temporal/polyfill'
 import type { Tester } from '@vitest/expect'
 import * as matchers from 'jest-extended'
 import { expect } from 'vitest'
+import type { TypedArray } from './src/internal/buffer.ts'
 
 globalThis.Temporal = TemporalPolyfill
 
@@ -94,26 +95,38 @@ const strictArrayBufferEqualityTester = (
   value1: unknown,
   value2: unknown,
 ): boolean | undefined => {
-  if (!(value1 instanceof ArrayBuffer) || !(value2 instanceof ArrayBuffer)) {
+  if (
+    !value1 ||
+    typeof value1 !== `object` ||
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    value1.constructor?.name !== `ArrayBuffer` ||
+    !value2 ||
+    typeof value2 !== `object` ||
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    value2.constructor?.name !== `ArrayBuffer`
+  ) {
     // Defer to other equality testers.
     return undefined
   }
 
+  const arrayBuffer1 = value1 as ArrayBuffer
+  const arrayBuffer2 = value2 as ArrayBuffer
+
   if (
-    value1.byteLength !== value2.byteLength ||
-    value1.maxByteLength !== value2.maxByteLength ||
-    value1.resizable !== value2.resizable ||
-    value1.detached !== value2.detached
+    arrayBuffer1.byteLength !== arrayBuffer2.byteLength ||
+    arrayBuffer1.maxByteLength !== arrayBuffer2.maxByteLength ||
+    arrayBuffer1.resizable !== arrayBuffer2.resizable ||
+    arrayBuffer1.detached !== arrayBuffer2.detached
   ) {
     return false
   }
 
-  if (value1.detached) {
+  if (arrayBuffer1.detached) {
     return true
   }
 
-  const viewA = new Uint8Array(value1)
-  const viewB = new Uint8Array(value2)
+  const viewA = new Uint8Array(arrayBuffer1)
+  const viewB = new Uint8Array(arrayBuffer2)
   for (let i = 0; i < viewA.length; i++) {
     if (viewA[i] !== viewB[i]) {
       return false
@@ -128,21 +141,23 @@ const strictTypedArrayEqualityTester = (
   value1: unknown,
   value2: unknown,
 ): boolean | undefined => {
-  if (!(value1 instanceof TypedArray) || !(value2 instanceof TypedArray)) {
+  if (!ArrayBuffer.isView(value1) || !ArrayBuffer.isView(value2)) {
     // Defer to other equality testers.
     return undefined
   }
 
+  const typedArray1 = value1 as TypedArray
+  const typedArray2 = value2 as TypedArray
   if (
-    value1.constructor !== value2.constructor ||
-    value1.length !== value2.length ||
-    value1.byteLength !== value2.byteLength ||
-    value1.byteOffset !== value2.byteOffset
+    typedArray1.constructor !== typedArray2.constructor ||
+    typedArray1.length !== typedArray2.length ||
+    typedArray1.byteLength !== typedArray2.byteLength ||
+    typedArray1.byteOffset !== typedArray2.byteOffset
   ) {
     return false
   }
 
-  return strictArrayBufferEqualityTester(value1.buffer, value2.buffer)
+  return strictArrayBufferEqualityTester(typedArray1.buffer, typedArray2.buffer)
 }
 
 // https://nodejs.org/api/buffer.html
@@ -175,20 +190,6 @@ const strictBufferEqualityTester = (
 
   return true
 }
-
-const TypedArray = Object.getPrototypeOf(Int8Array) as
-  | typeof Int8Array
-  | typeof Uint8Array
-  | typeof Uint8ClampedArray
-  | typeof Int16Array
-  | typeof Uint16Array
-  | typeof Int32Array
-  | typeof Uint32Array
-  | typeof Float16Array
-  | typeof Float32Array
-  | typeof Float64Array
-  | typeof BigInt64Array
-  | typeof BigUint64Array
 
 expect.addEqualityTesters([
   strictPlainObjectEqualityTester,
