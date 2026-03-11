@@ -44,6 +44,7 @@ type Case = {
         roundtrips?: boolean
       }
     | { error: true | string }
+  compare?: boolean
 }
 
 const customBoolean: UnevalOptions[`custom`] = value =>
@@ -763,22 +764,23 @@ const cases: Record<string, Case[]> = {
       // eslint-disable-next-line symbol-description
       value: Symbol(),
       expected: {
-        error: `Unsupported symbol`,
+        error: `Unsupported: Symbol`,
       },
     },
     {
       name: `unique symbol with description`,
       value: Symbol(`howdy`),
       expected: {
-        error: `Unsupported symbol`,
+        error: `Unsupported: Symbol`,
       },
     },
     {
       name: `polluted symbol`,
       value: evilSymbol,
       expected: {
-        error: `Unsupported symbol`,
+        error: `Unsupported: Symbol`,
       },
+      compare: false,
     },
     {
       name: `custom symbol`,
@@ -1435,7 +1437,7 @@ const cases: Record<string, Case[]> = {
       name: `function`,
       value: () => {},
       expected: {
-        error: `Unsupported function`,
+        error: `Unsupported: Function`,
       },
     },
   ],
@@ -3434,6 +3436,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Int8Array`,
@@ -3599,6 +3602,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Uint8Array`,
@@ -3736,6 +3740,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Uint8ClampedArray`,
@@ -3875,6 +3880,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Int16Array`,
@@ -4014,6 +4020,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Uint16Array`,
@@ -4153,6 +4160,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Int32Array`,
@@ -4294,6 +4302,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Uint32Array`,
@@ -4452,6 +4461,7 @@ const cases: Record<string, Case[]> = {
             expected: {
               error: true,
             },
+            compare: false,
           },
           {
             name: `custom Float16Array`,
@@ -4606,6 +4616,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Float32Array`,
@@ -4759,6 +4770,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom Float64Array`,
@@ -4900,6 +4912,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom BigInt64Array`,
@@ -5045,6 +5058,7 @@ const cases: Record<string, Case[]> = {
       expected: {
         error: true,
       },
+      compare: false,
     },
     {
       name: `custom BigUint64Array`,
@@ -5684,12 +5698,12 @@ const cases: Record<string, Case[]> = {
 for (let [category, categoryCases] of Object.entries(cases)) {
   if (isComparison) {
     categoryCases = categoryCases.filter(
-      ({ expected, options }) =>
-        // When comparing, we only care about tests that produce output.
-        `source` in expected &&
-        // If the test case doesn't roundtrip, then there's nothing to compare
-        // because we don't assert on source when comparing.
-        (expected.roundtrips ?? true) &&
+      ({ expected, options, compare = true }) =>
+        compare &&
+        (!(`source` in expected) ||
+          // If the test case doesn't roundtrip, then there's nothing to compare
+          // because we don't assert on source when comparing.
+          (expected.roundtrips ?? true)) &&
         // If this test case requires options, then it's specific to this
         // package and probably isn't portable to other package. It wouldn't be
         // fair to consider these test cases.
@@ -5705,6 +5719,13 @@ for (let [category, categoryCases] of Object.entries(cases)) {
       // When comparing, we should run todo cases in because other packages
       // may successfully handle them.
       ;(todo && !isComparison ? test.todo : test)(`uneval '${name}'`, () => {
+        if (isComparison) {
+          // When comparing with packages, we don't fail other packages if they
+          // output slightly different source. That's fine as long as their
+          // source still roundtrips.
+          expectUnevalRoundtrips(value)
+        }
+
         if (`error` in expected) {
           expect(() => uneval(value, options)).toThrowError(
             expected.error === true ? undefined : expected.error,
@@ -5718,12 +5739,7 @@ for (let [category, categoryCases] of Object.entries(cases)) {
           options,
         )
 
-        // When comparing with packages, we don't fail other packages if they
-        // output slightly different source. That's fine as long as their source
-        // still roundtrips.
-        if (!isComparison) {
-          expect(actualSource).toBe(source)
-        }
+        expect(actualSource).toBe(source)
       })
     }
   })

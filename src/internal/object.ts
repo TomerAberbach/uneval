@@ -65,12 +65,12 @@ const unevalObjectInternal = (value: object, state: State): string => {
     return customSource
   }
 
-  if (typeof value == `function`) {
-    throw new TypeError(`Unsupported function`)
-  }
-
   const [type, name] = getType(value)
   return unevals[type!]?.(value, state, name!) ?? unevalObjectLike(value, state)
+}
+
+const unevalUnsupported: Uneval<unknown> = (_value, _state, name) => {
+  throw new Error(`Unsupported: ${name}`)
 }
 
 // The order of this array must match the numeric values of `T_*` variables.
@@ -86,6 +86,7 @@ const unevals: Uneval<any>[] = [
   unevalDate,
   unevalTemporal,
   unevalURL,
+  unevalUnsupported,
 ]
 
 const unevalObjectLike = (object: object, state: State): string => {

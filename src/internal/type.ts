@@ -1,6 +1,3 @@
-// For smaller bundle size.
-/* eslint-disable eqeqeq */
-
 export const getType = (
   value: object,
 ): [] | [number, string] | [undefined, string] => {
@@ -21,6 +18,7 @@ export const T_BUFFER = 7
 export const T_DATE = 8
 export const T_TEMPORAL = 9
 export const T_URL = 10
+export const T_UNSUPPORTED = 11
 
 const TYPES = {
   Boolean: T_PRIMITIVE_WRAPPER,
@@ -59,4 +57,6 @@ const TYPES = {
 
   URL: T_URL,
   URLSearchParams: T_URL,
+
+  Function: T_UNSUPPORTED,
 } as const
