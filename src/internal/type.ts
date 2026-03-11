@@ -61,4 +61,8 @@ const TYPES = {
   URLSearchParams: T_URL,
 
   Function: T_UNSUPPORTED,
+  Promise: T_UNSUPPORTED,
+  SharedArrayBuffer: T_UNSUPPORTED,
+  WeakMap: T_UNSUPPORTED,
+  WeakSet: T_UNSUPPORTED,
 } as const

@@ -224,13 +224,16 @@ const packageLink = (pkg: string): string => {
       readFileSync(findPackageJSON(pkg, import.meta.url)!, `utf8`),
     ) as Record<string, unknown>
   ).version as string
-  return `<a href="https://npm.im/package/${pkg}/v/${version}"><code>${noBreak(
+  const link = `<a href="https://npm.im/package/${pkg}/v/${version}"><code>${noBreak(
     escapeHtml(pkg),
   )}@${noBreak(escapeHtml(version))}</code></a>`
+  return `${link}${pkg === `seroval` ? `&nbsp;(sync)` : ``}`
 }
 
 const packageBundleSizeBadge = (pkg: string): string =>
-  `<img src="https://deno.bundlejs.com/?q=${encodeURIComponent(pkg)}&badge" alt="${pkg} gzip size" height="17.5" />`
+  `<img src="https://deno.bundlejs.com/?q=${encodeURIComponent(
+    pkg,
+  )}&badge" alt="${pkg} gzip size" height="17.5" />`
 
 const escapeHtml = (string: string): string =>
   string

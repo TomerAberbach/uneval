@@ -1454,16 +1454,6 @@ const cases: Record<string, Case[]> = {
     },
   ],
 
-  Function: [
-    {
-      name: `function`,
-      value: () => {},
-      expected: {
-        error: `Unsupported: Function`,
-      },
-    },
-  ],
-
   Set: [
     {
       name: `empty Set`,
@@ -5824,6 +5814,56 @@ const cases: Record<string, Case[]> = {
     },
   ],
 
+  Function: [
+    {
+      name: `function`,
+      value: () => {},
+      expected: {
+        error: `Unsupported: Function`,
+      },
+    },
+  ],
+
+  Promise: [
+    {
+      name: `Promise`,
+      value: Promise.resolve(42),
+      expected: {
+        error: `Unsupported: Promise`,
+      },
+    },
+  ],
+
+  SharedArrayBuffer: [
+    {
+      name: `SharedArrayBuffer`,
+      value: new SharedArrayBuffer(),
+      expected: {
+        error: `Unsupported: SharedArrayBuffer`,
+      },
+    },
+  ],
+
+  WeakSet: [
+    {
+      name: `WeakSet`,
+      value: new WeakSet(),
+      expected: {
+        error: `Unsupported: WeakSet`,
+      },
+    },
+  ],
+
+  WeakMap: [
+    {
+      name: `WeakMap`,
+      value: new WeakMap(),
+      expected: {
+        error: `Unsupported: WeakMap`,
+      },
+    },
+  ],
+
   Custom: [
     {
       name: `custom option for functions`,
@@ -5999,6 +6039,14 @@ for (let [category, categoryCases] of Object.entries(cases)) {
   })
 }
 
+describe.skipIf(isComparison)(`invariants`, () => {
+  test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
+    const source = expectUnevalRoundtrips(value)
+    // Ensure no `</script>` XSS.
+    expect(source).not.toMatch(/<\/script>/gi)
+  })
+})
+
 const expectUnevalRoundtrips = (
   value: unknown,
   options?: UnevalOptions,
@@ -6018,11 +6066,3 @@ const expectUnevalRoundtrips = (
 
   return source
 }
-
-describe.skipIf(isComparison)(`invariants`, () => {
-  test.prop([anythingArb], { numRuns: 100_000 })(`uneval works`, value => {
-    const source = expectUnevalRoundtrips(value)
-    // Ensure no `</script>` XSS.
-    expect(source).not.toMatch(/<\/script>/gi)
-  })
-})
