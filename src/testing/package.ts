@@ -2,6 +2,7 @@ import assert from 'node:assert'
 import * as devalue from 'devalue'
 import jsesc from 'jsesc'
 import serializeJavaScript from 'serialize-javascript'
+import { serialize as seroval } from 'seroval'
 import toSource from 'tosource'
 import tomerUneval from '../index.ts'
 
@@ -21,6 +22,7 @@ export const unevals = {
     return value => jsesc(value, options)
   })(),
   'serialize-javascript': value => serializeJavaScript(value),
+  seroval: value => seroval(value),
   tosource: (value, { custom } = {}) => {
     const replacer = custom
       ? (value: unknown) => custom(value, uneval)

@@ -99,7 +99,16 @@ const computePackageStatsByCategory = (): Map<string, Map<string, Stats>> => {
 const generateComparisonTable = (
   packageStatsByCategory: Map<string, Map<string, Stats>>,
 ): string => {
-  const columns = packages.map(
+  const passCount = (pkg: string): number =>
+    Array.from(
+      packageStatsByCategory.values(),
+      statsByPackage => statsByPackage.get(pkg)!,
+    ).reduce((count, { passed }) => count + passed.length, 0)
+  const sortedPackages = packages.toSorted(
+    (package1, package2) => passCount(package2) - passCount(package1),
+  )
+
+  const columns = sortedPackages.map(
     pkg =>
       `${
         pkg === `@tomer/uneval`
@@ -122,10 +131,15 @@ const generateComparisonTable = (
     ([category, statsByPackage]) => {
       const lineNumber = lineNumbers.get(category)
       assert(lineNumber, category)
-      const dataCells = Array.from(
-        statsByPackage.values(),
-        stats => `<td>${statsCell(stats, { lineNumbers, repository })}</td>`,
-      ).join(``)
+      const dataCells = sortedPackages
+        .map(
+          pkg =>
+            `<td>${statsCell(statsByPackage.get(pkg)!, {
+              lineNumbers,
+              repository,
+            })}</td>`,
+        )
+        .join(``)
       return `<tr><td>${githubCodeLink({
         content: category,
         repository,

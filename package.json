@@ -72,6 +72,7 @@
     "prettier": "^3.8.1",
     "publint": "^0.3.18",
     "serialize-javascript": "^7.0.4",
+    "seroval": "^1.5.1",
     "tosource": "2.0.0-alpha.3",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
