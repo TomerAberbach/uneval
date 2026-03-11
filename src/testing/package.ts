@@ -1,5 +1,7 @@
 import assert from 'node:assert'
 import * as devalue from 'devalue'
+import { stringify as javaScriptStringify } from 'javascript-stringify'
+import jsStringify from 'js-stringify'
 import jsesc from 'jsesc'
 import serializeJavaScript from 'serialize-javascript'
 import { serialize as seroval } from 'seroval'
@@ -17,10 +19,13 @@ export const unevals = {
       : undefined
     return devalue.uneval(value, replacer)
   },
+  'javascript-stringify': value =>
+    javaScriptStringify(value, null, null, { references: true }) ?? ``,
   jsesc: (() => {
     const options = { wrap: true, compact: true }
     return value => jsesc(value, options)
   })(),
+  'js-stringify': value => jsStringify(value),
   'serialize-javascript': value => serializeJavaScript(value),
   seroval: value => seroval(value),
   tosource: (value, { custom } = {}) => {
