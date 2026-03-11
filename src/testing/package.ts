@@ -17,7 +17,8 @@ export const unevals = {
     const replacer = custom
       ? (value: unknown) => custom(value, uneval) ?? undefined
       : undefined
-    return devalue.uneval(value, replacer)
+    const uneval = (value: unknown) => devalue.uneval(value, replacer)
+    return uneval(value)
   },
   'javascript-stringify': value =>
     javaScriptStringify(value, null, null, { references: true }) ?? ``,
