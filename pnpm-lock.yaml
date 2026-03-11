@@ -65,6 +65,9 @@ importers:
       serialize-javascript:
         specifier: ^7.0.4
         version: 7.0.4
+      seroval:
+        specifier: ^1.5.1
+        version: 1.5.1
       tosource:
         specifier: 2.0.0-alpha.3
         version: 2.0.0-alpha.3
@@ -2537,6 +2540,10 @@ packages:
   serialize-javascript@7.0.4:
     resolution: {integrity: sha512-DuGdB+Po43Q5Jxwpzt1lhyFSYKryqoNjQSA9M92tyw0lyHIOur+XCalOUe0KTJpyqzT8+fQ5A0Jf7vCx/NKmIg==}
     engines: {node: '>=20.0.0'}
+
+  seroval@1.5.1:
+    resolution: {integrity: sha512-OwrZRZAfhHww0WEnKHDY8OM0U/Qs8OTfIDWhUD4BLpNJUfXK4cGmjiagGze086m+mhI+V2nD0gfbHEnJjb9STA==}
+    engines: {node: '>=10'}
 
   set-function-length@1.2.2:
     resolution: {integrity: sha512-pgRc4hJ4/sNjWCSS9AmnS40x3bNMDTknHgL5UaMBTMyJnU90EgWh1Rz+MC9eFu4BuN/UwZjKQuY/1v3rM7HMfg==}
@@ -5653,6 +5660,8 @@ snapshots:
   semver@7.7.4: {}
 
   serialize-javascript@7.0.4: {}
+
+  seroval@1.5.1: {}
 
   set-function-length@1.2.2:
     dependencies:

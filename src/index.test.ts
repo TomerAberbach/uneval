@@ -20,7 +20,7 @@ const { default: uneval } = await import(`./testing/package.ts`)
 // @ts-expect-error For testing.
 delete Symbol[`</script>xss`]
 
-const ignoredRootRegex = /^(?:console|__vitest_.*|Person)$/u
+const ignoredRootRegex = /^(?:console|__vitest_.*|Person|__SEROVAL_REFS__)$/u
 const poisoningAfterEach = () => {
   try {
     assertNoPoisoning({ ignoredRootRegex })
