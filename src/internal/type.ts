@@ -61,6 +61,9 @@ const TYPES = {
   URLSearchParams: T_URL,
 
   Function: T_UNSUPPORTED,
+  GeneratorFunction: T_UNSUPPORTED,
+  AsyncFunction: T_UNSUPPORTED,
+  AsyncGeneratorFunction: T_UNSUPPORTED,
   Promise: T_UNSUPPORTED,
   SharedArrayBuffer: T_UNSUPPORTED,
   WeakMap: T_UNSUPPORTED,
