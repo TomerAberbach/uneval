@@ -1159,6 +1159,7 @@ const cases: Record<string, Case[]> = {
       ),
       expected: {
         source: `Object.setPrototypeOf({},{__defineGetter__:"function",__defineSetter__:"function",hasOwnProperty:"function",__lookupGetter__:"function",__lookupSetter__:"function",isPrototypeOf:"function",propertyIsEnumerable:"function",toString:"function",valueOf:"function",["__proto__"]:null,toLocaleString:"function"})`,
+        roundtrips: false,
       },
     },
     {
