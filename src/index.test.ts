@@ -5816,10 +5816,33 @@ const cases: Record<string, Case[]> = {
 
   Function: [
     {
-      name: `function`,
+      name: `Function`,
       value: () => {},
       expected: {
         error: `Unsupported: Function`,
+      },
+    },
+    {
+      name: `GeneratorFunction`,
+      // eslint-disable-next-line object-shorthand
+      value: function* () {},
+      expected: {
+        error: `Unsupported: GeneratorFunction`,
+      },
+    },
+    {
+      name: `AsyncFunction`,
+      value: async () => {},
+      expected: {
+        error: `Unsupported: AsyncFunction`,
+      },
+    },
+    {
+      name: `AsyncGeneratorFunction`,
+      // eslint-disable-next-line object-shorthand
+      value: async function* () {},
+      expected: {
+        error: `Unsupported: AsyncGeneratorFunction`,
       },
     },
   ],
