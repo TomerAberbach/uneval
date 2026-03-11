@@ -3148,6 +3148,237 @@ const cases: Record<string, Case[]> = {
     },
   ],
 
+  DataView: [
+    {
+      name: `empty non-resizable DataView`,
+      value: new DataView(new ArrayBuffer()),
+      expected: { source: `new DataView(new ArrayBuffer)` },
+    },
+    {
+      name: `empty non-resizable DataView containing non-empty ArrayBuffer`,
+      value: new DataView(new ArrayBuffer(1), 0, 0),
+      expected: { source: `new DataView(new ArrayBuffer(1),0,0)` },
+    },
+    {
+      name: `empty resizable full capacity DataView`,
+      value: new DataView(new ArrayBuffer(0, { maxByteLength: 0 })),
+      expected: {
+        source: `new DataView(new ArrayBuffer(0,{maxByteLength:0}))`,
+      },
+    },
+    {
+      name: `empty resizable DataView`,
+      value: new DataView(new ArrayBuffer(0, { maxByteLength: 3 })),
+      expected: {
+        source: `new DataView(new ArrayBuffer(0,{maxByteLength:3}))`,
+      },
+    },
+    {
+      name: `non-empty non-resizable uninitialized DataView`,
+      value: new DataView(new ArrayBuffer(8)),
+      expected: { source: `new DataView(new ArrayBuffer(8))` },
+    },
+    {
+      name: `non-empty non-resizable DataView initialized with trailing zeros`,
+      value: new DataView(new Uint8Array([1, 2, 3, 0, 0, 0, 0, 0]).buffer),
+      expected: {
+        source: `new DataView(Uint8Array.of(1,2,3,0,0,0,0,0).buffer)`,
+      },
+    },
+    {
+      name: `non-empty non-resizable DataView initialized with leading and trailing zeros`,
+      value: new DataView(new Uint8Array([0, 2, 3, 0, 0, 0, 0, 0]).buffer),
+      expected: {
+        source: `new DataView(Uint8Array.of(0,2,3,0,0,0,0,0).buffer)`,
+      },
+    },
+    {
+      name: `non-empty non-resizable DataView initialized with leading zeros`,
+      value: new DataView(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer),
+      expected: {
+        source: `new DataView(Uint8Array.of(0,0,0,0,0,1,2,3).buffer)`,
+      },
+    },
+    {
+      name: `non-empty resizable full capacity uninitialized DataView`,
+      value: new DataView(new ArrayBuffer(8, { maxByteLength: 8 })),
+      expected: {
+        source: `new DataView(new ArrayBuffer(8,{maxByteLength:8}))`,
+      },
+    },
+    {
+      name: `non-empty resizable full capacity DataView initialized with trailing zeros`,
+      value: (() => {
+        const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 8 })
+        new Uint8Array(arrayBuffer).set([1, 2, 3])
+        return new DataView(arrayBuffer)
+      })(),
+      expected: {
+        source: `(a=>(new Uint8Array(a).set([1,2,3]),new DataView(a)))(new ArrayBuffer(8,{maxByteLength:8}))`,
+      },
+    },
+    {
+      name: `non-empty resizable full capacity DataView initialized with leading and trailing zeros`,
+      value: (() => {
+        const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 8 })
+        new Uint8Array(arrayBuffer).set([0, 0, 1, 2, 3])
+        return new DataView(arrayBuffer)
+      })(),
+      expected: {
+        source: `(a=>(new Uint8Array(a).set([1,2,3],2),new DataView(a)))(new ArrayBuffer(8,{maxByteLength:8}))`,
+      },
+    },
+    {
+      name: `non-empty resizable full capacity DataView initialized with leading zeros`,
+      value: (() => {
+        const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 8 })
+        new Uint8Array(arrayBuffer).set([0, 0, 0, 0, 0, 1, 2, 3])
+        return new DataView(arrayBuffer)
+      })(),
+      expected: {
+        source: `(a=>(new Uint8Array(a).set([1,2,3],5),new DataView(a)))(new ArrayBuffer(8,{maxByteLength:8}))`,
+      },
+    },
+    {
+      name: `non-empty resizable uninitialized DataView`,
+      value: new DataView(new ArrayBuffer(8, { maxByteLength: 10 })),
+      expected: {
+        source: `new DataView(new ArrayBuffer(8,{maxByteLength:10}))`,
+      },
+    },
+    {
+      name: `non-empty resizable DataView initialized with trailing zeros`,
+      value: (() => {
+        const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 10 })
+        new Uint8Array(arrayBuffer).set([1, 2, 3])
+        return new DataView(arrayBuffer)
+      })(),
+      expected: {
+        source: `(a=>(new Uint8Array(a).set([1,2,3]),new DataView(a)))(new ArrayBuffer(8,{maxByteLength:10}))`,
+      },
+    },
+    {
+      name: `non-empty resizable DataView initialized with leading and trailing zeros`,
+      value: (() => {
+        const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 10 })
+        new Uint8Array(arrayBuffer).set([0, 0, 1, 2, 3])
+        return new DataView(arrayBuffer)
+      })(),
+      expected: {
+        source: `(a=>(new Uint8Array(a).set([1,2,3],2),new DataView(a)))(new ArrayBuffer(8,{maxByteLength:10}))`,
+      },
+    },
+    {
+      name: `non-empty resizable DataView initialized with leading zeros`,
+      value: (() => {
+        const arrayBuffer = new ArrayBuffer(8, { maxByteLength: 10 })
+        new Uint8Array(arrayBuffer).set([0, 0, 0, 0, 0, 1, 2, 3])
+        return new DataView(arrayBuffer)
+      })(),
+      expected: {
+        source: `(a=>(new Uint8Array(a).set([1,2,3],5),new DataView(a)))(new ArrayBuffer(8,{maxByteLength:10}))`,
+      },
+    },
+    {
+      name: `leading DataView view`,
+      value: new DataView(new ArrayBuffer(4), 0, 3),
+      expected: { source: `new DataView(new ArrayBuffer(4),0,3)` },
+    },
+    {
+      name: `middle DataView view`,
+      value: new DataView(new ArrayBuffer(4), 1, 2),
+      expected: { source: `new DataView(new ArrayBuffer(4),1,2)` },
+    },
+    {
+      name: `trailing DataView view`,
+      value: new DataView(new ArrayBuffer(4), 1, 3),
+      expected: { source: `new DataView(new ArrayBuffer(4),1)` },
+    },
+    {
+      name: `polluted DataView byteOffset`,
+      value: (() => {
+        const buffer = new DataView(new ArrayBuffer(4), 1, 2)
+        Object.defineProperty(buffer, `byteOffset`, {
+          value: `</script><script src='https://evil.com/hacked.js'>`,
+        })
+        return buffer
+      })(),
+      expected: {
+        source: `new DataView(new ArrayBuffer(4),NaN,2)`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `custom DataView`,
+      value: new DataView(new Uint8Array([1, 2, 3, 4]).buffer),
+      options: {
+        custom: (value, uneval) =>
+          value instanceof DataView
+            ? `new DataView(${uneval(new Uint16Array(value.buffer))})`
+            : undefined,
+      },
+      expected: {
+        source: `new DataView(Uint16Array.of(513,1027))`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `custom number does not affect DataView`,
+      value: new DataView(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer),
+      options: { custom: customNumber },
+      expected: {
+        source: `new DataView(Uint8Array.of(0,0,0,0,0,1,2,3).buffer)`,
+      },
+    },
+    {
+      name: `custom number does not affect DataView when number is sibling`,
+      value: [new DataView(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer), 0],
+      options: { custom: customNumber },
+      expected: {
+        source: `[new DataView(Uint8Array.of(0,0,0,0,0,1,2,3).buffer),0.0]`,
+      },
+    },
+    {
+      name: `omit number does not affect DataView`,
+      value: new DataView(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer),
+      options: { custom: value => (value === 0 ? null : undefined) },
+      expected: {
+        source: `new DataView(Uint8Array.of(0,0,0,0,0,1,2,3).buffer)`,
+      },
+    },
+    {
+      name: `omit number does not affect DataView when number is sibling`,
+      value: [new DataView(new Uint8Array([0, 0, 0, 0, 0, 1, 2, 3]).buffer), 0],
+      options: { custom: value => (value === 0 ? null : undefined) },
+      expected: {
+        source: `[new DataView(Uint8Array.of(0,0,0,0,0,1,2,3).buffer),,]`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `custom ArrayBuffer affects DataView`,
+      value: new DataView(new Uint8Array([1, 2, 3]).buffer),
+      options: {
+        custom: (value, uneval) =>
+          value instanceof ArrayBuffer
+            ? `new Uint8Array(${uneval([...new Uint8Array(value)])}).buffer`
+            : undefined,
+      },
+      expected: { source: `new DataView(new Uint8Array([1,2,3]).buffer)` },
+    },
+    {
+      name: `omit DataView from container`,
+      value: [new DataView(new ArrayBuffer()), 1],
+      options: {
+        custom: value => (ArrayBuffer.isView(value) ? null : undefined),
+      },
+      expected: {
+        source: `[,1]`,
+        roundtrips: false,
+      },
+    },
+  ],
+
   Buffer: [
     {
       name: `empty non-resizable Buffer`,

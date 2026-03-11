@@ -146,18 +146,17 @@ const strictTypedArrayEqualityTester = (
     return undefined
   }
 
-  const typedArray1 = value1 as TypedArray
-  const typedArray2 = value2 as TypedArray
   if (
-    typedArray1.constructor !== typedArray2.constructor ||
-    typedArray1.length !== typedArray2.length ||
-    typedArray1.byteLength !== typedArray2.byteLength ||
-    typedArray1.byteOffset !== typedArray2.byteOffset
+    value1.constructor !== value2.constructor ||
+    (value1.constructor.name !== `DataView` &&
+      (value1 as TypedArray).length !== (value2 as TypedArray).length) ||
+    value1.byteLength !== value2.byteLength ||
+    value1.byteOffset !== value2.byteOffset
   ) {
     return false
   }
 
-  return strictArrayBufferEqualityTester(typedArray1.buffer, typedArray2.buffer)
+  return strictArrayBufferEqualityTester(value1.buffer, value2.buffer)
 }
 
 // https://nodejs.org/api/buffer.html
