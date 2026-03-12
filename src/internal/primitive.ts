@@ -84,8 +84,14 @@ export const unevalRegExp: Uneval<RegExp> = (
     // i.e. `/\0/.source` is does not equal `new RegExp('\0').source`.
     // The former is `'\\0'` while the later is `'\0'`.
     source == escapedSource &&
-      // This protects against RCE from monkey-patched `RegExp` objects.
-      /^[a-z]*$/u.test(flags)
+      // This protects against RCE from monkey-patched `RegExp` objects, where
+      // `source` or `flags` could be set to arbitrary strings. Legitimate
+      // `RegExp.prototype.source` always escapes `/` as `\/` (i.e. preceded by
+      // an odd number of backslashes), so an unescaped slash (preceded by 0 or
+      // an even number of backslashes) signals an injected source that would
+      // terminate the regex literal early.
+      !UNSAFE_REG_EXP_SOURCE_REG_EXP.test(source) &&
+      SAFE_REG_EXP_FLAGS_REG_EXP.test(flags)
       ? `/${source}/${flags}`
       : newInstance(
           name,
@@ -95,6 +101,9 @@ export const unevalRegExp: Uneval<RegExp> = (
         )
   )
 }
+
+const UNSAFE_REG_EXP_SOURCE_REG_EXP = /(?:^|[^\\])(?:\\\\)*\//u
+const SAFE_REG_EXP_FLAGS_REG_EXP = /^[a-z]*$/u
 
 export const unevalString = (string: string): string =>
   `"${unevalLiteral(string, STRING_CODE_UNIT_ESCAPES)}"`

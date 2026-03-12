@@ -1874,16 +1874,87 @@ const cases: Record<string, Case[]> = {
       expected: { source: `/😀/` },
     },
     {
-      name: `polluted RegExp source`,
+      name: `script polluted RegExp source`,
+      value: {
+        constructor: { name: `RegExp` },
+        source: `</script><script src='https://evil.com/hacked.js'>`,
+        flags: ``,
+      },
+      expected: {
+        source: `new RegExp("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `console.log polluted RegExp source`,
+      value: [
+        1,
+        {
+          constructor: { name: `RegExp` },
+          source: `a/, console.log('pwned'), /a`,
+          flags: ``,
+        },
+      ],
+      expected: {
+        source: `[1,new RegExp("a/, console.log('pwned'), /a")]`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `polluted RegExp source with leading slash`,
       value: (() => {
         const value = new RegExp(`abc`)
         Object.defineProperty(value, `source`, {
-          value: `</script><script src='https://evil.com/hacked.js'>`,
+          value: `/inject`,
         })
         return value
       })(),
       expected: {
-        source: `new RegExp("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        source: `new RegExp("/inject")`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `polluted RegExp source with trailing slash`,
+      value: (() => {
+        const value = new RegExp(`abc`)
+        Object.defineProperty(value, `source`, {
+          value: `inject/`,
+        })
+        return value
+      })(),
+      expected: {
+        source: `new RegExp("inject/")`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `polluted RegExp source with multiple slashes`,
+      value: (() => {
+        const value = new RegExp(`abc`)
+        Object.defineProperty(value, `source`, {
+          value: `a/b/c`,
+        })
+        return value
+      })(),
+      expected: {
+        source: `new RegExp("a/b/c")`,
+        roundtrips: false,
+      },
+    },
+    {
+      // Even number of backslashes before a slash means the slash is unescaped.
+      // A real RegExp with a slash would have an odd number (e.g. `\/`).
+      name: `polluted RegExp source with even backslashes before slash`,
+      value: (() => {
+        const value = new RegExp(`abc`)
+        Object.defineProperty(value, `source`, {
+          value: `\\\\/inject`,
+        })
+        return value
+      })(),
+      expected: {
+        source: `new RegExp("\\\\\\\\/inject")`,
         roundtrips: false,
       },
     },
