@@ -115,14 +115,20 @@ const unevalBufferWrapperArgs = (
     BYTES_PER_ELEMENT: number
   },
   state: State,
-): string =>
-  `${unevalInternal(buffer, state)!}${
+): string => {
+  if (!canExposeFullArrayBuffer(buffer, state)) {
+    buffer = buffer.slice(byteOffset, byteOffset + byteLength)
+    byteOffset = 0
+  }
+
+  return `${unevalInternal(buffer, state)!}${
     byteOffset + byteLength == buffer.byteLength
       ? byteOffset > 0
         ? `,${byteOffset}`
         : ``
       : `,${+byteOffset},${byteLength / BYTES_PER_ELEMENT}`
   }`
+}
 
 export const unevalDataView: Uneval<DataView> = (dataView, state, name) =>
   newInstance(
@@ -182,3 +188,16 @@ export const unevalArrayBuffer: Uneval<ArrayBuffer> = (
   })
   return newInstance(name, `${+byteLength},{maxByteLength:${+maxByteLength}}`)
 }
+
+const canExposeFullArrayBuffer =
+  typeof Buffer == `undefined`
+    ? () => true
+    : (arrayBuffer: ArrayBufferLike, state: State): boolean =>
+        // If there's a binding for this `arrayBuffer`, then it's used elsewhere
+        // in the input value and it's intended to be exposed.
+        state._bindings.has(arrayBuffer) ||
+        // If there `arrayBuffer`'s size is not equal to the Node `Buffer` pool
+        // size, then it's definitely not the pool so it's safe to expose.
+        // Otherwise it _might_ be a pool, but there's no way to know for sure.
+        // We prefer to not expose in this case for security.
+        arrayBuffer.byteLength !== Buffer.poolSize
