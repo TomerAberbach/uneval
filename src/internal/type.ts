@@ -1,9 +1,11 @@
+import { isObject } from './object.ts'
+
 export const getType = (
   value: object,
 ): [] | [number, string] | [undefined, string] => {
-  // `.constructor` returns `undefined` for objects with null prototype.
+  const prototype = Object.getPrototypeOf(value) as unknown
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const name = value.constructor?.name
+  const name = isObject(prototype) ? prototype.constructor?.name : ``
   return [(TYPES as Record<string, number>)[name], name]
 }
 
