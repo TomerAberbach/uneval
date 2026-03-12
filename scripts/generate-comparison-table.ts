@@ -229,10 +229,10 @@ const escapeHtml = (string: string): string =>
 
 const noBreak = (html: string): string =>
   html
-    .replaceAll(`-`, `&NoBreak;-&NoBreak;`)
-    .replaceAll(`/`, `&NoBreak;/&NoBreak;`)
-    .replaceAll(`.`, `&NoBreak;.&NoBreak;`)
-    .replaceAll(` `, `&nbsp;`)
+    .replaceAll(`-`, `\u2060-\u2060`)
+    .replaceAll(`/`, `\u2060/\u2060`)
+    .replaceAll(`.`, `\u2060.\u2060`)
+    .replaceAll(` `, `\u00A0`)
 
 const emoji = (passed: number, total: number): string => {
   const percentage = passed / total
