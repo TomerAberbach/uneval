@@ -118,9 +118,6 @@ const generateComparisonTable = (
   )
 
   const lineNumbers = computeLineNumbers()
-  const { repository } = JSON.parse(
-    readFileSync(join(rootDirectoryPath, `package.json`), `utf8`),
-  ) as { repository: string }
 
   const headerCells = [
     `<th>Category</th>`,
@@ -134,15 +131,11 @@ const generateComparisonTable = (
       const dataCells = sortedPackages
         .map(
           pkg =>
-            `<td>${statsCell(statsByPackage.get(pkg)!, {
-              lineNumbers,
-              repository,
-            })}</td>`,
+            `<td>${statsCell(statsByPackage.get(pkg)!, { lineNumbers })}</td>`,
         )
         .join(``)
       return `<tr><td>${githubCodeLink({
         content: category,
-        repository,
         lineNumber,
       })}${dataCells}</td></tr>`
     },
@@ -153,10 +146,7 @@ const generateComparisonTable = (
 
 const statsCell = (
   { passed, failed }: Stats,
-  {
-    repository,
-    lineNumbers,
-  }: { repository: string; lineNumbers: Map<string, number> },
+  { lineNumbers }: { lineNumbers: Map<string, number> },
 ): string => {
   const total = passed.length + failed.length
   const summary = `${emoji(passed.length, total)} ${passed.length}/${total}`
@@ -168,12 +158,12 @@ const statsCell = (
     ...passed.map(name => {
       const lineNumber = lineNumbers.get(name)
       assert(lineNumber, name)
-      return `✅ ${githubCodeLink({ content: name, repository, lineNumber })}`
+      return `✅ ${githubCodeLink({ content: name, lineNumber })}`
     }),
     ...failed.map(name => {
       const lineNumber = lineNumbers.get(name)
       assert(lineNumber, name)
-      return `❌ ${githubCodeLink({ content: name, repository, lineNumber })}`
+      return `❌ ${githubCodeLink({ content: name, lineNumber })}`
     }),
   ].join(`<br>`)
   return `<details><summary>${summary}</summary>${testLines}</details>`
@@ -181,16 +171,12 @@ const statsCell = (
 
 const githubCodeLink = ({
   content,
-  repository,
   lineNumber,
 }: {
   content: string
-  repository: string
   lineNumber: number
 }): string =>
-  `<a href="https://github.com/${
-    repository
-  }/blob/main/src/index.test.ts#L${lineNumber}"><code>${noBreak(
+  `<a href="src/index.test.ts#L${lineNumber}"><code>${noBreak(
     escapeHtml(content),
   )}</code></a>`
 
