@@ -1902,6 +1902,48 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      name: `RegExp literal with forward slash in character class`,
+      // eslint-disable-next-line unicorn/better-regex
+      value: /[/]/,
+      expected: { source: `/[/]/` },
+    },
+    {
+      name: `RegExp literal with forward slash in character class and other content`,
+      // eslint-disable-next-line unicorn/better-regex
+      value: /a[/]b/,
+      expected: { source: `/a[/]b/` },
+    },
+    {
+      name: `polluted RegExp source with escaped bracket before slash`,
+      // \[ is an escaped bracket, not a character class opener, so / is unescaped
+      value: Object.defineProperty(/a/, `source`, { value: String.raw`\[/]` }),
+      expected: {
+        source: `new RegExp("\\\\[/]")`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `polluted RegExp source starting with asterisk`,
+      // Would produce /*inject*/ which is a block comment
+      value: Object.defineProperty(/a/, `source`, { value: `*inject` }),
+      expected: {
+        source: `new RegExp("*inject")`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `polluted RegExp source with comment`,
+      // Would produce /*inject*/ which is a block comment
+      value: [
+        Object.defineProperty(/a/, `source`, { value: `*` }),
+        `*/]; console.log('pwned') //`,
+      ],
+      expected: {
+        source: `[new RegExp("*"),"*/]; console.log('pwned') //"]`,
+        roundtrips: false,
+      },
+    },
+    {
       name: `polluted RegExp source with leading slash`,
       value: Object.defineProperty(/a/, `source`, { value: `/inject` }),
       expected: {
