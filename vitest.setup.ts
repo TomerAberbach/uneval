@@ -8,6 +8,27 @@ globalThis.Temporal = TemporalPolyfill
 
 expect.extend(matchers)
 
+function strictArgumentsEqualityTester(
+  this: ThisParameterType<Tester>,
+  value1: unknown,
+  value2: unknown,
+): boolean | undefined {
+  if (
+    Object.prototype.toString.call(value1) !== `[object Arguments]` ||
+    Object.prototype.toString.call(value2) !== `[object Arguments]`
+  ) {
+    return undefined
+  }
+
+  const args1 = value1 as IArguments
+  const args2 = value2 as IArguments
+  if (args1.length !== args2.length) {
+    return false
+  }
+
+  return this.equals([...args1], [...args2])
+}
+
 function strictPlainObjectEqualityTester(
   this: ThisParameterType<Tester>,
   value1: unknown,
@@ -204,6 +225,7 @@ const strictBufferEqualityTester = (
 }
 
 expect.addEqualityTesters([
+  strictArgumentsEqualityTester,
   strictPlainObjectEqualityTester,
   strictSetEqualityTester,
   strictMapEqualityTester,

@@ -1017,6 +1017,84 @@ const cases: Record<string, Case[]> = {
     },
   ],
 
+  Arguments: [
+    {
+      name: `empty arguments`,
+      value: (function () {
+        // eslint-disable-next-line prefer-rest-params
+        return arguments
+      })(),
+      expected: { source: `(function(){return arguments})()` },
+    },
+    {
+      name: `arguments with primitives`,
+      value: (function () {
+        // eslint-disable-next-line prefer-rest-params
+        return arguments
+        // @ts-expect-error For testing
+      })(1, `hello`, true),
+      expected: { source: `(function(){return arguments})(1,"hello",!0)` },
+    },
+    {
+      name: `nested arguments`,
+      value: (function () {
+        // eslint-disable-next-line prefer-rest-params
+        return arguments
+      })(
+        // @ts-expect-error For testing
+        (function () {
+          // eslint-disable-next-line prefer-rest-params
+          return arguments
+          // @ts-expect-error For testing
+        })(10, 20),
+        `hello`,
+      ),
+      expected: {
+        source: `(function(){return arguments})((function(){return arguments})(10,20),"hello")`,
+      },
+    },
+    {
+      name: `custom arguments`,
+      value: (function () {
+        // eslint-disable-next-line prefer-rest-params
+        return arguments
+        // @ts-expect-error For testing
+      })(1, 2, 3),
+      options: {
+        custom: value =>
+          Object.prototype.toString.call(value) === `[object Arguments]`
+            ? `customArgs`
+            : undefined,
+      },
+      expected: { source: `customArgs`, roundtrips: false },
+    },
+    {
+      name: `custom value affects arguments`,
+      value: (function () {
+        // eslint-disable-next-line prefer-rest-params
+        return arguments
+        // @ts-expect-error For testing
+      })(1, 2, 3),
+      options: { custom: customNumber },
+      expected: {
+        source: `(function(){return arguments})(1.0,2.0,3.0)`,
+      },
+    },
+    {
+      name: `omit argument value`,
+      value: (function () {
+        // eslint-disable-next-line prefer-rest-params
+        return arguments
+        // @ts-expect-error For testing
+      })(1, 2, 3),
+      options: { custom: value => (value === 2 ? null : undefined) },
+      expected: {
+        source: `(a=>(delete a[1],a))((function(){return arguments})(1,0,3))`,
+        roundtrips: false,
+      },
+    },
+  ],
+
   Object: [
     {
       name: `empty object`,
@@ -6108,6 +6186,36 @@ const cases: Record<string, Case[]> = {
       expected: {
         source: `[,,]`,
         roundtrips: false,
+      },
+    },
+
+    {
+      name: `arguments referenced multiple times`,
+      value: (() => {
+        const args = (function () {
+          // eslint-disable-next-line prefer-rest-params
+          return arguments
+          // @ts-expect-error For testing
+        })(1, 2)
+        return { a: args, b: args }
+      })(),
+      expected: {
+        source: `(a=>({a,b:a}))((function(){return arguments})(1,2))`,
+      },
+    },
+    {
+      name: `arguments with circular argument value`,
+      value: (() => {
+        const args = (function () {
+          // eslint-disable-next-line prefer-rest-params
+          return arguments
+          // @ts-expect-error For testing
+        })(1) as IArguments & Record<number, unknown>
+        args[0] = args
+        return args
+      })(),
+      expected: {
+        source: `(a=>a[0]=a)((function(){return arguments})(0))`,
       },
     },
   ],

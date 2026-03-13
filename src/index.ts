@@ -7,6 +7,7 @@ import { unevalInternal } from './internal/index.ts'
 import { isDefaultObjectPrototype, isObject } from './internal/object.ts'
 import {
   getType,
+  T_ARGUMENTS,
   T_ARRAY,
   T_ARRAY_BUFFER,
   T_BUFFER,
@@ -292,6 +293,16 @@ const createState = (
         traverse(buffer, value)
         if (customSources.get(buffer) === null) {
           customSources.set(value, null)
+        }
+      }
+    } else if (type == T_ARGUMENTS) {
+      const args = value as IArguments
+      for (const arg of args) {
+        traverse(arg, value)
+        if (customSources.get(arg) === null) {
+          // We'll need a binding for the `arguments` so we can `delete` from
+          // it after construction.
+          ensureBinding(args)
         }
       }
     }
