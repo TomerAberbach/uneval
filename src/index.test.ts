@@ -3627,6 +3627,40 @@ const cases: Record<string, Case[]> = {
       expected: { source: `Buffer.from(new Uint8Array([1,2,3]).buffer)` },
     },
     {
+      name: `Buffer backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        new Uint8Array(poolSizeBuffer).set([1, 2, 3], 5)
+        return Buffer.from(poolSizeBuffer, 5, 3)
+      })(),
+      expected: {
+        source: `Buffer.from(Uint8Array.of(1,2,3).buffer)`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `zero-filled Buffer backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        new Uint8Array(poolSizeBuffer).set([0xff, 0xff, 0xff])
+        return Buffer.from(poolSizeBuffer, 5, 3)
+      })(),
+      expected: {
+        source: `Buffer.from(new ArrayBuffer(3))`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `Buffer backed by pool-sized ArrayBuffer with binding exposes full buffer`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        return [Buffer.from(poolSizeBuffer, 5, 3), poolSizeBuffer]
+      })(),
+      expected: {
+        source: `(a=>[Buffer.from(a,5,3),a])(new ArrayBuffer(${Buffer.poolSize}))`,
+      },
+    },
+    {
       name: `omit Buffer from container`,
       value: [Buffer.alloc(4), 1],
       options: {
@@ -3774,6 +3808,21 @@ const cases: Record<string, Case[]> = {
             : undefined,
       },
       expected: { source: `new Int8Array(new Uint8Array([1,2,3]).buffer)` },
+    },
+    {
+      name: `Int8Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Int8Array(poolSizeBuffer, 5, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Int8Array(Uint8Array.of(1,2,3).buffer)`,
+        roundtrips: false,
+      },
     },
     {
       name: `omit TypedArray from container`,
@@ -3941,6 +3990,18 @@ const cases: Record<string, Case[]> = {
       },
       expected: { source: `new Uint8Array(new Uint8Array([1,2,3]).buffer)` },
     },
+    {
+      name: `Uint8Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        new Uint8Array(poolSizeBuffer).set([1, 2, 3], 5)
+        return new Uint8Array(poolSizeBuffer, 5, 3)
+      })(),
+      expected: {
+        source: `new Uint8Array(Uint8Array.of(1,2,3).buffer)`,
+        roundtrips: false,
+      },
+    },
   ],
 
   Uint8ClampedArray: [
@@ -4079,6 +4140,21 @@ const cases: Record<string, Case[]> = {
       },
       expected: {
         source: `new Uint8ClampedArray(new Uint8Array([1,2,3]).buffer)`,
+      },
+    },
+    {
+      name: `Uint8ClampedArray view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Uint8ClampedArray(poolSizeBuffer, 5, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Uint8ClampedArray(Uint8Array.of(1,2,3).buffer)`,
+        roundtrips: false,
       },
     },
   ],
@@ -4221,6 +4297,21 @@ const cases: Record<string, Case[]> = {
         source: `new Int16Array(new Uint8Array([1,0,2,0,3,0]).buffer)`,
       },
     },
+    {
+      name: `Int16Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Int16Array(poolSizeBuffer, 10, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Int16Array(Uint8Array.of(1,0,2,0,3,0).buffer)`,
+        roundtrips: false,
+      },
+    },
   ],
 
   Uint16Array: [
@@ -4359,6 +4450,21 @@ const cases: Record<string, Case[]> = {
       },
       expected: {
         source: `new Uint16Array(new Uint8Array([1,0,2,0,3,0]).buffer)`,
+      },
+    },
+    {
+      name: `Uint16Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Uint16Array(poolSizeBuffer, 10, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Uint16Array(Uint8Array.of(1,0,2,0,3,0).buffer)`,
+        roundtrips: false,
       },
     },
   ],
@@ -4503,6 +4609,21 @@ const cases: Record<string, Case[]> = {
         source: `new Int32Array(new Uint8Array([1,0,0,0,2,0,0,0,3,0,0,0]).buffer)`,
       },
     },
+    {
+      name: `Int32Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Int32Array(poolSizeBuffer, 20, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Int32Array(Uint8Array.of(1,0,0,0,2,0,0,0,3,0,0,0).buffer)`,
+        roundtrips: false,
+      },
+    },
   ],
 
   Uint32Array: [
@@ -4643,6 +4764,21 @@ const cases: Record<string, Case[]> = {
       },
       expected: {
         source: `new Uint32Array(new Uint8Array([1,0,0,0,2,0,0,0,3,0,0,0]).buffer)`,
+      },
+    },
+    {
+      name: `Uint32Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Uint32Array(poolSizeBuffer, 20, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Uint32Array(Uint8Array.of(1,0,0,0,2,0,0,0,3,0,0,0).buffer)`,
+        roundtrips: false,
       },
     },
   ],
@@ -4804,6 +4940,21 @@ const cases: Record<string, Case[]> = {
               source: `new Float16Array(new Uint8Array([0,60,0,64,0,68]).buffer)`,
             },
           },
+          {
+            name: `Float16Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+            value: (() => {
+              const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+              const arr = new Float16Array(poolSizeBuffer, 10, 3)
+              arr[0] = 1
+              arr[1] = 2
+              arr[2] = 3
+              return arr
+            })(),
+            expected: {
+              source: `new Float16Array(Uint8Array.of(0,60,0,64,0,66).buffer)`,
+              roundtrips: false,
+            },
+          },
         ] satisfies Case[])),
   ],
 
@@ -4955,6 +5106,21 @@ const cases: Record<string, Case[]> = {
       },
       expected: {
         source: `new Float32Array(new Uint8Array([0,0,255,127]).buffer)`,
+      },
+    },
+    {
+      name: `Float32Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Float32Array(poolSizeBuffer, 20, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Float32Array(Uint8Array.of(0,0,128,63,0,0,0,64,0,0,64,64).buffer)`,
+        roundtrips: false,
       },
     },
   ],
@@ -5113,6 +5279,21 @@ const cases: Record<string, Case[]> = {
         source: `new Float64Array(new Uint8Array([0,0,0,0,0,0,255,127]).buffer)`,
       },
     },
+    {
+      name: `Float64Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new Float64Array(poolSizeBuffer, 40, 3)
+        arr[0] = 1
+        arr[1] = 2
+        arr[2] = 3
+        return arr
+      })(),
+      expected: {
+        source: `new Float64Array(Uint8Array.of(0,0,0,0,0,0,240,63,0,0,0,0,0,0,0,64,0,0,0,0,0,0,8,64).buffer)`,
+        roundtrips: false,
+      },
+    },
   ],
 
   BigInt64Array: [
@@ -5259,6 +5440,21 @@ const cases: Record<string, Case[]> = {
         source: `new BigInt64Array(new Uint8Array([1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0]).buffer,0,1)`,
       },
     },
+    {
+      name: `BigInt64Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new BigInt64Array(poolSizeBuffer, 40, 3)
+        arr[0] = 1n
+        arr[1] = 2n
+        arr[2] = 3n
+        return arr
+      })(),
+      expected: {
+        source: `new BigInt64Array(Uint8Array.of(1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0).buffer)`,
+        roundtrips: false,
+      },
+    },
   ],
 
   BigUint64Array: [
@@ -5403,6 +5599,21 @@ const cases: Record<string, Case[]> = {
       },
       expected: {
         source: `new BigUint64Array(new Uint8Array([1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0]).buffer,0,1)`,
+      },
+    },
+    {
+      name: `BigUint64Array view backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        const arr = new BigUint64Array(poolSizeBuffer, 40, 3)
+        arr[0] = 1n
+        arr[1] = 2n
+        arr[2] = 3n
+        return arr
+      })(),
+      expected: {
+        source: `new BigUint64Array(Uint8Array.of(1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0).buffer)`,
+        roundtrips: false,
       },
     },
   ],
