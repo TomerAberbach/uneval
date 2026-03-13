@@ -96,24 +96,10 @@ function strictMapEqualityTester(
   return this.equals([...value1], [...value2])
 }
 
-const isPlainObject = (value: unknown): value is object => {
-  if (typeof value !== `object` || value === null) {
-    return false
-  }
-  const prototype = Object.getPrototypeOf(value) as unknown
-  if (
-    prototype === Object.prototype ||
-    typeof prototype !== `object` ||
-    prototype === null
-  ) {
-    return true
-  }
-
-  return Reflect.ownKeys(prototype).every(
-    key =>
-      typeof (prototype as Record<PropertyKey, unknown>)[key] !== `function`,
-  )
-}
+const isPlainObject = (value: unknown): value is object =>
+  typeof value === `object` &&
+  value !== null &&
+  Object.prototype.toString.call(value) === `[object Object]`
 
 const DESCRIPTOR_KEYS = [
   `configurable`,

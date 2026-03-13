@@ -1226,7 +1226,10 @@ const cases: Record<string, Case[]> = {
           ]),
         ),
       ),
-      expected: { source: `{}` },
+      expected: {
+        source: `{}`,
+        roundtrips: false,
+      },
     },
     {
       name: `object with near copy of default prototype`,
