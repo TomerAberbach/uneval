@@ -1,12 +1,21 @@
-import { isObject } from './object.ts'
+// For smaller bundle size.
+/* eslint-disable eqeqeq */
 
 export const getType = (
   value: object,
 ): [] | [number, string] | [undefined, string] => {
-  const prototype = Object.getPrototypeOf(value) as unknown
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const name = isObject(prototype) ? prototype.constructor?.name : ``
-  return [(TYPES as Record<string, number>)[name], name]
+  const name = Object.prototype.toString.call(value).slice(8, -1)
+  if (
+    name == `Uint8Array` &&
+    typeof Buffer != `undefined` &&
+    Buffer.isBuffer(value)
+  ) {
+    // Buffer's `[[toStringTag]]` slot is `Uint8Array`.
+    return [T_BUFFER, `Buffer`]
+  }
+
+  const type = (TYPES as Record<string, number>)[name]
+  return [type, name]
 }
 
 export const T_PRIMITIVE_WRAPPER = 0
@@ -34,7 +43,6 @@ const TYPES = {
   Map: T_MAP,
 
   ArrayBuffer: T_ARRAY_BUFFER,
-  Buffer: T_BUFFER,
   DataView: T_DATA_VIEW,
   Int8Array: T_TYPED_ARRAY,
   Uint8Array: T_TYPED_ARRAY,
@@ -50,14 +58,14 @@ const TYPES = {
   BigUint64Array: T_TYPED_ARRAY,
 
   Date: T_DATE,
-  Duration: T_TEMPORAL,
-  Instant: T_TEMPORAL,
-  PlainDate: T_TEMPORAL,
-  PlainDateTime: T_TEMPORAL,
-  PlainMonthDay: T_TEMPORAL,
-  PlainTime: T_TEMPORAL,
-  PlainYearMonth: T_TEMPORAL,
-  ZonedDateTime: T_TEMPORAL,
+  'Temporal.Duration': T_TEMPORAL,
+  'Temporal.Instant': T_TEMPORAL,
+  'Temporal.PlainDate': T_TEMPORAL,
+  'Temporal.PlainDateTime': T_TEMPORAL,
+  'Temporal.PlainMonthDay': T_TEMPORAL,
+  'Temporal.PlainTime': T_TEMPORAL,
+  'Temporal.PlainYearMonth': T_TEMPORAL,
+  'Temporal.ZonedDateTime': T_TEMPORAL,
 
   URL: T_URL,
   URLSearchParams: T_URL,
