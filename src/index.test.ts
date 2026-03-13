@@ -3756,9 +3756,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Int8Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Int8Array`,
@@ -3937,9 +3937,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Uint8Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Uint8Array`,
@@ -4087,9 +4087,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Uint8ClampedArray(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Uint8ClampedArray`,
@@ -4242,9 +4242,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Int16Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Int16Array`,
@@ -4397,9 +4397,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Uint16Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Uint16Array`,
@@ -4552,9 +4552,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Int32Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Int32Array`,
@@ -4709,9 +4709,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Uint32Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Uint32Array`,
@@ -4883,9 +4883,9 @@ const cases: Record<string, Case[]> = {
               return new Evil(1)
             })(),
             expected: {
-              error: true,
+              source: `new Float16Array(1)`,
+              roundtrips: false,
             },
-            compare: false,
           },
           {
             name: `custom Float16Array`,
@@ -5053,9 +5053,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Float32Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Float32Array`,
@@ -5222,9 +5222,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new Float64Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom Float64Array`,
@@ -5379,9 +5379,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new BigInt64Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom BigInt64Array`,
@@ -5540,9 +5540,9 @@ const cases: Record<string, Case[]> = {
         return new Evil(1)
       })(),
       expected: {
-        error: true,
+        source: `new BigUint64Array(1)`,
+        roundtrips: false,
       },
-      compare: false,
     },
     {
       name: `custom BigUint64Array`,

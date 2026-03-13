@@ -18,9 +18,10 @@ export const unevalTemporal: Uneval<
   | Temporal.PlainYearMonth
   | Temporal.ZonedDateTime
 > = (temporal, state, name) => {
-  // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
-  if (name[0] != `Z`) {
-    return `Temporal.${name}.from(${unevalWithoutCustom(
+  // `Temporal.ZonedDateTime` is the only `Temporal` type whose name has `Z` at
+  // index 9.
+  if (name[9] != `Z`) {
+    return `${name}.from(${unevalWithoutCustom(
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       `${temporal}`,
       state,
@@ -32,7 +33,7 @@ export const unevalTemporal: Uneval<
   // does not always roundtrip:
   // https://github.com/tc39/proposal-temporal/pull/3014#issuecomment-3856086253
   const zonedDateTime = temporal as Temporal.ZonedDateTime
-  return `new Temporal.${name}(${unevalWithoutCustom(
+  return `new ${name}(${unevalWithoutCustom(
     zonedDateTime.epochNanoseconds,
     state,
   )},${unevalWithoutCustom(zonedDateTime.timeZoneId, state)})`
