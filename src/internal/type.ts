@@ -30,7 +30,8 @@ export const T_TYPED_ARRAY = 8
 export const T_DATE = 9
 export const T_TEMPORAL = 10
 export const T_URL = 11
-export const T_UNSUPPORTED = 12
+export const T_ARGUMENTS = 12
+export const T_UNSUPPORTED = 13
 
 const TYPES = {
   Boolean: T_PRIMITIVE_WRAPPER,
@@ -69,6 +70,8 @@ const TYPES = {
 
   URL: T_URL,
   URLSearchParams: T_URL,
+
+  Arguments: T_ARGUMENTS,
 
   Function: T_UNSUPPORTED,
   GeneratorFunction: T_UNSUPPORTED,

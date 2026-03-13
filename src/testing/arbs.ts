@@ -256,6 +256,15 @@ export const anythingArb = fc
         maxKeys: 5,
       }),
       set: fc.set(tie(`innerValue`), { depthIdentifier, maxLength: 5 }),
+      arguments: fc
+        .array(tie(`innerValue`), { depthIdentifier, maxLength: 5 })
+        .map(args =>
+          (function () {
+            // eslint-disable-next-line prefer-rest-params
+            return arguments
+            // @ts-expect-error for testing
+          })(...args),
+        ),
       innerValue: fc.oneof(
         { depthIdentifier },
         fc.record({ [circularSymbol]: fc.nat({ max: 5 }) }),
@@ -280,6 +289,7 @@ export const anythingArb = fc
         tie(`array`),
         tie(`map`),
         tie(`set`),
+        tie(`arguments`),
       ),
     })).value,
     { minLength: 1, maxLength: 5 },
@@ -315,6 +325,10 @@ export const anythingArb = fc
 
       if (Array.isArray(value)) {
         return value.some(hasCircularSymbolLoop)
+      } else if (
+        Object.prototype.toString.call(value) === `[object Arguments]`
+      ) {
+        return [...(value as IArguments)].some(hasCircularSymbolLoop)
       } else if (value instanceof Map) {
         for (const [key, item] of value.entries()) {
           if (hasCircularSymbolLoop(key) || hasCircularSymbolLoop(item)) {
@@ -362,6 +376,22 @@ export const anythingArb = fc
         replaced.set(value, newValue)
         for (const [index, item] of newValue.entries()) {
           newValue[index] = replace(item)
+        }
+        return newValue
+      } else if (
+        Object.prototype.toString.call(value) === `[object Arguments]`
+      ) {
+        const args = value as IArguments
+        // Create with original values first and register before recursing,
+        // matching the array branch so circular references are handled.
+        const newValue = (function () {
+          // eslint-disable-next-line prefer-rest-params
+          return arguments
+          // @ts-expect-error For testing
+        })(...args) as IArguments & Record<number, unknown>
+        replaced.set(value, newValue)
+        for (let i = 0; i < args.length; i++) {
+          newValue[i] = replace(args[i])
         }
         return newValue
       } else if (value instanceof Map) {
