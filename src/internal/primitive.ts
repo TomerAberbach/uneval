@@ -85,12 +85,8 @@ export const unevalRegExp: Uneval<RegExp> = (
     // The former is `'\\0'` while the later is `'\0'`.
     source == escapedSource &&
       // This protects against RCE from monkey-patched `RegExp` objects, where
-      // `source` or `flags` could be set to arbitrary strings. Legitimate
-      // `RegExp.prototype.source` always escapes `/` as `\/` (i.e. preceded by
-      // an odd number of backslashes), so an unescaped slash (preceded by 0 or
-      // an even number of backslashes) signals an injected source that would
-      // terminate the regex literal early.
-      !UNSAFE_REG_EXP_SOURCE_REG_EXP.test(source) &&
+      // `source` or `flags` could be set to arbitrary strings.
+      isSafeRegExpSource(source) &&
       SAFE_REG_EXP_FLAGS_REG_EXP.test(flags)
       ? `/${source}/${flags}`
       : newInstance(
@@ -102,7 +98,36 @@ export const unevalRegExp: Uneval<RegExp> = (
   )
 }
 
-const UNSAFE_REG_EXP_SOURCE_REG_EXP = /(?:^|[^\\])(?:\\\\)*\//u
+const isSafeRegExpSource = (source: string): boolean => {
+  // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
+  if (source[0] == `*`) {
+    // This would start a block comment.
+    return false
+  }
+
+  let inCharClass = false
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i]
+    if (char === `\\`) {
+      // Skip escaped character.
+      i++
+    } else if (inCharClass) {
+      if (char === `]`) {
+        inCharClass = false
+      }
+    } else if (char === `[`) {
+      inCharClass = true
+    } else if (char === `/`) {
+      // An unescaped `/` outside a character class would end the `RegExp`
+      // literal early.
+      return false
+    }
+  }
+
+  // Otherwise it's safe.
+  return true
+}
+
 const SAFE_REG_EXP_FLAGS_REG_EXP = /^[a-z]*$/u
 
 export const unevalString = (string: string): string =>
