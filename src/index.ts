@@ -290,7 +290,19 @@ const createState = (
         // so we can call `.buffer.transfer()` on it as a mutation.
         ensureBinding(value)
       } else {
-        traverse(buffer, value)
+        if (
+          // Only traverse the backing buffer again if doing so could result in
+          // a useful binding. For pool-sized buffers that have already been
+          // seen (only as backing buffers, never directly), re-traversal would
+          // create a binding that is never rendered because
+          // `canExposeFullArrayBuffer` will cause it to be sliced anyway.
+          typeof Buffer == `undefined` ||
+          !seenLocation.has(buffer) ||
+          buffer.byteLength != Buffer.poolSize ||
+          customSources.has(buffer)
+        ) {
+          traverse(buffer, value)
+        }
         if (customSources.get(buffer) === null) {
           customSources.set(value, null)
         }
