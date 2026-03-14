@@ -47,7 +47,7 @@ type Case = {
   options?: UnevalOptions
   expected:
     | {
-        source: string
+        source: string | RegExp
         roundtrips?: boolean
       }
     | { error: true | string }
@@ -1108,6 +1108,196 @@ const cases: Record<string, Case[]> = {
       value: (0, eval)(`(function(){ return arguments })(1, 2)`) as IArguments,
       expected: {
         source: `(function(){return arguments})(1,2)`,
+        roundtrips: false,
+      },
+    },
+  ],
+
+  Error: [
+    {
+      name: `Error`,
+      value: new Error(`hello`),
+      expected: {
+        source: /^Object\.assign\(new Error\("hello"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with empty message`,
+      // eslint-disable-next-line unicorn/error-message
+      value: new Error(``),
+      expected: {
+        source: /^Object\.assign\(new Error\(""\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `TypeError`,
+      value: new TypeError(`type error`),
+      expected: {
+        source:
+          /^Object\.assign\(new TypeError\("type error"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `RangeError`,
+      value: new RangeError(`range error`),
+      expected: {
+        source:
+          /^Object\.assign\(new RangeError\("range error"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `SyntaxError`,
+      value: new SyntaxError(`syntax error`),
+      expected: {
+        source:
+          /^Object\.assign\(new SyntaxError\("syntax error"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `ReferenceError`,
+      value: new ReferenceError(`reference error`),
+      expected: {
+        source:
+          /^Object\.assign\(new ReferenceError\("reference error"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `URIError`,
+      value: new URIError(`uri error`),
+      expected: {
+        source: /^Object\.assign\(new URIError\("uri error"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `EvalError`,
+      value: new EvalError(`eval error`),
+      expected: {
+        source:
+          /^Object\.assign\(new EvalError\("eval error"\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with Error cause`,
+      value: new Error(`outer`, { cause: new Error(`inner`) }),
+      expected: {
+        source:
+          /^Object\.assign\(new Error\("outer",{cause:Object\.assign\(new Error\("inner"\),{stack:".*"}\)}\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with non-Error cause`,
+      value: new Error(`msg`, { cause: 42 }),
+      expected: {
+        source:
+          /^Object\.assign\(new Error\("msg",{cause:42}\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with string cause`,
+      value: new Error(`msg`, { cause: `reason` }),
+      expected: {
+        source:
+          /^Object\.assign\(new Error\("msg",{cause:"reason"}\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with undefined cause`,
+      value: new Error(`msg`, { cause: undefined }),
+      expected: {
+        source:
+          /^Object\.assign\(new Error\("msg",{cause:void 0}\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with empty message and cause`,
+      // eslint-disable-next-line unicorn/error-message
+      value: new Error(``, { cause: 42 }),
+      expected: {
+        source: /^Object\.assign\(new Error\("",{cause:42}\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with cause without own message`,
+      // eslint-disable-next-line unicorn/error-message
+      value: new Error(undefined, { cause: 42 }),
+      expected: {
+        source:
+          /^Object\.assign\(new Error\(void 0,{cause:42}\),{stack:".*"}\)$/,
+      },
+    },
+    {
+      name: `Error with invalid constructor name`,
+      value: (() => {
+        const e = new Error(`test`)
+        Object.defineProperty(e, `constructor`, {
+          value: { name: `123invalid` },
+          configurable: true,
+          writable: true,
+        })
+        return e
+      })(),
+      expected: {
+        source: /^Object\.assign\(new Error\("test"\),{stack:".*"}\)$/,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `Error with polluted constructor name`,
+      value: Object.defineProperty(new Error(`test`), `constructor`, {
+        value: { name: `</script>` },
+        configurable: true,
+        writable: true,
+      }),
+      expected: {
+        source: /^Object\.assign\(new Error\("test"\),{stack:".*"}\)$/,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `Error without stack`,
+      value: (() => {
+        const e = new Error(`test`)
+        delete e.stack
+        return e
+      })(),
+      expected: { source: `new Error("test")`, roundtrips: false },
+    },
+    {
+      name: `omit Error cause`,
+      value: new Error(`msg`, { cause: 42 }),
+      options: { custom: value => (value === 42 ? null : undefined) },
+      expected: {
+        source: /^Object\.assign\(new Error\("msg"\),{stack:".*"}\)$/,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `omit Error stack`,
+      value: (() => {
+        const e = new Error(`test`)
+        e.stack = `the-stack`
+        return e
+      })(),
+      options: {
+        custom: value => (value === `the-stack` ? null : undefined),
+      },
+      expected: {
+        source: `new Error("test")`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `omit Error message`,
+      value: (() => {
+        const e = new Error(`the-message`)
+        e.stack = `the-stack`
+        return e
+      })(),
+      options: {
+        custom: value => (value === `the-message` ? null : undefined),
+      },
+      expected: {
+        source: `Object.assign(new Error,{stack:"the-stack"})`,
         roundtrips: false,
       },
     },
@@ -6271,6 +6461,32 @@ const cases: Record<string, Case[]> = {
         source: `(a=>a[0]=a)((function(){"use strict";return arguments})(0))`,
       },
     },
+    {
+      name: `Error with circular cause`,
+      value: (() => {
+        const e = new Error(`circular`) as Error & { cause?: unknown }
+        e.cause = e
+        return e
+      })(),
+      expected: {
+        source:
+          /^\(a=>a\.cause=a\)\(Object\.assign\(new Error\("circular"\),{stack:".*"}\)\)$/,
+      },
+    },
+    {
+      name: `Error shared as cause`,
+      value: (() => {
+        const inner = new Error(`shared`)
+        return [
+          new Error(`a`, { cause: inner }),
+          new Error(`b`, { cause: inner }),
+        ]
+      })(),
+      expected: {
+        source:
+          /^\(a=>\[Object\.assign\(new Error\("a",{cause:a}\),{stack:".*"}\),Object\.assign\(new Error\("b",{cause:a}\),{stack:".*"}\)]\)\(Object\.assign\(new Error\("shared"\),{stack:".*"}\)\)$/,
+      },
+    },
   ],
 
   Function: [
@@ -6515,7 +6731,11 @@ for (let [category, categoryCases] of Object.entries(cases)) {
           options,
         )
 
-        expect(actualSource).toBe(source)
+        if (typeof source === `string`) {
+          expect(actualSource).toBe(source)
+        } else {
+          expect(actualSource).toMatch(source)
+        }
       })
     }
   })

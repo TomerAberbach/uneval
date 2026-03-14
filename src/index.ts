@@ -12,6 +12,7 @@ import {
   T_ARRAY_BUFFER,
   T_BUFFER,
   T_DATA_VIEW,
+  T_ERROR,
   T_MAP,
   T_PRIMITIVE_WRAPPER,
   T_SET,
@@ -321,6 +322,11 @@ const createState = (
           ensureBinding(args)
         }
       }
+    } else if (type == T_ERROR) {
+      const error = value as Error
+      traverse(error.message, value)
+      traverse(error.cause, value)
+      traverse(error.stack, value)
     }
   }
 

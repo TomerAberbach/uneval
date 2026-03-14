@@ -217,6 +217,16 @@ const dataViewArb = fc
     return new DataView(arrayBuffer, start, end - start)
   })
 
+const errorClassArb = fc.constantFrom(
+  Error,
+  TypeError,
+  RangeError,
+  SyntaxError,
+  ReferenceError,
+  URIError,
+  EvalError,
+)
+
 const circularSymbol = Symbol(`circular`)
 const depthIdentifier = fc.createDepthIdentifier()
 export const anythingArb = fc
@@ -272,6 +282,16 @@ export const anythingArb = fc
             // @ts-expect-error for testing
           })(...args),
         ),
+      error: fc
+        .record({
+          ErrorClass: errorClassArb,
+          message: fc.string(),
+          cause: fc.option(tie(`innerValue`), { nil: undefined }),
+        })
+        .map(
+          ({ ErrorClass, message, cause }) =>
+            new ErrorClass(message, { cause }),
+        ),
       innerValue: fc.oneof(
         { depthIdentifier },
         fc.record({ [circularSymbol]: fc.nat({ max: 5 }) }),
@@ -297,6 +317,7 @@ export const anythingArb = fc
         tie(`map`),
         tie(`set`),
         tie(`arguments`),
+        tie(`error`),
       ),
     })).value,
     { minLength: 1, maxLength: 5 },
@@ -350,6 +371,8 @@ export const anythingArb = fc
           }
         }
         return false
+      } else if (value instanceof Error) {
+        return hasCircularSymbolLoop(value.cause)
       } else if (isPlainObject(value)) {
         return Reflect.ownKeys(value).some(key =>
           hasCircularSymbolLoop((value as Record<PropertyKey, unknown>)[key]),
@@ -413,6 +436,20 @@ export const anythingArb = fc
         replaced.set(value, newValue)
         for (const item of value) {
           newValue.add(replace(item))
+        }
+        return newValue
+      } else if (value instanceof Error) {
+        const newValue = new (value.constructor as ErrorConstructor)(
+          value.message,
+        )
+        replaced.set(value, newValue)
+        if (Object.hasOwn(value, `cause`)) {
+          const newCause = replace(value.cause)
+          Object.defineProperty(newValue, `cause`, {
+            value: newCause,
+            writable: true,
+            configurable: true,
+          })
         }
         return newValue
       } else if (isPlainObject(value)) {
