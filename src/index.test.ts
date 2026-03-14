@@ -3678,6 +3678,40 @@ const cases: Record<string, Case[]> = {
       expected: { source: `Buffer.from(new ArrayBuffer(4),1)` },
     },
     {
+      name: `Buffer backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        new Uint8Array(poolSizeBuffer).set([1, 2, 3], 5)
+        return Buffer.from(poolSizeBuffer, 5, 3)
+      })(),
+      expected: {
+        source: `Buffer.from(Uint8Array.of(1,2,3).buffer)`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `zero-filled Buffer backed by pool-sized ArrayBuffer does not expose pool data`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        new Uint8Array(poolSizeBuffer).set([0xff, 0xff, 0xff])
+        return Buffer.from(poolSizeBuffer, 5, 3)
+      })(),
+      expected: {
+        source: `Buffer.from(new ArrayBuffer(3))`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `Buffer backed by pool-sized ArrayBuffer with binding exposes full buffer`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        return [Buffer.from(poolSizeBuffer, 5, 3), poolSizeBuffer]
+      })(),
+      expected: {
+        source: `(a=>[Buffer.from(a,5,3),a])(new ArrayBuffer(${Buffer.poolSize}))`,
+      },
+    },
+    {
       name: `polluted Buffer byteOffset`,
       value: (() => {
         const buffer = Buffer.from(new ArrayBuffer(4), 1, 2)
@@ -3748,40 +3782,6 @@ const cases: Record<string, Case[]> = {
             : undefined,
       },
       expected: { source: `Buffer.from(new Uint8Array([1,2,3]).buffer)` },
-    },
-    {
-      name: `Buffer backed by pool-sized ArrayBuffer does not expose pool data`,
-      value: (() => {
-        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
-        new Uint8Array(poolSizeBuffer).set([1, 2, 3], 5)
-        return Buffer.from(poolSizeBuffer, 5, 3)
-      })(),
-      expected: {
-        source: `Buffer.from(Uint8Array.of(1,2,3).buffer)`,
-        roundtrips: false,
-      },
-    },
-    {
-      name: `zero-filled Buffer backed by pool-sized ArrayBuffer does not expose pool data`,
-      value: (() => {
-        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
-        new Uint8Array(poolSizeBuffer).set([0xff, 0xff, 0xff])
-        return Buffer.from(poolSizeBuffer, 5, 3)
-      })(),
-      expected: {
-        source: `Buffer.from(new ArrayBuffer(3))`,
-        roundtrips: false,
-      },
-    },
-    {
-      name: `Buffer backed by pool-sized ArrayBuffer with binding exposes full buffer`,
-      value: (() => {
-        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
-        return [Buffer.from(poolSizeBuffer, 5, 3), poolSizeBuffer]
-      })(),
-      expected: {
-        source: `(a=>[Buffer.from(a,5,3),a])(new ArrayBuffer(${Buffer.poolSize}))`,
-      },
     },
     {
       name: `omit Buffer from container`,
