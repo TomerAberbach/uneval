@@ -3712,6 +3712,20 @@ const cases: Record<string, Case[]> = {
       },
     },
     {
+      name: `Buffers backed by same pool-sized ArrayBuffer do not expose full buffer`,
+      value: (() => {
+        const poolSizeBuffer = new ArrayBuffer(Buffer.poolSize)
+        return [
+          Buffer.from(poolSizeBuffer, 5, 3),
+          Buffer.from(poolSizeBuffer, 15, 3),
+        ]
+      })(),
+      expected: {
+        source: `[Buffer.from(new ArrayBuffer(3)),Buffer.from(new ArrayBuffer(3))]`,
+        roundtrips: false,
+      },
+    },
+    {
       name: `polluted Buffer byteOffset`,
       value: (() => {
         const buffer = Buffer.from(new ArrayBuffer(4), 1, 2)
