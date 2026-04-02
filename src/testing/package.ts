@@ -9,7 +9,7 @@ import toSource from 'tosource'
 import tomerUneval from '../index.ts'
 
 export const unevals = {
-  '@tomer/uneval':
+  uneval:
     // Uncomment to benchmark against the built version, which is faster.
     // (await import(`../../dist/index.js`)).default,
     tomerUneval,
@@ -39,7 +39,7 @@ export const unevals = {
 } as const satisfies Record<string, typeof tomerUneval>
 
 // Change this to test out other packages.
-const packageName = process.env.UNEVAL_PACKAGE ?? `@tomer/uneval`
+const packageName = process.env.UNEVAL_PACKAGE ?? `uneval`
 assert(Object.hasOwn(unevals, packageName), packageName)
 const uneval: typeof tomerUneval = unevals[packageName as keyof typeof unevals]
 

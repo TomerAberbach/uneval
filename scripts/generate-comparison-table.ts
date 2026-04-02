@@ -111,9 +111,7 @@ const generateComparisonTable = (
   const columns = sortedPackages.map(
     pkg =>
       `${
-        pkg === `@tomer/uneval`
-          ? `<code>${noBreak(pkg)}</code>`
-          : packageLink(pkg)
+        pkg === `uneval` ? `<code>${noBreak(pkg)}</code>` : packageLink(pkg)
       }<br>${packageBundleSizeBadge(pkg)}`,
   )
 

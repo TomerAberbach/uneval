@@ -3,17 +3,17 @@
 </h1>
 
 <div align="center">
-  <a href="https://npmjs.org/package/@tomer/uneval">
-    <img src="https://badgen.net/npm/v/@tomer/uneval" alt="version" />
+  <a href="https://npmjs.org/package/uneval">
+    <img src="https://badgen.net/npm/v/uneval" alt="version" />
   </a>
   <a href="https://github.com/TomerAberbach/uneval/actions">
     <img src="https://github.com/TomerAberbach/uneval/workflows/CI/badge.svg" alt="CI" />
   </a>
-  <a href="https://unpkg.com/@tomer/uneval/dist/index.js">
-    <img src="https://deno.bundlejs.com/?q=@tomer/uneval&badge" alt="gzip size" />
+  <a href="https://unpkg.com/uneval/dist/index.js">
+    <img src="https://deno.bundlejs.com/?q=uneval&badge" alt="gzip size" />
   </a>
-  <a href="https://unpkg.com/@tomer/uneval/dist/index.js">
-    <img src="https://deno.bundlejs.com/?q=@tomer/uneval&config={%22compression%22:{%22type%22:%22brotli%22}}&badge" alt="brotli size" />
+  <a href="https://unpkg.com/uneval/dist/index.js">
+    <img src="https://deno.bundlejs.com/?q=uneval&config={%22compression%22:{%22type%22:%22brotli%22}}&badge" alt="brotli size" />
   </a>
   <a href="https://github.com/sponsors/TomerAberbach">
     <img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86" alt="Sponsor" />
@@ -77,8 +77,11 @@
 ## Install
 
 ```sh
-$ npm i @tomer/uneval
+$ npm i uneval
 ```
+
+Special thanks to [Chakrit Wichian](https://chakrit.net) for donating the
+package name!
 
 ## Usage
 
@@ -86,7 +89,7 @@ $ npm i @tomer/uneval
 
 ```js
 import assert from 'node:assert'
-import uneval from '@tomer/uneval'
+import uneval from 'uneval'
 
 const object = { message: `hello world` }
 
@@ -121,7 +124,7 @@ assert.deepEqual(roundtrippedCircularObject, circularObject)
 
 ```js
 import assert from 'node:assert'
-import uneval from '@tomer/uneval'
+import uneval from 'uneval'
 
 class Person {
   constructor(name) {
@@ -301,7 +304,7 @@ between packages while still roundtripping.
 <!-- COMPARISON TABLE START -->
 
 <table>
-<tr><th>Category</th><th><code>@tomer⁠/⁠uneval</code><br><img src="https://deno.bundlejs.com/?q=%40tomer%2Funeval&badge" alt="@tomer/uneval gzip size" height="17.5" /></th><th><a href="https://npm.im/package/devalue/v/5.6.3"><code>devalue@5⁠.⁠6⁠.⁠3</code></a><br><img src="https://deno.bundlejs.com/?q=devalue&badge" alt="devalue gzip size" height="17.5" /></th><th><a href="https://npm.im/package/seroval/v/1.5.1"><code>seroval@1⁠.⁠5⁠.⁠1</code></a>&nbsp;(sync)<br><img src="https://deno.bundlejs.com/?q=seroval&badge" alt="seroval gzip size" height="17.5" /></th><th><a href="https://npm.im/package/javascript-stringify/v/2.1.0"><code>javascript⁠-⁠stringify@2⁠.⁠1⁠.⁠0</code></a><br><img src="https://deno.bundlejs.com/?q=javascript-stringify&badge" alt="javascript-stringify gzip size" height="17.5" /></th><th><a href="https://npm.im/package/serialize-javascript/v/7.0.4"><code>serialize⁠-⁠javascript@7⁠.⁠0⁠.⁠4</code></a><br><img src="https://deno.bundlejs.com/?q=serialize-javascript&badge" alt="serialize-javascript gzip size" height="17.5" /></th><th><a href="https://npm.im/package/tosource/v/2.0.0-alpha.3"><code>tosource@2⁠.⁠0⁠.⁠0⁠-⁠alpha⁠.⁠3</code></a><br><img src="https://deno.bundlejs.com/?q=tosource&badge" alt="tosource gzip size" height="17.5" /></th><th><a href="https://npm.im/package/jsesc/v/3.1.0"><code>jsesc@3⁠.⁠1⁠.⁠0</code></a><br><img src="https://deno.bundlejs.com/?q=jsesc&badge" alt="jsesc gzip size" height="17.5" /></th><th><a href="https://npm.im/package/js-stringify/v/1.0.2"><code>js⁠-⁠stringify@1⁠.⁠0⁠.⁠2</code></a><br><img src="https://deno.bundlejs.com/?q=js-stringify&badge" alt="js-stringify gzip size" height="17.5" /></th></tr>
+<tr><th>Category</th><th><code>uneval</code><br><img src="https://deno.bundlejs.com/?q=uneval&badge" alt="uneval gzip size" height="17.5" /></th><th><a href="https://npm.im/package/devalue/v/5.6.3"><code>devalue@5⁠.⁠6⁠.⁠3</code></a><br><img src="https://deno.bundlejs.com/?q=devalue&badge" alt="devalue gzip size" height="17.5" /></th><th><a href="https://npm.im/package/seroval/v/1.5.1"><code>seroval@1⁠.⁠5⁠.⁠1</code></a>&nbsp;(sync)<br><img src="https://deno.bundlejs.com/?q=seroval&badge" alt="seroval gzip size" height="17.5" /></th><th><a href="https://npm.im/package/javascript-stringify/v/2.1.0"><code>javascript⁠-⁠stringify@2⁠.⁠1⁠.⁠0</code></a><br><img src="https://deno.bundlejs.com/?q=javascript-stringify&badge" alt="javascript-stringify gzip size" height="17.5" /></th><th><a href="https://npm.im/package/serialize-javascript/v/7.0.4"><code>serialize⁠-⁠javascript@7⁠.⁠0⁠.⁠4</code></a><br><img src="https://deno.bundlejs.com/?q=serialize-javascript&badge" alt="serialize-javascript gzip size" height="17.5" /></th><th><a href="https://npm.im/package/tosource/v/2.0.0-alpha.3"><code>tosource@2⁠.⁠0⁠.⁠0⁠-⁠alpha⁠.⁠3</code></a><br><img src="https://deno.bundlejs.com/?q=tosource&badge" alt="tosource gzip size" height="17.5" /></th><th><a href="https://npm.im/package/jsesc/v/3.1.0"><code>jsesc@3⁠.⁠1⁠.⁠0</code></a><br><img src="https://deno.bundlejs.com/?q=jsesc&badge" alt="jsesc gzip size" height="17.5" /></th><th><a href="https://npm.im/package/js-stringify/v/1.0.2"><code>js⁠-⁠stringify@1⁠.⁠0⁠.⁠2</code></a><br><img src="https://deno.bundlejs.com/?q=js-stringify&badge" alt="js-stringify gzip size" height="17.5" /></th></tr>
 <tr><td><a href="src/index.test.ts#L66"><code>undefined</code></a><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td></td></tr>
 <tr><td><a href="src/index.test.ts#L91"><code>null</code></a><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td><td>✅ 1/1</td></td></tr>
 <tr><td><a href="src/index.test.ts#L116"><code>boolean</code></a><td><details><summary>✅ 4/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>✅ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>✅ 4/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>✅ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>✅ 4/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>✅ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>✅ 4/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>✅ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>🟠 2/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>❌ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>❌ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>🟠 2/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>❌ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>❌ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>🟠 2/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>❌ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>❌ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td><td><details><summary>🟠 2/4</summary>✅ <a href="src/index.test.ts#L117"><code>false</code></a><br>✅ <a href="src/index.test.ts#L123"><code>true</code></a><br>❌ <a href="src/index.test.ts#L119"><code>boxed false</code></a><br>❌ <a href="src/index.test.ts#L125"><code>boxed true</code></a></details></td></td></tr>

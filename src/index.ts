@@ -50,7 +50,7 @@ export type UnevalOptions = {
  * @example
  * ```js
  * import assert from 'node:assert'
- * import uneval from '@tomer/uneval'
+ * import uneval from 'uneval'
  *
  * const object = { message: `hello world` }
  *
