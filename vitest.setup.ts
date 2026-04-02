@@ -4,7 +4,7 @@ import * as matchers from 'jest-extended'
 import { expect } from 'vitest'
 import type { TypedArray } from './src/internal/buffer.ts'
 
-globalThis.Temporal = TemporalPolyfill
+globalThis.Temporal = TemporalPolyfill as typeof Temporal
 
 expect.extend(matchers)
 

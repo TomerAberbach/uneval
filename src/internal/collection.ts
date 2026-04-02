@@ -1,5 +1,4 @@
 // For smaller bundle size.
-/* eslint-disable unicorn/prefer-number-properties */
 
 import { bindingName, newInstance } from './common.ts'
 import { unevalInternal } from './index.ts'
