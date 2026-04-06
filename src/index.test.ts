@@ -7,6 +7,7 @@
 
 import { assertNoPoisoning, restoreGlobals } from '@fast-check/poisoning'
 import { test } from '@fast-check/vitest'
+import strictDiff from 'strict-diff'
 import { afterEach, describe, expect } from 'vitest'
 import type { UnevalOptions } from './index.ts'
 import { anythingArb } from './testing/arbs.ts'
@@ -1024,7 +1025,7 @@ const cases: Record<string, Case[]> = {
         // eslint-disable-next-line prefer-rest-params
         return arguments
       })(),
-      expected: { source: `(function(){return arguments})()` },
+      expected: { source: `(function(){"use strict";return arguments})()` },
     },
     {
       name: `arguments with primitives`,
@@ -1033,7 +1034,9 @@ const cases: Record<string, Case[]> = {
         return arguments
         // @ts-expect-error For testing
       })(1, `hello`, true),
-      expected: { source: `(function(){return arguments})(1,"hello",!0)` },
+      expected: {
+        source: `(function(){"use strict";return arguments})(1,"hello",!0)`,
+      },
     },
     {
       name: `nested arguments`,
@@ -1050,7 +1053,7 @@ const cases: Record<string, Case[]> = {
         `hello`,
       ),
       expected: {
-        source: `(function(){return arguments})((function(){return arguments})(10,20),"hello")`,
+        source: `(function(){"use strict";return arguments})((function(){"use strict";return arguments})(10,20),"hello")`,
       },
     },
     {
@@ -1077,7 +1080,7 @@ const cases: Record<string, Case[]> = {
       })(1, 2, 3),
       options: { custom: customNumber },
       expected: {
-        source: `(function(){return arguments})(1.0,2.0,3.0)`,
+        source: `(function(){"use strict";return arguments})(1.0,2.0,3.0)`,
       },
     },
     {
@@ -1089,7 +1092,16 @@ const cases: Record<string, Case[]> = {
       })(1, 2, 3),
       options: { custom: value => (value === 2 ? null : undefined) },
       expected: {
-        source: `(a=>(delete a[1],a))((function(){return arguments})(1,0,3))`,
+        source: `(a=>(delete a[1],a))((function(){"use strict";return arguments})(1,0,3))`,
+        roundtrips: false,
+      },
+    },
+    {
+      name: `non-strict arguments`,
+      // eslint-disable-next-line no-eval
+      value: (0, eval)(`(function(){ return arguments })(1, 2)`) as IArguments,
+      expected: {
+        source: `(function(){return arguments})(1,2)`,
         roundtrips: false,
       },
     },
@@ -6217,7 +6229,7 @@ const cases: Record<string, Case[]> = {
         return { a: args, b: args }
       })(),
       expected: {
-        source: `(a=>({a,b:a}))((function(){return arguments})(1,2))`,
+        source: `(a=>({a,b:a}))((function(){"use strict";return arguments})(1,2))`,
       },
     },
     {
@@ -6232,7 +6244,7 @@ const cases: Record<string, Case[]> = {
         return args
       })(),
       expected: {
-        source: `(a=>a[0]=a)((function(){return arguments})(0))`,
+        source: `(a=>a[0]=a)((function(){"use strict";return arguments})(0))`,
       },
     },
   ],
@@ -6503,10 +6515,18 @@ const expectUnevalRoundtrips = (
   try {
     // eslint-disable-next-line no-eval
     roundtrippedValue = (0, eval)(`(${source})`) as unknown
-    expect(roundtrippedValue, source).toStrictEqual(value)
+    expect(
+      !!strictDiff(roundtrippedValue, value)[Symbol.iterator]().next().done,
+      source,
+    ).toBe(true)
   } catch (error: unknown) {
     console.log(value)
     console.log(source)
+    if (!isComparison) {
+      console.dir([...strictDiff(roundtrippedValue, value)], {
+        depth: Infinity,
+      })
+    }
     throw error
   }
 
