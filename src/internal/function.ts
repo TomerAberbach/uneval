@@ -3,7 +3,9 @@ import { unevalInternal } from './index.ts'
 import type { State } from './types.ts'
 
 export const unevalArguments = (args: IArguments, state: State): string =>
-  `(function(){return arguments})(${Array.from(args, (arg, index) => {
+  `(function(){${
+    Object.getOwnPropertyDescriptor(args, `callee`)?.get ? `"use strict";` : ``
+  }return arguments})(${Array.from(args, (arg, index) => {
     const result = unevalInternal(arg, state)
     if (result === undefined) {
       state._mutations.push({
