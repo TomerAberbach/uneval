@@ -7,6 +7,7 @@ export default defineConfig([
     entry: `src/index.ts`,
     platform: `neutral`,
     sourcemap: process.env.SOURCEMAP === `false` ? false : `inline`,
+    minify: false,
     dts: false,
     publint: true,
     plugins: [

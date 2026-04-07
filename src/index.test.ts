@@ -22,7 +22,13 @@ const { default: uneval } = await import(`./testing/package.ts`)
 delete Symbol[`</script>xss`]
 
 const ignoredRootRegex = /^(?:console|__vitest_.*|Person|__SEROVAL_REFS__)$/u
+let index = 0
 const poisoningAfterEach = () => {
+  if (index++ % 10 !== 0) {
+    // This is too slow to run on every property-based test generated example.
+    return
+  }
+
   try {
     assertNoPoisoning({ ignoredRootRegex })
   } catch (error: unknown) {
