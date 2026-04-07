@@ -69,6 +69,9 @@
   [`Float16Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float16Array),
   and float arrays with
   [non-canonical NaNs](https://en.wikipedia.org/wiki/NaN#Canonical_NaN))
+- [`DataView`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView)
+- [`arguments`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/arguments)
+  object (both sloppy and strict mode)
 - Shared/circular reference (for _all_ of the above types)
 - [Custom type](#customization)
 
