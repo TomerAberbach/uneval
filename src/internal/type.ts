@@ -3,7 +3,7 @@
 
 export const getType = (
   value: object,
-): [] | [number, string] | [undefined, string] => {
+): [number, string] | [undefined, string] => {
   const name = Object.prototype.toString.call(value).slice(8, -1)
   if (
     name == `Uint8Array` &&

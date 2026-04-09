@@ -17,7 +17,7 @@ import {
   T_SET,
   T_TYPED_ARRAY,
 } from './internal/type.ts'
-import type { Binding, State } from './internal/types.ts'
+import type { Binding, CacheEntry, State } from './internal/types.ts'
 
 /** Options for {@link uneval}. */
 export type UnevalOptions = {
@@ -202,11 +202,15 @@ const createState = (
   }
 
   const traverseObject = (value: object) => {
-    const [type] = getType(value)
+    const typeInfo = getType(value)
+    const [type] = typeInfo
+    const entry: CacheEntry = { _type: typeInfo }
+    cache.set(value, entry)
     if (type == undefined) {
       const keys = Reflect.ownKeys(value)
       const descriptors: PropertyDescriptor[] = []
-      cache.set(value, { _ownKeys: keys, _descriptors: descriptors })
+      entry._ownKeys = keys
+      entry._descriptors = descriptors
 
       for (const key of keys) {
         if (typeof key == `symbol`) {
@@ -239,7 +243,7 @@ const createState = (
       // Use `Object.keys` to avoid iterating empty slots, which are no-ops for
       // traversal, and to safely handle huge sparse arrays without DoS.
       const keys = Object.keys(value)
-      cache.set(value, { _keys: keys })
+      entry._keys = keys
       for (const key of keys) {
         traverse((value as Record<string, unknown>)[key], value)
       }

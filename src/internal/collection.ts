@@ -5,7 +5,7 @@ import { unevalInternal } from './index.ts'
 import type { State, Uneval } from './types.ts'
 
 export const unevalArray: Uneval<unknown[]> = (array, state) => {
-  const indices = state._cache.get(array)!._keys!.map(key => +key)
+  const keys = state._cache.get(array)!._keys!
 
   const hasTrailingEmptySlots = !(array.length - 1 in array)
   const emptyArraySource = hasTrailingEmptySlots
@@ -15,27 +15,27 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
     : `[]`
 
   // A comma for each sparse slot in a dense array.
-  const denseOverhead = array.length - indices.length
+  const denseOverhead = array.length - keys.length
   // A `${index}: ,` for each non-sparse slot in a sparse array.
   const maxIndexLength = `${array.length}`.length
-  const entryOverhead = (maxIndexLength + 2) * indices.length
+  const entryOverhead = (maxIndexLength + 2) * keys.length
   const sparseOverhead =
     unevalObjectAssign(emptyArraySource).length + entryOverhead
   if (sparseOverhead < denseOverhead) {
     // The array is sparse enough that the `Object.assign` representation is
     // likely more compact.
-    const entriesSource = indices
-      .flatMap(index => {
-        const item = array[index]
+    const entriesSource = keys
+      .flatMap(key => {
+        const item = (array as unknown as Record<string, unknown>)[key]
         const result = unevalInternal(item, state)
         if (result) {
-          return `${index}:${result}`
+          return `${key}:${result}`
         }
 
         if (result === null) {
           const itemName = bindingName(item as object, state)
           state._mutations.push({
-            _source: `${bindingName(array, state)}[${index}]=${itemName}`,
+            _source: `${bindingName(array, state)}[${key}]=${itemName}`,
             _evaluatesTo: itemName,
           })
         }
@@ -47,17 +47,21 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
       : emptyArraySource
   }
 
+  const itemSources: string[] = []
   let trailingEmptySlot: boolean | undefined
-  const itemSources = Array.from(array, (item, index) => {
+  for (let index = 0; index < array.length; index++) {
     if (!(index in array)) {
       trailingEmptySlot = true
-      return ``
+      itemSources.push(``)
+      continue
     }
 
     trailingEmptySlot = false
+    const item = array[index]
     const result = unevalInternal(item, state)
     if (result) {
-      return result
+      itemSources.push(result)
+      continue
     }
 
     if (result === null) {
@@ -71,8 +75,8 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
       // Omitted value. Render it as an empty slot.
       trailingEmptySlot = true
     }
-    return ``
-  })
+    itemSources.push(``)
+  }
   if (trailingEmptySlot) {
     // The array has a trailing empty slot (either sparse input or custom
     // omitted). This requires an extra comma because otherwise the last
