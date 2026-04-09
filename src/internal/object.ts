@@ -205,6 +205,20 @@ const unevalObjectLike = (object: object, state: State): string => {
     }
   }
 
+  const hasTrailingCircularEntries =
+    trailingCircularEntriesStartIndex < entries.length
+  const nonExtensible = !Object.isExtensible(object)
+  if (nonExtensible && hasTrailingCircularEntries) {
+    // If the object is non-extensible and has trailing circular entries, those
+    // mutations try to add new properties after the fact. We must defer
+    // `Object.preventExtensions` until after those mutations are applied.
+    const objectName = bindingName(object, state)
+    state._mutations.push({
+      _source: `Object.preventExtensions(${objectName})`,
+      _evaluatesTo: objectName,
+    })
+  }
+
   // Create the initial object literal source.
   const leadingEntries = entries.slice(0, trailingCircularEntriesStartIndex)
   let source = `{${leadingEntries
@@ -228,6 +242,10 @@ const unevalObjectLike = (object: object, state: State): string => {
       // to make them circular results in an error.
       unevalInternal(prototype, state)!
     })`
+  }
+
+  if (nonExtensible && !hasTrailingCircularEntries) {
+    source = `Object.preventExtensions(${source})`
   }
 
   return source

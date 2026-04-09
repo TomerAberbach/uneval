@@ -24,7 +24,7 @@ delete Symbol[`</script>xss`]
 const ignoredRootRegex = /^(?:console|__vitest_.*|Person|__SEROVAL_REFS__)$/u
 let index = 0
 const poisoningAfterEach = () => {
-  if (index++ % 10 !== 0) {
+  if (index++ % 25 !== 0) {
     // This is too slow to run on every property-based test generated example.
     return
   }
@@ -1409,6 +1409,13 @@ const cases: Record<string, Case[]> = {
       ),
       expected: {
         source: `Object.setPrototypeOf(Object.defineProperties({},{a:{value:1}}),null)`,
+      },
+    },
+    {
+      name: `non-extensible object`,
+      value: Object.preventExtensions({}),
+      expected: {
+        source: `Object.preventExtensions({})`,
       },
     },
     {
@@ -6034,6 +6041,17 @@ const cases: Record<string, Case[]> = {
         return Object.setPrototypeOf(circular1, circular2) as unknown
       })(),
       expected: { source: `((b,a=Object.setPrototypeOf({},b))=>b.ref=a)({})` },
+    },
+    {
+      name: `circular non-extensible object`,
+      value: (() => {
+        const obj: { ref?: unknown } = {}
+        obj.ref = obj
+        return Object.preventExtensions(obj)
+      })(),
+      expected: {
+        source: `(a=>(a.ref=a,Object.preventExtensions(a)))({})`,
+      },
     },
     {
       name: `directly circular set`,

@@ -223,21 +223,24 @@ export const anythingArb = fc
   .array(
     fc.letrec(tie => ({
       object: fc
-        .dictionary(
-          fc.string(),
-          fc.record(
-            {
-              configurable: fc.boolean(),
-              enumerable: fc.boolean(),
-              writable: fc.boolean(),
-              value: tie(`innerValue`),
-            },
-            { requiredKeys: [] },
+        .tuple(
+          fc.dictionary(
+            fc.string(),
+            fc.record(
+              {
+                configurable: fc.boolean(),
+                enumerable: fc.boolean(),
+                writable: fc.boolean(),
+                value: tie(`innerValue`),
+              },
+              { requiredKeys: [] },
+            ),
+            { depthIdentifier, maxKeys: 5 },
           ),
-          { depthIdentifier, maxKeys: 5 },
+          fc.boolean(),
         )
-        .map((descriptors: PropertyDescriptorMap) =>
-          Object.defineProperties(
+        .map(([descriptors, extensible]) => {
+          const object = Object.defineProperties(
             Object.setPrototypeOf(
               {},
               // Take the prototype from `descriptors` to allow the possibility
@@ -245,8 +248,12 @@ export const anythingArb = fc
               Object.getPrototypeOf(descriptors) as object | null,
             ) as unknown,
             descriptors,
-          ),
-        ),
+          )
+          if (!extensible) {
+            Object.preventExtensions(object)
+          }
+          return object
+        }),
       array: fc.sparseArray(tie(`innerValue`), {
         depthIdentifier,
         maxLength: 5,
@@ -417,6 +424,9 @@ export const anythingArb = fc
             descriptor.value = replace(descriptor.value)
           }
           Object.defineProperty(newValue, key, descriptor)
+        }
+        if (!Object.isExtensible(value)) {
+          Object.preventExtensions(newValue)
         }
         return newValue
       } else {
