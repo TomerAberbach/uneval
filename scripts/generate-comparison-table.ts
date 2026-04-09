@@ -147,7 +147,7 @@ const statsCell = (
   { lineNumbers }: { lineNumbers: Map<string, number> },
 ): string => {
   const total = passed.length + failed.length
-  const summary = `${emoji(passed.length, total)} ${passed.length}/${total}`
+  const summary = `${emoji(passed.length, total)}\u00A0${passed.length}/${total}`
   if (total === 1) {
     return summary
   }
@@ -156,12 +156,12 @@ const statsCell = (
     ...passed.map(name => {
       const lineNumber = lineNumbers.get(name)
       assert(lineNumber, name)
-      return `✅ ${githubCodeLink({ content: name, lineNumber })}`
+      return `✅\u00A0${githubCodeLink({ content: name, lineNumber })}`
     }),
     ...failed.map(name => {
       const lineNumber = lineNumbers.get(name)
       assert(lineNumber, name)
-      return `❌ ${githubCodeLink({ content: name, lineNumber })}`
+      return `❌\u00A0${githubCodeLink({ content: name, lineNumber })}`
     }),
   ].join(`<br>`)
   return `<details><summary>${summary}</summary>${testLines}</details>`
@@ -217,7 +217,7 @@ const packageLink = (pkg: string): string => {
 const packageBundleSizeBadge = (pkg: string): string =>
   `<img src="https://deno.bundlejs.com/?q=${encodeURIComponent(
     pkg,
-  )}&badge" alt="${pkg} gzip size" height="17.5" />`
+  )}&badge" alt="${noBreak(`${pkg} gzip size`)}" height="17.5" />`
 
 const escapeHtml = (string: string): string =>
   string
