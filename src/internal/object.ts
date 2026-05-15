@@ -71,8 +71,11 @@ const unevalObjectInternal = (value: object, state: State): string => {
     return customSource
   }
 
-  const [type, name] = getType(value)
-  return unevals[type!]?.(value, state, name!) ?? unevalObjectLike(value, state)
+  const cached = state._cache.get(value)
+  const [type, name] = cached?._type ?? getType(value)
+  return type == undefined
+    ? unevalObjectLike(value, state)
+    : unevals[type]!(value, state, name)
 }
 
 const unevalUnsupported: Uneval<unknown> = (_value, _state, name) => {
@@ -103,6 +106,7 @@ const unevalObjectLike = (object: object, state: State): string => {
   const descriptors = cached._descriptors!
 
   const entries: ObjectEntry[] = []
+  let hasCircular: true | undefined
 
   let keyIndex: number
   for (keyIndex = 0; keyIndex < keys.length; keyIndex++) {
@@ -140,6 +144,7 @@ const unevalObjectLike = (object: object, state: State): string => {
       continue
     }
 
+    hasCircular = true
     const objectName = bindingName(object, state)
     const valueName = bindingName(value as object, state)
     const mutation: Mutation =
@@ -180,8 +185,31 @@ const unevalObjectLike = (object: object, state: State): string => {
     for (; keyIndex < keys.length; keyIndex++) {
       const key = keys[keyIndex]!
       const descriptor = descriptors[keyIndex]!
-      entries.push(unevalDescriptorEntry(key, descriptor, object, state))
+      const entry = unevalDescriptorEntry(key, descriptor, object, state)
+      if (entry._isCircular) {
+        hasCircular = true
+      }
+      entries.push(entry)
     }
+  }
+
+  let source: string
+
+  // Fast path for the most common case: all regular data properties with no
+  // circular references. Avoids unnecessary array slicing and mutation loops.
+  if (!hasCircular && firstDescriptorIndex == keys.length) {
+    source = `{${entries.map(entry => entry._source).join()}}`
+
+    const prototype = Object.getPrototypeOf(object) as unknown
+    if (!isDefaultObjectPrototype(prototype)) {
+      source = `Object.setPrototypeOf(${source},${unevalInternal(prototype, state)!})`
+    }
+
+    if (!Object.isExtensible(object)) {
+      source = `Object.preventExtensions(${source})`
+    }
+
+    return source
   }
 
   // We use this to trim trailing circular placeholders because they're not
@@ -221,7 +249,7 @@ const unevalObjectLike = (object: object, state: State): string => {
 
   // Create the initial object literal source.
   const leadingEntries = entries.slice(0, trailingCircularEntriesStartIndex)
-  let source = `{${leadingEntries
+  source = `{${leadingEntries
     .slice(0, firstDescriptorIndex)
     .map(entry => entry._source)
     .join()}}`
