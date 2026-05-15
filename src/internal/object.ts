@@ -9,6 +9,7 @@ import {
 } from './buffer.ts'
 import { unevalArray, unevalMap, unevalSet } from './collection.ts'
 import { bindingName, PROPERTY_REG_EXP } from './common.ts'
+import { unevalError } from './error.ts'
 import { unevalArguments } from './function.ts'
 import { unevalInternal, unevalWithoutCustom } from './index.ts'
 import { unevalPrimitiveWrapper, unevalRegExp } from './primitive.ts'
@@ -97,6 +98,7 @@ const unevals: Uneval<any>[] = [
   unevalTemporal,
   unevalURL,
   unevalArguments,
+  unevalError,
   unevalUnsupported,
 ]
 
