@@ -137,7 +137,7 @@ export const unevalDataView: Uneval<DataView> = (dataView, state, name) =>
       {
         byteOffset: dataView.byteOffset,
         byteLength: dataView.byteLength,
-        buffer: dataView.buffer as ArrayBuffer,
+        buffer: dataView.buffer,
         BYTES_PER_ELEMENT: 1,
       },
       state,
