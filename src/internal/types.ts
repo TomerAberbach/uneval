@@ -65,7 +65,7 @@ export type State = {
 
 export type CacheEntry = {
   /** From {@link getType}. */
-  _type?: [number | undefined, string]
+  _type?: [number, string]
   /**
    * Whether the object is an ancestor of the object currently being traversed.
    * Used to detect circular references.

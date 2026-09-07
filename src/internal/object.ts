@@ -73,34 +73,12 @@ const unevalObjectInternal = (value: object, state: State): string => {
   }
 
   const typeInfo = state._cache.get(value)?._type ?? getType(value)
-  const type = typeInfo[0]
-  return type == undefined
-    ? unevalObjectLike(value, state)
-    : unevals[type]!(value, state, typeInfo[1])
+  return unevals[typeInfo[0]]!(value, state, typeInfo[1])
 }
 
 const unevalUnsupported: Uneval<unknown> = (_value, _state, name) => {
   throw new Error(`Unsupported: ${name}`)
 }
-
-// The order of this array must match the numeric values of `T_*` variables.
-const unevals: Uneval<any>[] = [
-  unevalPrimitiveWrapper,
-  unevalRegExp,
-  unevalArray,
-  unevalSet,
-  unevalMap,
-  unevalArrayBuffer,
-  unevalUnsupported,
-  unevalDataView,
-  unevalTypedArray,
-  unevalDate,
-  unevalTemporal,
-  unevalURL,
-  unevalArguments,
-  unevalError,
-  unevalBuffer,
-]
 
 const unevalObjectLike = (object: object, state: State): string => {
   const cached = state._cache.get(object)!
@@ -269,6 +247,26 @@ const unevalObjectLike = (object: object, state: State): string => {
   return source
 }
 
+// The order of this array must match the numeric values of `T_*` variables.
+const unevals: Uneval<any>[] = [
+  unevalPrimitiveWrapper,
+  unevalRegExp,
+  unevalArray,
+  unevalSet,
+  unevalMap,
+  unevalArrayBuffer,
+  unevalUnsupported,
+  unevalDataView,
+  unevalTypedArray,
+  unevalDate,
+  unevalTemporal,
+  unevalURL,
+  unevalArguments,
+  unevalError,
+  unevalBuffer,
+  unevalObjectLike,
+]
+
 /**
  * Whether the {@link descriptor} is for a regular property, meaning its
  * descriptor attributes are the ones you'd get from a regular object literal
@@ -388,9 +386,11 @@ const unevalObjectLiteralKey = (key: string | symbol, state: State): string => {
 
   // The vast majority of keys are non-numeric so don't bother with the
   // expensive numeric key check below if the key is definitely not numeric
-  // based on the first character.
-  const firstChar = key[0]!
-  if (firstChar >= `0` && firstChar <= `9`) {
+  // based on the first character (`0` through `9`). A digit is a single code
+  // unit, and `charCodeAt` is cheaper than `codePointAt`.
+  // eslint-disable-next-line unicorn/prefer-code-point
+  const firstCharCode = key.charCodeAt(0)
+  if (firstCharCode >= 48 && firstCharCode <= 57) {
     const number = +key
     const isNumericKey =
       // Negative numbers must be quoted.

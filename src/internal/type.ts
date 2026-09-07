@@ -1,9 +1,7 @@
 // For smaller bundle size.
 /* eslint-disable eqeqeq */
 
-export const getType = (
-  value: object,
-): [number, string] | [undefined, string] => {
+export const getType = (value: object): [number, string] => {
   const tag = Object.prototype.toString.call(value)
   if (
     tag == `[object Uint8Array]` &&
@@ -16,8 +14,8 @@ export const getType = (
 
   // The engine interns the tags of built-in types, so a lookup by the full tag
   // is cheaper than one by a fresh slice.
-  const type = TAG_TYPES[tag]
-  return [type, tag.slice(8, -1)]
+  // A tag from `Symbol.toStringTag` is treated as a plain object.
+  return TAG_TYPES[tag] ?? [T_OBJECT, tag.slice(8, -1)]
 }
 
 export const T_PRIMITIVE_WRAPPER = 0
@@ -35,11 +33,9 @@ export const T_URL = 11
 export const T_ARGUMENTS = 12
 export const T_ERROR = 13
 export const T_BUFFER = 14
+export const T_OBJECT = 15
 
-/**
- * The type names, indexed by the numeric type from the `T_*` constants. Buffer
- * is absent because `Object.prototype.toString` tags it as `Uint8Array`.
- */
+/** The type names, indexed by the numeric type from the `T_*` constants. */
 const TYPE_NAMES = [
   `Boolean Number String`,
   `RegExp`,
@@ -55,12 +51,19 @@ const TYPE_NAMES = [
   `URL URLSearchParams`,
   `Arguments`,
   `Error`,
+  `Buffer`,
+  `Object`,
 ]
 
-/** A map from `Object.prototype.toString` tag to numeric type. */
-const TAG_TYPES: Readonly<Record<string, number | undefined>> =
+/** A map from `Object.prototype.toString` tag to the shared type tuple. */
+const TAG_TYPES: Readonly<Record<string, [number, string] | undefined>> =
   Object.fromEntries(
     TYPE_NAMES.flatMap((names, type) =>
-      names.split(` `).map(name => [`[object ${name}]`, type]),
+      names
+        .split(` `)
+        .map((name): [string, [number, string]] => [
+          `[object ${name}]`,
+          [type, name],
+        ]),
     ),
   )
