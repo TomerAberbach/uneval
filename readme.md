@@ -330,18 +330,18 @@ tests the package passes, because a faster package may pass fewer of them.
 <!-- prettier-ignore-start -->
 <!-- BENCHMARK TABLE START -->
 
-<!-- BENCHMARK DIGEST: ed3d2c63a47e324d526072b33ee4004da826a43b05d5060a5ea04b52dd4cd559 -->
+<!-- BENCHMARK DIGEST: 46e83173ae66d44a1f4707c09327886f47e3418f6506f10e15d6b3476bd5a71b -->
 
 | Package | [Tests passing](./docs/comparison.md) | Ops/sec | Mean | Relative |
 | :-- | --: | --: | --: | --: |
-| <code>uneval</code> | 🟢 501/511 | 140 | 7.14ms ±1.08% | 2.15× slower |
-| <a href="https://npm.im/package/seroval/v/1.6.4"><code>seroval@1⁠.⁠6⁠.⁠4</code></a>&nbsp;(sync) | 🟡 361/511 | 131 | 7.64ms ±0.80% | 2.30× slower |
-| <a href="https://npm.im/package/devalue/v/5.9.2"><code>devalue@5⁠.⁠9⁠.⁠2</code></a> | 🟡 359/511 | 84.2 | 11.91ms ±1.25% | 3.58× slower |
-| <a href="https://npm.im/package/javascript-stringify/v/2.1.0"><code>javascript⁠-⁠stringify@2⁠.⁠1⁠.⁠0</code></a> | 🟠 209/511 | 84.0 | 11.98ms ±2.41% | 3.59× slower |
-| <a href="https://npm.im/package/serialize-javascript/v/7.1.1"><code>serialize⁠-⁠javascript@7⁠.⁠1⁠.⁠1</code></a> | 🟠 153/511 | 120 | 8.34ms ±0.46% | 2.51× slower |
-| <a href="https://npm.im/package/jsesc/v/3.1.0"><code>jsesc@3⁠.⁠1⁠.⁠0</code></a> | 🟠 138/511 | 37.0 | 27.07ms ±0.69% | 8.15× slower |
-| <a href="https://npm.im/package/tosource/v/2.0.0-alpha.3"><code>tosource@2⁠.⁠0⁠.⁠0⁠-⁠alpha⁠.⁠3</code></a> | 🟠 138/511 | 143 | 6.99ms ±0.90% | 2.10× slower |
-| <a href="https://npm.im/package/js-stringify/v/1.0.2"><code>js⁠-⁠stringify@1⁠.⁠0⁠.⁠2</code></a> | 🔴 69/511 | 301 | 3.32ms ±0.34% | fastest |
+| <code>uneval</code> | 🟢 501/511 | 139 | 7.19ms ±0.62% | 2.05× slower |
+| <a href="https://npm.im/package/seroval/v/1.6.4"><code>seroval@1⁠.⁠6⁠.⁠4</code></a>&nbsp;(sync) | 🟡 361/511 | 130 | 7.72ms ±0.79% | 2.20× slower |
+| <a href="https://npm.im/package/devalue/v/5.9.2"><code>devalue@5⁠.⁠9⁠.⁠2</code></a> | 🟡 359/511 | 83.7 | 11.96ms ±0.55% | 3.41× slower |
+| <a href="https://npm.im/package/javascript-stringify/v/2.1.0"><code>javascript⁠-⁠stringify@2⁠.⁠1⁠.⁠0</code></a> | 🟠 209/511 | 84.9 | 11.87ms ±2.36% | 3.36× slower |
+| <a href="https://npm.im/package/serialize-javascript/v/7.1.1"><code>serialize⁠-⁠javascript@7⁠.⁠1⁠.⁠1</code></a> | 🟠 153/511 | 117 | 8.53ms ±0.59% | 2.43× slower |
+| <a href="https://npm.im/package/jsesc/v/3.1.0"><code>jsesc@3⁠.⁠1⁠.⁠0</code></a> | 🟠 138/511 | 37.4 | 26.77ms ±0.46% | 7.64× slower |
+| <a href="https://npm.im/package/tosource/v/2.0.0-alpha.3"><code>tosource@2⁠.⁠0⁠.⁠0⁠-⁠alpha⁠.⁠3</code></a> | 🟠 138/511 | 139 | 7.22ms ±0.92% | 2.06× slower |
+| <a href="https://npm.im/package/js-stringify/v/1.0.2"><code>js⁠-⁠stringify@1⁠.⁠0⁠.⁠2</code></a> | 🔴 69/511 | 285 | 3.51ms ±0.61% | fastest |
 
 <!-- BENCHMARK TABLE END -->
 <!-- prettier-ignore-end -->
