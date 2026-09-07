@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { assertWithinNpmLimit, readReadme, toNpmReadme } from './npm-readme.ts'
 
 const rootDir = join(import.meta.dirname, `..`)
 
@@ -20,14 +21,8 @@ cpSync(join(rootDir, `dist`), join(tmpDir, `dist`), { recursive: true })
 cpSync(join(rootDir, `package.json`), join(tmpDir, `package.json`))
 cpSync(join(rootDir, `license`), join(tmpDir, `license`))
 
-const readme = readFileSync(join(rootDir, `readme.md`), `utf8`)
-// Just use the summary for the npm readme. Otherwise npm truncates it for being
-// too large.
-const npmReadme = readme.replaceAll(
-  // eslint-disable-next-line prefer-named-capture-group
-  /<details><summary>(.*?)<\/summary>[\s\S]*?<\/details>/gu,
-  `$1`,
-)
+const npmReadme = toNpmReadme(readReadme())
+assertWithinNpmLimit(npmReadme, { label: `npm readme` })
 writeFileSync(join(tmpDir, `readme.md`), npmReadme)
 
 run(`pnpm`, [`pack`, `--pack-destination`, rootDir], tmpDir)

@@ -47,7 +47,9 @@
     "coverage": "vitest --coverage",
     "bench": "pnpm build && UNEVAL_BUILT=true vitest bench --reporter=verbose",
     "build": "tsdown",
-    "pack": "node scripts/pack.ts",
+    "pack:npm": "node scripts/pack.ts",
+    "prepublishOnly": "node scripts/check-readme-size.ts --raw",
+    "check-readme-size": "node scripts/check-readme-size.ts",
     "generate-comparison-table": "node scripts/generate-comparison-table.ts",
     "check-comparison-table": "node scripts/generate-comparison-table.ts --check"
   },
