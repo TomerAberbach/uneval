@@ -14,6 +14,7 @@ import {
   T_DATA_VIEW,
   T_ERROR,
   T_MAP,
+  T_OBJECT,
   T_PRIMITIVE_WRAPPER,
   T_SET,
   T_TYPED_ARRAY,
@@ -200,8 +201,14 @@ const createState = (
     const [type] = typeInfo
     const entry: CacheEntry = { _type: typeInfo, _isParent: true }
     cache.set(value, entry)
-    if (type == undefined) {
-      const keys = Reflect.ownKeys(value)
+    if (type == T_OBJECT) {
+      // The two key lists concatenate to the `Reflect.ownKeys` order, and the
+      // engine collects them faster than `Reflect.ownKeys` collects both.
+      const keys: (string | symbol)[] = Object.getOwnPropertyNames(value)
+      const symbols = Object.getOwnPropertySymbols(value)
+      if (symbols.length) {
+        keys.push(...symbols)
+      }
       const descriptors: PropertyDescriptor[] = []
       entry._ownKeys = keys
       entry._descriptors = descriptors

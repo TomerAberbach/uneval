@@ -486,6 +486,7 @@ const runBenchmark = (): Map<string, BenchmarkTask> => {
     vitestBinPath,
     [
       `bench`,
+      `--run`,
       `--reporter=verbose`,
       `--reporter=json`,
       `--outputFile.json=${outputPath}`,
