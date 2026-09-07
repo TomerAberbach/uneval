@@ -307,6 +307,7 @@ const unevalDescriptorEntry = (
       continue
     }
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const value = descriptor[key] as unknown
     if (key != `value`) {
       if (value == null && isGetSet) {
