@@ -143,7 +143,7 @@ const cases: Record<string, Case[]> = {
         return value
       })(),
       expected: {
-        source: `Object("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        source: `Object("\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>")`,
         roundtrips: false,
       },
     },
@@ -308,7 +308,7 @@ const cases: Record<string, Case[]> = {
         return value
       })(),
       expected: {
-        source: `Object("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        source: `Object("\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>")`,
         roundtrips: false,
       },
     },
@@ -531,49 +531,72 @@ const cases: Record<string, Case[]> = {
     {
       name: `string with closing script tag`,
       value: `</script>`,
-      expected: { source: `"<\\u002fscript>"` },
+      expected: { source: `"\\u003c/script>"` },
     },
     {
       name: `string with multiple closing script tags`,
       value: ` </script> sdf </script> sdfsfd </script>  sdf </script>`,
       expected: {
-        source: `" <\\u002fscript> sdf <\\u002fscript> sdfsfd <\\u002fscript>  sdf <\\u002fscript>"`,
+        source: `" \\u003c/script> sdf \\u003c/script> sdfsfd \\u003c/script>  sdf \\u003c/script>"`,
       },
     },
     {
       name: `boxed string with closing script tag`,
       value: new String(`</script>`),
-      expected: { source: `Object("<\\u002fscript>")` },
+      expected: { source: `Object("\\u003c/script>")` },
     },
     {
       name: `string with capitalized closing script tag`,
       value: `</SCRIPT>`,
-      expected: { source: `"<\\u002fSCRIPT>"` },
+      expected: { source: `"\\u003c/SCRIPT>"` },
     },
     {
       name: `boxed string with capitalized closing script tag`,
       value: new String(`</SCRIPT>`),
-      expected: { source: `Object("<\\u002fSCRIPT>")` },
+      expected: { source: `Object("\\u003c/SCRIPT>")` },
     },
     {
       name: `string with mixed capitalization closing script tag`,
       value: `</sCrIpT>`,
-      expected: { source: `"<\\u002fsCrIpT>"` },
+      expected: { source: `"\\u003c/sCrIpT>"` },
     },
     {
       name: `boxed string with mixed capitalization capitalized closing script tag`,
       value: new String(`</sCrIpT>`),
-      expected: { source: `Object("<\\u002fsCrIpT>")` },
+      expected: { source: `Object("\\u003c/sCrIpT>")` },
     },
     {
       name: `string with closing script tag with whitespace`,
       value: `</script   >`,
-      expected: { source: `"<\\u002fscript   >"` },
+      expected: { source: `"\\u003c/script   >"` },
     },
     {
       name: `boxed string with closing script tag with whitespace`,
       value: new String(`</script   >`),
-      expected: { source: `Object("<\\u002fscript   >")` },
+      expected: { source: `Object("\\u003c/script   >")` },
+    },
+    {
+      // `<!--` followed by `<script` moves the HTML parser into a double
+      // escaped state where the surrounding `</script>` no longer closes the
+      // element. Escaping the `<`s keeps the parser out of that state.
+      name: `string with script data double escape sequence`,
+      value: `<!--<script>`,
+      expected: { source: `"\\u003c!--\\u003cscript>"` },
+    },
+    {
+      name: `string with opening script tag`,
+      value: `<script>alert(1)`,
+      expected: { source: `"\\u003cscript>alert(1)"` },
+    },
+    {
+      name: `string with HTML comment open`,
+      value: `a<!--b`,
+      expected: { source: `"a\\u003c!--b"` },
+    },
+    {
+      name: `string with benign less-than`,
+      value: `a < b && c/d`,
+      expected: { source: `"a < b && c/d"` },
     },
     {
       name: `string with unpaired low surrogate`,
@@ -644,7 +667,7 @@ const cases: Record<string, Case[]> = {
         return value
       })(),
       expected: {
-        source: `Object("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        source: `Object("\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>")`,
         roundtrips: false,
       },
     },
@@ -764,7 +787,7 @@ const cases: Record<string, Case[]> = {
     {
       name: `global symbol registry symbol with closing script tag`,
       value: Symbol.for(`</script>`),
-      expected: { source: `Symbol.for("<\\u002fscript>")` },
+      expected: { source: `Symbol.for("\\u003c/script>")` },
     },
     {
       name: `unique symbol`,
@@ -1352,7 +1375,7 @@ const cases: Record<string, Case[]> = {
     {
       name: `object with closing script tag property`,
       value: { [`</script>`]: 2 },
-      expected: { source: `{"<\\u002fscript>":2}` },
+      expected: { source: `{"\\u003c/script>":2}` },
     },
     {
       name: `object with zero property`,
@@ -1800,7 +1823,7 @@ const cases: Record<string, Case[]> = {
         return value
       })(),
       expected: {
-        source: `new Set(["<\\u002fscript><script src='https://evil.com/hacked.js'>"])`,
+        source: `new Set(["\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>"])`,
         roundtrips: false,
       },
     },
@@ -1863,7 +1886,7 @@ const cases: Record<string, Case[]> = {
         return value
       })(),
       expected: {
-        source: `new Map([["key","<\\u002fscript><script src='https://evil.com/hacked.js'>"]])`,
+        source: `new Map([["key","\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>"]])`,
         roundtrips: false,
       },
     },
@@ -2195,7 +2218,7 @@ const cases: Record<string, Case[]> = {
         value: `</script><script src='https://evil.com/hacked.js'>`,
       }),
       expected: {
-        source: `new RegExp("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        source: `new RegExp("\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>")`,
         roundtrips: false,
       },
     },
@@ -3126,7 +3149,7 @@ const cases: Record<string, Case[]> = {
         return value
       })(),
       expected: {
-        source: `new URLSearchParams("<\\u002fscript><script src='https://evil.com/hacked.js'>")`,
+        source: `new URLSearchParams("\\u003c/script>\\u003cscript src='https://evil.com/hacked.js'>")`,
         roundtrips: false,
       },
     },
