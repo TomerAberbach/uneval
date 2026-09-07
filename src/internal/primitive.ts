@@ -58,6 +58,7 @@ const WELL_KNOWN_SYMBOL_TO_KEY: ReadonlyMap<symbol, string> = new Map(
       // Defend against pollution attacks.
       return []
     }
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const value = Symbol[key as keyof typeof Symbol]
     return typeof value == `symbol` ? [[value, key]] : []
   }),
