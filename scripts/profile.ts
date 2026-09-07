@@ -1,3 +1,5 @@
+import { writeFile } from 'node:fs/promises'
+import { Session } from 'node:inspector/promises'
 import fc from 'fast-check'
 import uneval from '../src/index.ts'
 
@@ -11,8 +13,17 @@ for (let i = 0; i < 20; i++) {
 }
 
 // Profile run. Many iterations to get good signal.
-for (let i = 0; i < 100; i++) {
+const session = new Session()
+session.connect()
+await session.post(`Profiler.enable`)
+await session.post(`Profiler.start`)
+
+for (let i = 0; i < 1000; i++) {
   for (const value of values) {
     uneval(value)
   }
 }
+
+const { profile } = await session.post(`Profiler.stop`)
+await writeFile(`profile.cpuprofile`, JSON.stringify(profile))
+session.disconnect()
