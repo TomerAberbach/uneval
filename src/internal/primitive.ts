@@ -141,6 +141,12 @@ const unevalLiteral = (
   literal: string,
   codeUnitEscapes: Readonly<Record<string, string>>,
 ): string => {
+  if (!ESCAPABLE_CODE_UNIT_REG_EXP.test(literal)) {
+    // Most literals contain nothing that needs escaping, and a single regex
+    // scan is cheaper than the per-code-unit loop below.
+    return literal
+  }
+
   let source = ``
 
   let lastIndex = 0
@@ -224,3 +230,11 @@ const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
   '\\': `\\\\`,
   ...UNSAFE_CODE_UNIT_ESCAPES,
 }
+
+/**
+ * Matches any code unit that {@link unevalLiteral} may escape: the keys of
+ * {@link UNSAFE_CODE_UNIT_ESCAPES} and {@link STRING_CODE_UNIT_ESCAPES},
+ * unpaired surrogates, and the `<` of a closing script tag.
+ */
+const ESCAPABLE_CODE_UNIT_REG_EXP =
+  /[<"\\\0\b\t\n\v\f\r\u{2028}\u{2029}\uD800-\uDFFF]/u

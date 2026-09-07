@@ -147,7 +147,8 @@ const createState = (
   custom: UnevalOptions[`custom`],
 ): State => {
   const bindings = new Map<object, Binding>()
-  const customSources = new Map<unknown, string | null>()
+  // Lookups short-circuit when there is no custom function.
+  const customSources = custom ? new Map<unknown, string | null>() : undefined
   const cache: State[`_cache`] = new Map()
 
   const ensureBinding = (value: object) => {
@@ -156,19 +157,13 @@ const createState = (
     }
   }
 
-  // Values seen at any point during traversal. Used to detect circular and
-  // shared references.
-  const SOMEWHERE = 1
-  const PARENT = 2
-  const seenLocation = new Map<object, typeof SOMEWHERE | typeof PARENT>()
-
   const traverse = (value: unknown, parent?: object) => {
     if (custom) {
-      let source = customSources.get(value)
+      let source = customSources!.get(value)
       if (source === undefined) {
         source = custom(value, value => uneval(value, { custom }))
         if (source !== undefined) {
-          customSources.set(value, source)
+          customSources!.set(value, source)
         }
       }
       if (source === null) {
@@ -182,13 +177,13 @@ const createState = (
       return
     }
 
-    const location = seenLocation.get(value)
-    if (location) {
+    const entry = cache.get(value)
+    if (entry) {
       // If a object value is used more than once, then it needs a binding for
       // the shared reference.
       ensureBinding(value)
 
-      if (location == PARENT) {
+      if (entry._isParent) {
         // If this value is referenced circularly, then we'll need a binding for
         // its parent so that we can mutate it later to attach the circular
         // reference.
@@ -197,15 +192,13 @@ const createState = (
       return
     }
 
-    seenLocation.set(value, PARENT)
-    traverseObject(value)
-    seenLocation.set(value, SOMEWHERE)
+    traverseObject(value)._isParent = false
   }
 
-  const traverseObject = (value: object) => {
+  const traverseObject = (value: object): CacheEntry => {
     const typeInfo = getType(value)
     const [type] = typeInfo
-    const entry: CacheEntry = { _type: typeInfo }
+    const entry: CacheEntry = { _type: typeInfo, _isParent: true }
     cache.set(value, entry)
     if (type == undefined) {
       const keys = Reflect.ownKeys(value)
@@ -237,7 +230,7 @@ const createState = (
       // Traverse the underlying unboxed value to apply `custom` to it.
       const underlyingValue = value.valueOf()
       traverse(underlyingValue)
-      if (customSources.get(underlyingValue) === null) {
+      if (customSources?.get(underlyingValue) === null) {
         customSources.set(value, null)
       }
     } else if (type == T_ARRAY) {
@@ -258,11 +251,11 @@ const createState = (
         traverse(item, value)
 
         if (
-          seenLocation.get(
+          cache.get(
             // Not guaranteed to be an object, but that doesn't matter because
             // it's just a lookup, and this saves bytes.
             item as object,
-          ) == PARENT &&
+          )?._isParent &&
           isObject(key)
         ) {
           // If the item is circular and the key is an object, then the key also
@@ -302,13 +295,13 @@ const createState = (
           // create a binding that is never rendered because
           // `canExposeFullArrayBuffer` will cause it to be sliced anyway.
           typeof Buffer == `undefined` ||
-          !seenLocation.has(buffer) ||
+          !cache.has(buffer) ||
           buffer.byteLength != Buffer.poolSize ||
-          customSources.has(buffer)
+          customSources?.has(buffer)
         ) {
           traverse(buffer, value)
         }
-        if (customSources.get(buffer) === null) {
+        if (customSources?.get(buffer) === null) {
           customSources.set(value, null)
         }
       }
@@ -316,7 +309,7 @@ const createState = (
       const args = value as IArguments
       for (const arg of args) {
         traverse(arg, value)
-        if (customSources.get(arg) === null) {
+        if (customSources?.get(arg) === null) {
           // We'll need a binding for the `arguments` so we can `delete` from
           // it after construction.
           ensureBinding(args)
@@ -328,6 +321,8 @@ const createState = (
       traverse(error.cause, value)
       traverse(error.stack, value)
     }
+
+    return entry
   }
 
   traverse(value)

@@ -47,12 +47,18 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
       : emptyArraySource
   }
 
-  const itemSources: string[] = []
+  // Concatenate instead of collecting and joining. Concatenation builds a rope
+  // that is flattened once at the end, whereas a join at each nesting level
+  // flattens and copies every nested source again.
+  let itemsSource = ``
   let trailingEmptySlot: boolean | undefined
   for (let index = 0; index < array.length; index++) {
+    if (index) {
+      itemsSource += `,`
+    }
+
     if (!(index in array)) {
       trailingEmptySlot = true
-      itemSources.push(``)
       continue
     }
 
@@ -60,7 +66,7 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
     const item = array[index]
     const result = unevalInternal(item, state)
     if (result) {
-      itemSources.push(result)
+      itemsSource += result
       continue
     }
 
@@ -75,15 +81,14 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
       // Omitted value. Render it as an empty slot.
       trailingEmptySlot = true
     }
-    itemSources.push(``)
   }
   if (trailingEmptySlot) {
     // The array has a trailing empty slot (either sparse input or custom
     // omitted). This requires an extra comma because otherwise the last
     // comma is interpreted as a no-op trailing comma.
-    itemSources.push(``)
+    itemsSource += `,`
   }
-  return `[${itemSources.join()}]`
+  return `[${itemsSource}]`
 }
 
 const unevalObjectAssign = (args: string) => `Object.assign(${args})`

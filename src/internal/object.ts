@@ -23,7 +23,7 @@ export const unevalObject = (
   state: State,
   allowCustom: boolean,
 ): string | null | undefined => {
-  if (allowCustom && state._customSources.get(value) === null) {
+  if (allowCustom && state._customSources?.get(value) === null) {
     // The user decided to omit this value.
     return undefined
   }
@@ -67,16 +67,16 @@ export const unevalObject = (
 }
 
 const unevalObjectInternal = (value: object, state: State): string => {
-  const customSource = state._customSources.get(value)
+  const customSource = state._customSources?.get(value)
   if (typeof customSource == `string`) {
     return customSource
   }
 
-  const cached = state._cache.get(value)
-  const [type, name] = cached?._type ?? getType(value)
+  const typeInfo = state._cache.get(value)?._type ?? getType(value)
+  const type = typeInfo[0]
   return type == undefined
     ? unevalObjectLike(value, state)
-    : unevals[type]!(value, state, name)
+    : unevals[type]!(value, state, typeInfo[1])
 }
 
 const unevalUnsupported: Uneval<unknown> = (_value, _state, name) => {
@@ -91,7 +91,7 @@ const unevals: Uneval<any>[] = [
   unevalSet,
   unevalMap,
   unevalArrayBuffer,
-  unevalBuffer,
+  unevalUnsupported,
   unevalDataView,
   unevalTypedArray,
   unevalDate,
@@ -99,7 +99,7 @@ const unevals: Uneval<any>[] = [
   unevalURL,
   unevalArguments,
   unevalError,
-  unevalUnsupported,
+  unevalBuffer,
 ]
 
 const unevalObjectLike = (object: object, state: State): string => {
@@ -108,6 +108,10 @@ const unevalObjectLike = (object: object, state: State): string => {
   const descriptors = cached._descriptors!
 
   const entries: ObjectEntry[] = []
+  // The regular entries concatenated, for the fast path. Concatenation builds
+  // a rope that is flattened once at the end, whereas a join at each nesting
+  // level flattens and copies every nested source again.
+  let entriesSource = ``
   let hasCircular: true | undefined
 
   let keyIndex: number
@@ -122,7 +126,7 @@ const unevalObjectLike = (object: object, state: State): string => {
 
     const value = descriptor.value as unknown
 
-    if (typeof key == `symbol` && state._customSources.get(key) === null) {
+    if (typeof key == `symbol` && state._customSources?.get(key) === null) {
       // Skip properties with omitted symbol keys.
       continue
     }
@@ -133,16 +137,18 @@ const unevalObjectLike = (object: object, state: State): string => {
       continue
     }
 
-    const { _source: keySource, _isIdentifier: isIdentifier } =
-      unevalObjectLiteralKey(key, state)
+    const keySource = unevalObjectLiteralKey(key, state)
 
     if (valueResult !== null) {
-      entries.push({
-        _source:
-          isIdentifier && keySource == valueResult
-            ? keySource
-            : `${keySource}:${valueResult}`,
-      })
+      // Emit the shorthand when the value is a binding named like the key. The
+      // identifier test excludes a quoted or numeric key whose value's source
+      // equals it, e.g. `{"a":"a"}` or `{1:1}`.
+      const entry =
+        keySource == valueResult && PROPERTY_REG_EXP.test(keySource)
+          ? keySource
+          : `${keySource}:${valueResult}`
+      entriesSource += entries.length ? `,${entry}` : entry
+      entries.push(entry)
       continue
     }
 
@@ -174,7 +180,6 @@ const unevalObjectLike = (object: object, state: State): string => {
               _evaluatesTo: valueName,
             }
     entries.push({
-      _isCircular: true,
       // This is a placeholder property for preserving property order. We'll set
       // the property's actual value later with the mutation below.
       _source: `${keySource}:null`,
@@ -188,7 +193,7 @@ const unevalObjectLike = (object: object, state: State): string => {
       const key = keys[keyIndex]!
       const descriptor = descriptors[keyIndex]!
       const entry = unevalDescriptorEntry(key, descriptor, object, state)
-      if (entry._isCircular) {
+      if (typeof entry != `string`) {
         hasCircular = true
       }
       entries.push(entry)
@@ -196,71 +201,54 @@ const unevalObjectLike = (object: object, state: State): string => {
   }
 
   let source: string
-
-  // Fast path for the most common case: all regular data properties with no
-  // circular references. Avoids unnecessary array slicing and mutation loops.
-  if (!hasCircular && firstDescriptorIndex == keys.length) {
-    source = `{${entries.map(entry => entry._source).join()}}`
-
-    const prototype = Object.getPrototypeOf(object) as unknown
-    if (!isDefaultObjectPrototype(prototype)) {
-      source = `Object.setPrototypeOf(${source},${unevalInternal(prototype, state)!})`
-    }
-
-    if (!Object.isExtensible(object)) {
-      source = `Object.preventExtensions(${source})`
-    }
-
-    return source
-  }
-
-  // We use this to trim trailing circular placeholders because they're not
-  // necessary for preserving property order. The mutations of trailing circular
-  // properties will end up placing them in the right order.
-  let trailingCircularEntriesStartIndex = entries.length
-  while (
-    trailingCircularEntriesStartIndex > 0 &&
-    entries[trailingCircularEntriesStartIndex - 1]!._isCircular
-  ) {
-    trailingCircularEntriesStartIndex--
-  }
-
-  // Push all circular mutations now that we know which entries have
-  // placeholders (non-trailing) vs which don't (trailing).
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!
-    if (entry._isCircular) {
-      const hasPlaceholder = i < trailingCircularEntriesStartIndex
-      state._mutations.push(entry._mutation(hasPlaceholder))
-    }
-  }
-
-  const hasTrailingCircularEntries =
-    trailingCircularEntriesStartIndex < entries.length
+  let hasTrailingCircularEntries: boolean | undefined
   const nonExtensible = !Object.isExtensible(object)
-  if (nonExtensible && hasTrailingCircularEntries) {
-    // If the object is non-extensible and has trailing circular entries, those
-    // mutations try to add new properties after the fact. We must defer
-    // `Object.preventExtensions` until after those mutations are applied.
-    const objectName = bindingName(object, state)
-    state._mutations.push({
-      _source: `Object.preventExtensions(${objectName})`,
-      _evaluatesTo: objectName,
-    })
-  }
 
-  // Create the initial object literal source.
-  const leadingEntries = entries.slice(0, trailingCircularEntriesStartIndex)
-  source = `{${leadingEntries
-    .slice(0, firstDescriptorIndex)
-    .map(entry => entry._source)
-    .join()}}`
-  // Then set the trailing object descriptors if they are any.
-  const descriptorEntrySources = leadingEntries
-    .slice(firstDescriptorIndex)
-    .map(entry => entry._source)
-  if (descriptorEntrySources.length) {
-    source = `Object.defineProperties(${source},{${descriptorEntrySources.join()}})`
+  if (!hasCircular && firstDescriptorIndex == keys.length) {
+    // The fast path for the most common case avoids the array slicing and
+    // mutation loops of the general case.
+    source = `{${entriesSource}}`
+  } else {
+    // Trailing circular placeholders are trimmed because the mutations for
+    // trailing circular properties place them in the right order anyway.
+    let trailingCircularEntriesStartIndex = entries.length
+    while (
+      trailingCircularEntriesStartIndex > 0 &&
+      typeof entries[trailingCircularEntriesStartIndex - 1] != `string`
+    ) {
+      trailingCircularEntriesStartIndex--
+    }
+
+    // Push all circular mutations now that it's known which entries have
+    // placeholders (non-trailing) vs which don't (trailing).
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!
+      if (typeof entry != `string`) {
+        const hasPlaceholder = i < trailingCircularEntriesStartIndex
+        state._mutations.push(entry._mutation(hasPlaceholder))
+      }
+    }
+
+    hasTrailingCircularEntries =
+      trailingCircularEntriesStartIndex < entries.length
+    if (nonExtensible && hasTrailingCircularEntries) {
+      // The mutations for trailing circular entries add new properties after
+      // construction, so `Object.preventExtensions` must come after them.
+      const objectName = bindingName(object, state)
+      state._mutations.push({
+        _source: `Object.preventExtensions(${objectName})`,
+        _evaluatesTo: objectName,
+      })
+    }
+
+    const leadingEntries = entries
+      .slice(0, trailingCircularEntriesStartIndex)
+      .map(entry => (typeof entry == `string` ? entry : entry._source))
+    source = `{${leadingEntries.slice(0, firstDescriptorIndex).join()}}`
+    const descriptorEntrySources = leadingEntries.slice(firstDescriptorIndex)
+    if (descriptorEntrySources.length) {
+      source = `Object.defineProperties(${source},{${descriptorEntrySources.join()}})`
+    }
   }
 
   const prototype = Object.getPrototypeOf(object) as unknown
@@ -342,13 +330,10 @@ const unevalDescriptorEntry = (
   const descriptorSource = `{${descriptorEntrySources.join()}}`
 
   if (!isCircular) {
-    return {
-      _source: `${unevalObjectLiteralKey(key, state)._source}:${descriptorSource}`,
-    }
+    return `${unevalObjectLiteralKey(key, state)}:${descriptorSource}`
   }
 
   return {
-    _isCircular: true,
     // This is a placeholder property for preserving property order. We'll set
     // the property's actual value later with the mutation.
     //
@@ -357,7 +342,7 @@ const unevalDescriptorEntry = (
     // descriptor properties in the mutation. However, we must set
     // `configurable: true` because otherwise we can't modify the property
     // later at all.
-    _source: `${unevalObjectLiteralKey(key, state)._source}:{configurable:!0}`,
+    _source: `${unevalObjectLiteralKey(key, state)}:{configurable:!0}`,
     _mutation: hasPlaceholder => {
       const objectName = bindingName(object, state)
 
@@ -379,27 +364,26 @@ const unevalDescriptorEntry = (
   }
 }
 
-type ObjectEntry = { _source: string } & (
-  | { _isCircular?: never }
-  | { _isCircular: true; _mutation: (hasPlaceholder: boolean) => Mutation }
-)
+/**
+ * An object literal entry.
+ *
+ * A string is the entry's finished source. An object is a placeholder entry for
+ * a circular reference, whose value the mutation sets later.
+ */
+type ObjectEntry =
+  string | { _source: string; _mutation: (hasPlaceholder: boolean) => Mutation }
 
-const unevalObjectLiteralKey = (
-  key: string | symbol,
-  state: State,
-): { _source: string; _isIdentifier?: boolean } => {
+const unevalObjectLiteralKey = (key: string | symbol, state: State): string => {
   if (
     typeof key == `symbol` ||
     // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own
     // property rather than setting `Object.prototype`.
     key == __PROTO__
   ) {
-    return {
-      _source: `[${(key == __PROTO__ ? unevalWithoutCustom : unevalInternal)(
-        key,
-        state,
-      )!}]`,
-    }
+    return `[${(key == __PROTO__ ? unevalWithoutCustom : unevalInternal)(
+      key,
+      state,
+    )!}]`
   }
 
   // The vast majority of keys are non-numeric so don't bother with the
@@ -417,16 +401,10 @@ const unevalObjectLiteralKey = (
       // If the key doesn't roundtrip through numeric conversion, then it's
       // padded (e.g. `01`) and must be quoted to retain that.
       key == `${number}`
-    return {
-      _source: isNumericKey ? key : unevalWithoutCustom(key, state),
-    }
+    return isNumericKey ? key : unevalWithoutCustom(key, state)
   }
 
-  if (PROPERTY_REG_EXP.test(key)) {
-    return { _source: key, _isIdentifier: true }
-  }
-
-  return { _source: unevalWithoutCustom(key, state) }
+  return PROPERTY_REG_EXP.test(key) ? key : unevalWithoutCustom(key, state)
 }
 
 export const isDefaultObjectPrototype = (value: unknown): boolean =>

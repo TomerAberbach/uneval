@@ -43,7 +43,7 @@ export const unevalTypedArray = (
   if (
     // We have to construct from a buffer if the end-user provided custom source
     // for it.
-    state._customSources.has(arrayBuffer) ||
+    state._customSources?.has(arrayBuffer) ||
     // We have to construct from a buffer if it has a binding, meaning that it's
     // shared between multiple values.
     state._bindings.has(arrayBuffer) ||
