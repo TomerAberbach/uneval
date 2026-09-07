@@ -45,7 +45,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "coverage": "vitest --coverage",
-    "bench": "vitest bench --reporter=verbose",
+    "bench": "pnpm build && UNEVAL_BUILT=true vitest bench --reporter=verbose",
     "build": "tsdown",
     "pack": "node scripts/pack.ts",
     "generate-comparison-table": "node scripts/generate-comparison-table.ts",
