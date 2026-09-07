@@ -15,21 +15,23 @@ jobs:
     name: Node.js v${{ matrix.nodejs }} (${{ matrix.os }})
     timeout-minutes: 5
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       matrix:
         nodejs: [22, 24]
         os: [ubuntu-latest, macOS-latest]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.nodejs }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10
           cache: true
@@ -49,6 +51,9 @@ jobs:
 
       - name: Test
         run: pnpm coverage
+
+      - name: Check readme size
+        run: pnpm check-readme-size
 
       - name: Check comparison table
         # `Float16Array` doesn't exist in Node 22 so the check will fail there.
