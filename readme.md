@@ -284,8 +284,12 @@ The following are safe UNLESS [`custom`](#customization) is used:
 
 ## Comparison
 
-The comparison table below is
-[auto-generated](./scripts/generate-comparison-table.ts) by running the
+The comparison tables below are
+[auto-generated](./scripts/generate-comparison-table.ts).
+
+### Roundtrip tests
+
+The table below shows the results of running the
 [full test suite](./src/index.test.ts) of roundtrip tests against each package.
 
 Each roundtrip test `uneval`s the input value, `eval`s the returned source, and
@@ -352,6 +356,33 @@ between packages while still roundtripping.
 </table>
 
 <!-- COMPARISON TABLE END -->
+<!-- prettier-ignore-end -->
+
+### Performance
+
+The table below shows the results of [`uneval`ing](./src/index.bench.ts) the
+same 5,000 randomly generated values with each package. The numbers are from one
+machine and vary between runs. Each row also shows how many of the
+[roundtrip tests](#roundtrip-tests) the package passes, because a faster package
+may pass fewer of them.
+
+<!-- prettier-ignore-start -->
+<!-- BENCHMARK TABLE START -->
+
+<!-- BENCHMARK DIGEST: 196e2387556e94428d70055ba1dd36f7551f848d9e0102526285bdc2d2fb6a0c -->
+
+| Package | [Tests passing](#roundtrip-tests) | Ops/sec | Mean | Relative |
+| :-- | --: | --: | --: | --: |
+| <code>uneval</code> | 🟢 496/506 | 119 | 8.51ms ±2.45% | 2.24× slower |
+| <a href="https://npm.im/package/seroval/v/1.6.4"><code>seroval@1⁠.⁠6⁠.⁠4</code></a>&nbsp;(sync) | 🟡 357/506 | 123 | 8.11ms ±0.73% | 2.16× slower |
+| <a href="https://npm.im/package/devalue/v/5.9.2"><code>devalue@5⁠.⁠9⁠.⁠2</code></a> | 🟡 355/506 | 78.8 | 12.71ms ±0.91% | 3.38× slower |
+| <a href="https://npm.im/package/javascript-stringify/v/2.1.0"><code>javascript⁠-⁠stringify@2⁠.⁠1⁠.⁠0</code></a> | 🟠 205/506 | 80.1 | 12.61ms ±2.88% | 3.33× slower |
+| <a href="https://npm.im/package/serialize-javascript/v/7.1.1"><code>serialize⁠-⁠javascript@7⁠.⁠1⁠.⁠1</code></a> | 🟠 149/506 | 111 | 9.04ms ±1.04% | 2.40× slower |
+| <a href="https://npm.im/package/jsesc/v/3.1.0"><code>jsesc@3⁠.⁠1⁠.⁠0</code></a> | 🟠 134/506 | 35.0 | 28.80ms ±2.92% | 7.62× slower |
+| <a href="https://npm.im/package/tosource/v/2.0.0-alpha.3"><code>tosource@2⁠.⁠0⁠.⁠0⁠-⁠alpha⁠.⁠3</code></a> | 🟠 134/506 | 126 | 7.95ms ±1.04% | 2.11× slower |
+| <a href="https://npm.im/package/js-stringify/v/1.0.2"><code>js⁠-⁠stringify@1⁠.⁠0⁠.⁠2</code></a> | 🔴 65/506 | 267 | 3.82ms ±2.18% | fastest |
+
+<!-- BENCHMARK TABLE END -->
 <!-- prettier-ignore-end -->
 
 Found an inaccuracy?

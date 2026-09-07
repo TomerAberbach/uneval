@@ -1,5 +1,6 @@
 import assert from 'node:assert'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { findPackageJSON } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -7,36 +8,88 @@ import { join } from 'node:path'
 import type { JsonTestResults } from 'vitest/node'
 import { unevals } from '../src/testing/package.ts'
 
-const writeOrCheckComparisonTable = () => {
+const writeOrCheckTables = () => {
+  const readme = readFileSync(readmePath, `utf8`)
   const packageStatsByCategory = computePackageStatsByCategory()
   const comparisonTable = generateComparisonTable(packageStatsByCategory)
+  const comparisonChanges = describeChanges(readme, packageStatsByCategory)
+  const benchmarkDigest = computeBenchmarkDigest()
 
-  const readme = readFileSync(readmePath, `utf8`)
-  const newContent = [
-    `<!-- COMPARISON TABLE START -->`,
-    comparisonTable,
-    `<!-- COMPARISON TABLE END -->`,
-  ].join(`\n\n`)
-  const newReadme = readme.replace(
-    /<!-- COMPARISON TABLE START -->[\s\S]*?<!-- COMPARISON TABLE END -->/u,
-    newContent,
-  )
-
-  const changes = describeChanges(readme, packageStatsByCategory)
   if (!process.argv.includes(`--check`)) {
-    writeFileSync(readmePath, newReadme)
+    const benchmarkTable = generateBenchmarkTable(runBenchmark(), {
+      packageStatsByCategory,
+      digest: benchmarkDigest,
+    })
+    writeFileSync(
+      readmePath,
+      replaceBenchmarkTable(
+        replaceComparisonTable(readme, comparisonTable),
+        benchmarkTable,
+      ),
+    )
     console.log(`✅ Comparison table updated`)
-    console.log(changes)
-  } else if (readme === newReadme) {
+    console.log(comparisonChanges)
+    console.log(`✅ Benchmark table updated`)
+    return
+  }
+
+  let outdated = false
+
+  if (readme === replaceComparisonTable(readme, comparisonTable)) {
     console.log(`✅ Comparison table is up-to-date`)
   } else {
+    outdated = true
     console.error(
       `❌ Comparison table is outdated. Run \`pnpm generate-comparison-table\` to update it`,
     )
-    console.error(changes)
+    console.error(comparisonChanges)
+  }
+
+  // The benchmark's numbers vary between runs, so instead of comparing the
+  // table's contents, compare a digest of the inputs that determine them.
+  const embeddedDigest = readEmbeddedBenchmarkDigest(readme)
+  if (embeddedDigest === benchmarkDigest) {
+    console.log(`✅ Benchmark table is up-to-date`)
+  } else {
+    outdated = true
+    console.error(
+      `❌ Benchmark table is outdated. Run \`pnpm generate-comparison-table\` to update it`,
+    )
+    console.error(
+      `  embedded: ${embeddedDigest ?? `none`}\n  expected: ${benchmarkDigest}`,
+    )
+  }
+
+  if (outdated) {
     process.exit(1)
   }
 }
+
+const replaceComparisonTable = (
+  readme: string,
+  comparisonTable: string,
+): string =>
+  readme.replace(
+    /<!-- COMPARISON TABLE START -->[\s\S]*?<!-- COMPARISON TABLE END -->/u,
+    [
+      `<!-- COMPARISON TABLE START -->`,
+      comparisonTable,
+      `<!-- COMPARISON TABLE END -->`,
+    ].join(`\n\n`),
+  )
+
+const replaceBenchmarkTable = (
+  readme: string,
+  benchmarkTable: string,
+): string =>
+  readme.replace(
+    /<!-- BENCHMARK TABLE START -->[\s\S]*?<!-- BENCHMARK TABLE END -->/u,
+    [
+      `<!-- BENCHMARK TABLE START -->`,
+      benchmarkTable,
+      `<!-- BENCHMARK TABLE END -->`,
+    ].join(`\n\n`),
+  )
 
 type Cell = {
   passed: number
@@ -249,16 +302,22 @@ const computePackageStatsByCategory = (): Map<string, Map<string, Stats>> => {
   return packageStatsByCategory
 }
 
-const generateComparisonTable = (
+const sortPackagesByPassCount = (
   packageStatsByCategory: Map<string, Map<string, Stats>>,
-): string => {
+): string[] => {
   const passCount = (pkg: string): number =>
     Array.from(packageStatsByCategory.values(), statsByPackage =>
       statsByPackage.get(pkg)!,
     ).reduce((count, { passed }) => count + passed.length, 0)
-  const sortedPackages = packages.toSorted(
+  return packages.toSorted(
     (package1, package2) => passCount(package2) - passCount(package1),
   )
+}
+
+const generateComparisonTable = (
+  packageStatsByCategory: Map<string, Map<string, Stats>>,
+): string => {
+  const sortedPackages = sortPackagesByPassCount(packageStatsByCategory)
 
   const columns = sortedPackages.map(
     pkg =>
@@ -415,10 +474,148 @@ const emoji = (passed: number, total: number): string => {
   return `✅`
 }
 
+type BenchmarkTask = {
+  name: string
+  hz: number
+  mean: number
+  rme: number
+}
+
+const runBenchmark = (): Map<string, BenchmarkTask> => {
+  const outputPath = join(tmpdir(), `uneval-benchmark.json`)
+  spawnSync(
+    vitestBinPath,
+    [
+      `bench`,
+      `--reporter=verbose`,
+      `--reporter=json`,
+      `--outputFile.json=${outputPath}`,
+      benchPath,
+    ],
+    {
+      cwd: rootDirectoryPath,
+      env: { ...process.env, UNEVAL_BUILT: `true` },
+      stdio: `inherit`,
+    },
+  )
+  const jsonOutput = JSON.parse(
+    readFileSync(outputPath, `utf8`),
+  ) as JsonTestResults
+  assert(jsonOutput.success)
+
+  const benchmarks = jsonOutput.testResults.flatMap(testResult =>
+    testResult.assertionResults.flatMap(
+      assertionResult => assertionResult.benchmarks,
+    ),
+  )
+  assert(benchmarks.length === 1)
+
+  const tasks = benchmarks[0]!.tasks.map(
+    ({ name, latency, throughput }): BenchmarkTask => ({
+      name,
+      hz: throughput.mean,
+      mean: latency.mean,
+      rme: latency.rme,
+    }),
+  )
+  assert(
+    new Set(tasks.map(task => task.name)).symmetricDifference(new Set(packages))
+      .size === 0,
+  )
+  return new Map(tasks.map(task => [task.name, task]))
+}
+
+// The benchmark's numbers vary between runs, so the table embeds a digest of
+// the inputs that determine them: the built package the benchmark runs, the
+// benchmark itself, the other packages' adapters, and the other packages'
+// versions.
+const computeBenchmarkDigest = (): string => {
+  spawnSync(tsdownBinPath, [], { cwd: rootDirectoryPath, stdio: `inherit` })
+
+  const hash = createHash(`sha256`)
+  for (const path of [distPath, benchPath, adaptersPath]) {
+    hash.update(readFileSync(path))
+  }
+
+  for (const pkg of packages.toSorted()) {
+    if (pkg !== `uneval`) {
+      hash.update(`${pkg}@${packageVersion(pkg)}`)
+    }
+  }
+
+  return hash.digest(`hex`)
+}
+
+const benchmarkDigestPattern =
+  /<!-- BENCHMARK DIGEST: (?<digest>[\da-f]{64}) -->/u
+
+const readEmbeddedBenchmarkDigest = (readme: string): string | undefined =>
+  benchmarkDigestPattern.exec(readme)?.groups!.digest
+
+// Rows are in the comparison table's order rather than by speed, because
+// packages with similar speeds swap places between runs.
+const generateBenchmarkTable = (
+  tasks: Map<string, BenchmarkTask>,
+  {
+    packageStatsByCategory,
+    digest,
+  }: {
+    packageStatsByCategory: Map<string, Map<string, Stats>>
+    digest: string
+  },
+): string => {
+  const testCounts = (pkg: string): { passed: number; total: number } => {
+    let passed = 0
+    let total = 0
+    for (const statsByPackage of packageStatsByCategory.values()) {
+      const stats = statsByPackage.get(pkg)!
+      passed += stats.passed.length
+      total += stats.passed.length + stats.failed.length
+    }
+    return { passed, total }
+  }
+
+  const fastest = [...tasks.values()].reduce((task1, task2) =>
+    task2.hz > task1.hz ? task2 : task1,
+  )
+  const rows = [
+    [
+      `Package`,
+      `[Tests\u00A0passing](#roundtrip-tests)`,
+      `Ops/sec`,
+      `Mean`,
+      `Relative`,
+    ],
+    [`:--`, `--:`, `--:`, `--:`, `--:`],
+    ...sortPackagesByPassCount(packageStatsByCategory).map(pkg => {
+      const task = tasks.get(pkg)!
+      const { passed, total } = testCounts(pkg)
+      return [
+        pkg === `uneval` ? `<code>${noBreak(pkg)}</code>` : packageLink(pkg),
+        `${emoji(passed, total)}\u00A0${passed}/${total}`,
+        task.hz.toFixed(task.hz < 100 ? 1 : 0),
+        `${task.mean.toFixed(2)}ms\u00A0±${task.rme.toFixed(2)}%`,
+        task === fastest
+          ? `fastest`
+          : `${(fastest.hz / task.hz).toFixed(2)}×\u00A0slower`,
+      ]
+    }),
+  ]
+  return [
+    `<!-- BENCHMARK DIGEST: ${digest} -->`,
+    rows.map(row => `| ${row.join(` | `)} |`).join(`\n`),
+  ].join(`\n\n`)
+}
+
 const packages = Object.keys(unevals)
 const rootDirectoryPath = join(import.meta.dirname, `..`)
 const vitestBinPath = join(rootDirectoryPath, `node_modules/.bin/vitest`)
-const testPath = join(rootDirectoryPath, `src/index.test.ts`)
+const tsdownBinPath = join(rootDirectoryPath, `node_modules/.bin/tsdown`)
+const distPath = join(rootDirectoryPath, `dist/index.js`)
+const sourceDirectoryPath = join(rootDirectoryPath, `src`)
+const testPath = join(sourceDirectoryPath, `index.test.ts`)
+const benchPath = join(sourceDirectoryPath, `index.bench.ts`)
+const adaptersPath = join(sourceDirectoryPath, `testing/package.ts`)
 const readmePath = join(rootDirectoryPath, `readme.md`)
 
-writeOrCheckComparisonTable()
+writeOrCheckTables()
