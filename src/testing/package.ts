@@ -9,10 +9,9 @@ import toSource from 'tosource'
 import tomerUneval from '../index.ts'
 
 export const unevals = {
-  uneval:
-    // Uncomment to benchmark against the built version, which is faster.
-    // (await import(`../../dist/index.js`)).default,
-    tomerUneval,
+  uneval: process.env.UNEVAL_BUILT
+    ? (await import(`../../dist/index.js`)).default
+    : tomerUneval,
   devalue: (value, { custom } = {}) => {
     const replacer = custom
       ? (value: unknown) => custom(value, uneval) ?? undefined
