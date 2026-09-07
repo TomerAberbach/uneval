@@ -30,8 +30,11 @@ export type State = {
    */
   _bindings: Map<object, Binding>
 
-  /** A map from value to user provided custom source, or `null` for omitted. */
-  _customSources: Map<unknown, string | null>
+  /**
+   * A map from value to user provided custom source, or `null` for omitted.
+   * Undefined when there is no custom function.
+   */
+  _customSources?: Map<unknown, string | null>
 
   /**
    * Parents objects that have already been visited above the current object
@@ -63,6 +66,11 @@ export type State = {
 export type CacheEntry = {
   /** From {@link getType}. */
   _type?: [number | undefined, string]
+  /**
+   * Whether the object is an ancestor of the object currently being traversed.
+   * Used to detect circular references.
+   */
+  _isParent?: boolean
   /** From {@link Object.keys}. */
   _keys?: string[]
   /** From {@link Reflect.ownKeys}. */

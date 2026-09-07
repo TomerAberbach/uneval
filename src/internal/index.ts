@@ -30,7 +30,7 @@ export const unevalInternal = ((
   // Don't check the custom source for objects now because we may need to create
   // a binding in `unevalObject`.
   if (withoutCustom && !isObject(value)) {
-    const customSource = state._customSources.get(value)
+    const customSource = state._customSources?.get(value)
     if (customSource === null) {
       // The user decided to omit this value.
       return undefined
