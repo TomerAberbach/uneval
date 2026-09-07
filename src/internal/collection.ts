@@ -2,6 +2,7 @@
 
 import { bindingName, newInstance } from './common.ts'
 import { unevalInternal } from './index.ts'
+import { unevalObjectLiteralKey } from './object.ts'
 import type { State, Uneval } from './types.ts'
 
 export const unevalArray: Uneval<unknown[]> = (array, state) => {
@@ -29,13 +30,13 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
         const item = (array as unknown as Record<string, unknown>)[key]
         const result = unevalInternal(item, state)
         if (result) {
-          return `${key}:${result}`
+          return `${unevalObjectLiteralKey(key, state)}:${result}`
         }
 
         if (result === null) {
           const itemName = bindingName(item as object, state)
           state._mutations.push({
-            _source: `${bindingName(array, state)}[${key}]=${itemName}`,
+            _source: `${bindingName(array, state)}[${memberKeySource(key, state)}]=${itemName}`,
             _evaluatesTo: itemName,
           })
         }
@@ -92,6 +93,15 @@ export const unevalArray: Uneval<unknown[]> = (array, state) => {
 }
 
 const unevalObjectAssign = (args: string) => `Object.assign(${args})`
+
+// A canonical array index is safe as a bare computed member (e.g. `a[40]`). Any
+// other key is rendered as a string literal to avoid interpreting it as source.
+const memberKeySource = (key: string, state: State): string => {
+  const number = +key
+  return number >= 0 && Number.isSafeInteger(number) && key === `${number}`
+    ? key
+    : unevalInternal(key, state)!
+}
 
 export const unevalSet: Uneval<Set<unknown>> = (set, state, name) => {
   let foundCircular: true | undefined

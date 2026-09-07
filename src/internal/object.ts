@@ -371,7 +371,10 @@ const unevalDescriptorEntry = (
 type ObjectEntry =
   string | { _source: string; _mutation: (hasPlaceholder: boolean) => Mutation }
 
-const unevalObjectLiteralKey = (key: string | symbol, state: State): string => {
+export const unevalObjectLiteralKey = (
+  key: string | symbol,
+  state: State,
+): string => {
   if (
     typeof key == `symbol` ||
     // `{ ['__proto__']: ...}` is a hack for setting `__proto__` as an own

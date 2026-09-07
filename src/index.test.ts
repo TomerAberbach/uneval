@@ -957,6 +957,21 @@ const cases: Record<string, Case[]> = {
       expected: { source: `Object.assign([],{10:"a",50:"b",1000:"c"})` },
     },
     {
+      name: `sparse array with a non-identifier string key is escaped`,
+      value: (() => {
+        const array: unknown[] = Array(100)
+        // A key crafted to break out of the `Object.assign` object literal and
+        // inject an expression if the key is not escaped.
+        ;(array as unknown as Record<string, unknown>)[
+          `},globalThis.INJECTED=!0,{x`
+        ] = 1
+        return array
+      })(),
+      expected: {
+        source: `Object.assign(Array(100),{"},globalThis.INJECTED=!0,{x":1})`,
+      },
+    },
+    {
       name: `polluted array`,
       value: (() => {
         const value = Object.create(Array.prototype) as Record<
