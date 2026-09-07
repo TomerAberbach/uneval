@@ -10,9 +10,10 @@ import { unevals } from '../src/testing/package.ts'
 
 const writeOrCheckTables = () => {
   const readme = readFileSync(readmePath, `utf8`)
+  const comparison = readFileSync(comparisonPath, `utf8`)
   const packageStatsByCategory = computePackageStatsByCategory()
   const comparisonTable = generateComparisonTable(packageStatsByCategory)
-  const comparisonChanges = describeChanges(readme, packageStatsByCategory)
+  const comparisonChanges = describeChanges(comparison, packageStatsByCategory)
   const benchmarkDigest = computeBenchmarkDigest()
 
   if (!process.argv.includes(`--check`)) {
@@ -21,12 +22,10 @@ const writeOrCheckTables = () => {
       digest: benchmarkDigest,
     })
     writeFileSync(
-      readmePath,
-      replaceBenchmarkTable(
-        replaceComparisonTable(readme, comparisonTable),
-        benchmarkTable,
-      ),
+      comparisonPath,
+      replaceComparisonTable(comparison, comparisonTable),
     )
+    writeFileSync(readmePath, replaceBenchmarkTable(readme, benchmarkTable))
     console.log(`✅ Comparison table updated`)
     console.log(comparisonChanges)
     console.log(`✅ Benchmark table updated`)
@@ -35,7 +34,7 @@ const writeOrCheckTables = () => {
 
   let outdated = false
 
-  if (readme === replaceComparisonTable(readme, comparisonTable)) {
+  if (comparison === replaceComparisonTable(comparison, comparisonTable)) {
     console.log(`✅ Comparison table is up-to-date`)
   } else {
     outdated = true
@@ -66,10 +65,10 @@ const writeOrCheckTables = () => {
 }
 
 const replaceComparisonTable = (
-  readme: string,
+  comparison: string,
   comparisonTable: string,
 ): string =>
-  readme.replace(
+  comparison.replace(
     /<!-- COMPARISON TABLE START -->[\s\S]*?<!-- COMPARISON TABLE END -->/u,
     [
       `<!-- COMPARISON TABLE START -->`,
@@ -103,10 +102,10 @@ type ParsedTable = {
 }
 
 const describeChanges = (
-  readme: string,
+  comparison: string,
   packageStatsByCategory: Map<string, Map<string, Stats>>,
 ): string => {
-  const previous = parseComparisonTable(readme)
+  const previous = parseComparisonTable(comparison)
   const lines: string[] = []
 
   for (const pkg of packages) {
@@ -173,13 +172,13 @@ const toCell = ({ passed, failed }: Stats): Cell => ({
   ]),
 })
 
-const parseComparisonTable = (readme: string): ParsedTable => {
+const parseComparisonTable = (comparison: string): ParsedTable => {
   const versions = new Map<string, string>()
   const cellsByCategory = new Map<string, Map<string, Cell>>()
 
   const tableMatch =
     /<!-- COMPARISON TABLE START -->(?<table>[\s\S]*?)<!-- COMPARISON TABLE END -->/u.exec(
-      readme,
+      comparison,
     )
   if (!tableMatch) {
     return { versions, cellsByCategory }
@@ -385,7 +384,7 @@ const githubCodeLink = ({
   content: string
   lineNumber: number
 }): string =>
-  `<a href="src/index.test.ts#L${lineNumber}"><code>${noBreak(
+  `<a href="../src/index.test.ts#L${lineNumber}"><code>${noBreak(
     escapeHtml(content),
   )}</code></a>`
 
@@ -581,7 +580,7 @@ const generateBenchmarkTable = (
   const rows = [
     [
       `Package`,
-      `[Tests\u00A0passing](#roundtrip-tests)`,
+      `[Tests\u00A0passing](./docs/comparison.md)`,
       `Ops/sec`,
       `Mean`,
       `Relative`,
@@ -617,5 +616,6 @@ const testPath = join(sourceDirectoryPath, `index.test.ts`)
 const benchPath = join(sourceDirectoryPath, `index.bench.ts`)
 const adaptersPath = join(sourceDirectoryPath, `testing/package.ts`)
 const readmePath = join(rootDirectoryPath, `readme.md`)
+const comparisonPath = join(rootDirectoryPath, `docs/comparison.md`)
 
 writeOrCheckTables()

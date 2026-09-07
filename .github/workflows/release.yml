@@ -41,16 +41,8 @@ jobs:
             exit 1
           fi
 
-      # The tarball ships a readme with collapsed `<details>` blocks, so publish
-      # it rather than the repository directory. `pnpm pack` would run pnpm's
-      # own pack command instead of the script.
-      - name: Pack
-        run: pnpm pack:npm
-
       - name: Publish
-        run:
-          npm publish "uneval-${GITHUB_REF_NAME#v}.tgz" --provenance --access
-          public
+        run: npm publish --provenance --access public
 
       - name: Create the GitHub release
         run: |

@@ -52,9 +52,6 @@ jobs:
       - name: Test
         run: pnpm coverage
 
-      - name: Check readme size
-        run: pnpm check-readme-size
-
       - name: Check comparison table
         # `Float16Array` doesn't exist in Node 22 so the check will fail there.
         if: matrix.nodejs == 24
