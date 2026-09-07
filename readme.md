@@ -224,11 +224,29 @@ use it to delegate back to `uneval` for sub-values.
 
 ## Security guarantees
 
+These guarantees assume the attacker controls the input value, but not the
+environment. `uneval` inspects values through the standard globals and prototype
+methods, so replaced globals and patched prototypes are out of scope. An
+attacker who can tamper with the environment already runs code in the process.
+
 The following are safe UNLESS [`custom`](#customization) is used:
 
 1. Running `uneval` on untrusted input.
 
+   `uneval` returns a string and never evaluates the input, so converting an
+   untrusted value runs no attacker code through `uneval` itself.
+
+   Converting a value reads it, though, so a coercion method the input defines
+   on itself runs while `uneval` inspects it (e.g. its own `valueOf`). That runs
+   the input's own code, but the returned string stays safe. Treat converting
+   untrusted input the way you would treat `JSON.stringify` of the same input,
+   which runs the input's own `toJSON`.
+
 2. Running ``(0, eval)(`(${uneval(value)})`)``.
+
+   Call `eval` indirectly, as `(0, eval)(...)`, so the evaluated source runs in
+   the global scope instead of the surrounding one and cannot read local
+   variables. `new Function(...)` runs in the global scope for the same reason.
 
 3. Embedding `uneval(value)` in JS source code, including inside an HTML
    `<script>` tag.
