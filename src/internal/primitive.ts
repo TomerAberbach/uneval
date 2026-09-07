@@ -186,15 +186,20 @@ const unevalLiteral = (
       continue
     }
 
-    // Prevent XSS attack via closing an inline script tag.
-    if (
-      codeUnit == `/` &&
-      i > 0 &&
-      literal[i - 1] == `<` &&
-      literal.slice(i + 1, i + 7).toLowerCase() == `script`
-    ) {
-      source += `${literal.slice(lastIndex, i)}\\u002f`
-      lastIndex = i + 1
+    // Keep the surrounding `<script>` element intact. Escaping the `<` stops a
+    // `</script` from closing the element early, and a `<script` or `<!--` from
+    // moving the HTML parser into a (double) escaped state where the
+    // surrounding closing tag no longer closes it.
+    if (codeUnit == `<`) {
+      const following = literal.slice(i + 1, i + 8).toLowerCase()
+      if (
+        following.startsWith(`/script`) ||
+        following.startsWith(`script`) ||
+        following.startsWith(`!--`)
+      ) {
+        source += `${literal.slice(lastIndex, i)}\\u003c`
+        lastIndex = i + 1
+      }
     }
   }
 
@@ -234,7 +239,7 @@ const STRING_CODE_UNIT_ESCAPES: Readonly<Record<string, string>> = {
 /**
  * Matches any code unit that {@link unevalLiteral} may escape: the keys of
  * {@link UNSAFE_CODE_UNIT_ESCAPES} and {@link STRING_CODE_UNIT_ESCAPES},
- * unpaired surrogates, and the `<` of a closing script tag.
+ * unpaired surrogates, and the `<` of a script tag or comment sequence.
  */
 const ESCAPABLE_CODE_UNIT_REG_EXP =
   /[<"\\\0\b\t\n\v\f\r\u{2028}\u{2029}\uD800-\uDFFF]/u
