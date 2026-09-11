@@ -444,6 +444,22 @@ const cases: Record<string, Case[]> = {
       value: new String(`\0`),
       expected: { source: `Object("\\0")` },
     },
+    {
+      // `\0` followed by a digit would be an octal escape.
+      name: `null terminator string followed by digit`,
+      value: `\u00001`,
+      expected: { source: `"\\x001"` },
+    },
+    {
+      name: `boxed null terminator string followed by digit`,
+      value: new String(`\u00001`),
+      expected: { source: `Object("\\x001")` },
+    },
+    {
+      name: `null terminator string followed by non-digit`,
+      value: `\u0000a`,
+      expected: { source: `"\\0a"` },
+    },
     { name: `newline string`, value: `\n`, expected: { source: `"\\n"` } },
     {
       name: `boxed newline string`,
@@ -2018,6 +2034,11 @@ const cases: Record<string, Case[]> = {
       name: `RegExp constructor with null terminator`,
       value: new RegExp(`\0`),
       expected: { source: `new RegExp("\\0")` },
+    },
+    {
+      name: `RegExp constructor with null terminator followed by digit`,
+      value: new RegExp(`\u00001`),
+      expected: { source: `new RegExp("\\x001")` },
     },
     {
       name: `RegExp literal with newline`,
