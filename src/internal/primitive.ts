@@ -154,7 +154,14 @@ const unevalLiteral = (
     const codeUnit = literal[i]!
     const escaped = codeUnitEscapes[codeUnit]
     if (escaped) {
-      source += literal.slice(lastIndex, i) + escaped
+      // A `\0` followed by a digit forms an octal escape, which is a syntax
+      // error in strict mode and a different character in sloppy mode, so the
+      // null character takes the longer hex escape before a digit.
+      source +=
+        literal.slice(lastIndex, i) +
+        (codeUnit == `\0` && isDigit(literal.charCodeAt(i + 1))
+          ? `\\x00`
+          : escaped)
       lastIndex = i + 1
       continue
     }
@@ -212,6 +219,8 @@ const unevalLiteral = (
   return source
 }
 /* eslint-enable unicorn/prefer-code-point */
+
+const isDigit = (code: number): boolean => code >= 48 && code <= 57
 
 /**
  * Code unit escapes for code units that are not safe to include in JS source
